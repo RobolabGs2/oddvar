@@ -1,1 +1,5 @@
-document.body.innerText = "oddvar";
+import { Oddvar } from "./oddvar";
+
+{
+	new Oddvar();
+}
