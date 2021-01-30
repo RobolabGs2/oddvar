@@ -24,7 +24,8 @@ export class WalkController extends Control
 		this.time += dt;
 		let velocity = new Point(10, 0);
 		this.entity.location = this.entity.location.Add(velocity.Mult(dt));
-		if(this.time > 5)
+		this.entity.rotation += dt * 0.5;
+		if(this.time > 20)
 			this.entity.Die();
 	}
 }

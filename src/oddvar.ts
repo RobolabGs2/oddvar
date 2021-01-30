@@ -26,9 +26,13 @@ export class Oddvar
 	}
 
 	private Init() {
-		let entity = this.world.CreateEntity(new Point(50, 10), Math.PI / 4);{
-			this.graphics.CreateRectangle( new Size(10, 10), entity);
+		let entity = this.world.CreateEntity(new Point(50, 20), 0.0);{
+			this.graphics.CreateRectangle(new Size(10, 10), entity);
 			this.controller.CreateWalkController(entity);
+			let tail = this.world.CreateTailEntity(entity, new Point(20, 0)); {
+				this.graphics.CreateRectangle(new Size(5, 5), tail);
+				this.controller.CreateWalkController(tail);
+			}
 		}
 	}
 }

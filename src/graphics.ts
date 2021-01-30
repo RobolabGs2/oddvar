@@ -1,12 +1,18 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { Entity} from "./world"
-import { Size } from "./geometry";
+import { Matrix, Size } from "./geometry";
+
+function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
+	c.transform(
+		m.Get(0, 0), m.Get(0, 1),
+		m.Get(1, 0), m.Get(1, 1),
+		m.Get(2, 0), m.Get(2, 1));
+}
 
 export abstract class Avatar extends Deadly
 {
-	public constructor(public readonly entity: Entity, protected readonly g: Graphics) {
+	public constructor(protected readonly g: Graphics) {
 		super();
-		entity.DeathSubscribe(() => this.Die());
 	}
 
 	public Tick(dt: number) {
@@ -18,17 +24,25 @@ export abstract class Avatar extends Deadly
 	protected abstract Draw(): void;
 }
 
-export class Reactangle extends Avatar
+export abstract class EntityAvatar extends Avatar
+{
+	public constructor(public readonly entity: Entity, protected readonly g: Graphics) {
+		super(g);
+		entity.DeathSubscribe(() => this.Die());
+	}
+}
+
+export class Reactangle extends EntityAvatar
 {
 	public constructor(public size: Size, entity: Entity, g: Graphics) {
 		super(entity, g);
 	}
 
 	protected Draw() {
-		this.g.context.translate(this.entity.location.x, this.entity.location.y);
-		this.g.context.rotate(this.entity.rotation);
+		const m = this.entity.Transform();
+		TransformContext(this.g.context, m);
 		this.g.context.fillRect(
-			this.size.width / 2, this.size.height / 2,
+			-this.size.width / 2, -this.size.height / 2,
 			this.size.width, this.size.height);
 	}
 }

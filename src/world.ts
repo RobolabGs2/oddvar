@@ -1,5 +1,5 @@
 import { Deadly, DeadlyWorld } from "./base"
-import { Point } from "./geometry"
+import { Matrix, Point } from "./geometry"
 
 
 export class Entity extends Deadly {
@@ -9,16 +9,25 @@ export class Entity extends Deadly {
 	) {
 		super()
 	}
+
+	public Transform(): Matrix {
+		return Matrix.Rotation(this.rotation).
+			Mult(Matrix.Translate(this.location));
+	}
 }
 
 export class TailEntity extends Entity {
 	public constructor(
-		public readonly target: Entity,
+		public readonly parent: Entity,
 		location: Point,
 		rotation: number = 0
 	) {
 		super(location, rotation)
-		target.DeathSubscribe(() => this.Die());
+		parent.DeathSubscribe(() => this.Die());
+	}
+
+	public Transform(): Matrix {
+		return super.Transform().Mult(this.parent.Transform());
 	}
 }
 
