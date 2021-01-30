@@ -15,18 +15,22 @@ export abstract class Control extends Deadly
 export class WalkController extends Control
 {
 	private time = 0;
+	private counter = 0;
 	constructor(private entity: Entity) {
 		super();
 		entity.DeathSubscribe(() => this.Die());
 	}
 
 	public Tick(dt: number) {
+		++this.counter;
 		this.time += dt;
 		let velocity = new Point(10, 0);
 		this.entity.location = this.entity.location.Add(velocity.Mult(dt));
 		this.entity.rotation += dt * 0.5;
-		if(this.time > 20)
+		if(this.time > 20) {
+			console.log(this.counter);
 			this.entity.Die();
+		}
 	}
 }
 

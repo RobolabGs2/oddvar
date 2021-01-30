@@ -34,7 +34,7 @@ export abstract class EntityAvatar extends Avatar
 
 export class Reactangle extends EntityAvatar
 {
-	public constructor(public size: Size, entity: Entity, g: Graphics) {
+	public constructor(entity: Entity, public size: Size, g: Graphics) {
 		super(entity, g);
 	}
 
@@ -67,7 +67,7 @@ export class Graphics extends DeadlyWorld<Avatar>
 		})
 	}
 
-	public CreateRectangle(size: Size, entity: Entity): Reactangle {
-		return this.AddDeadly(new Reactangle(size, entity, this));
+	public CreateRectangle(entity: Entity, size: Size): Reactangle {
+		return this.AddDeadly(new Reactangle(entity, size, this));
 	}
 }

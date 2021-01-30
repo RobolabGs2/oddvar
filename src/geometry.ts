@@ -28,7 +28,7 @@ export class Point
 		return new Point(this.x * k, this.y * k);
 	}
 
-	public Transpose(m: Matrix): Point {
+	public Transform(m: Matrix): Point {
 		let x = m.Get(0, 0) * this.x + m.Get(1, 0) * this.y + m.Get(2, 0);
 		let y = m.Get(0, 1) * this.x + m.Get(1, 1) * this.y + m.Get(2, 1);
 		let z = m.Get(0, 2) * this.x + m.Get(1, 2) * this.y + m.Get(2, 2);
