@@ -1,4 +1,4 @@
-import { Oddvar } from "./oddvar";
+import { Oddvar } from "oddvar";
 
 {
 	let example: any =

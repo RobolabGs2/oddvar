@@ -1,9 +1,9 @@
-import { World } from "./world"
-import { Point, Size } from "./geometry";
-import { Graphics, RectangleTexture } from "./graphics/graphics";
-import { Controller } from "./controller";
-import { Physics } from "./physics";
-import { Parser } from "./parser";
+import { World } from "world"
+import { Point, Size } from "geometry";
+import { Graphics, RectangleTexture } from "graphics/graphics";
+import { Controller } from "controller";
+import { Physics } from "physics";
+import { Parser } from "parser";
 
 export class Oddvar {
 	private world = new World();

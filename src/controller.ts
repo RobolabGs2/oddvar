@@ -1,7 +1,7 @@
-import { Deadly, DeadlyWorld } from "./base"
-import { Entity} from "./world"
-import { Point, Size } from "./geometry";
-import { RectangleBody, Body } from "./physics";
+import { Deadly, DeadlyWorld } from "base"
+import { Entity} from "world"
+import { Point } from "geometry";
+import { Body } from "physics";
 
 
 export abstract class Control extends Deadly

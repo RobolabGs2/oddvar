@@ -1,5 +1,5 @@
-import { Deadly, DeadlyWorld } from "./base"
-import { Matrix, Point } from "./geometry"
+import { Deadly, DeadlyWorld } from "base"
+import { Matrix, Point } from "geometry"
 
 
 export class Entity extends Deadly {

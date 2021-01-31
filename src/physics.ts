@@ -1,6 +1,6 @@
-import { Deadly, DeadlyWorld } from "./base"
-import { Entity} from "./world"
-import { Matrix, Point, Size } from "./geometry";
+import { Deadly, DeadlyWorld } from "base"
+import { Entity} from "world"
+import { Matrix, Point, Size } from "geometry";
 
 export interface PhysicalMaterial
 {

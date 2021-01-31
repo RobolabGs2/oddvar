@@ -1,7 +1,7 @@
-import { Deadly, DeadlyWorld } from "../base"
-import { Entity } from "../world"
-import { Matrix, Size } from "../geometry";
-import { Body, RectangleBody } from "../physics";
+import { Deadly, DeadlyWorld } from "base"
+import { Entity } from "world"
+import { Matrix, Size } from "geometry";
+import { RectangleBody } from "physics";
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
 	c.transform(
