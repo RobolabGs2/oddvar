@@ -1,6 +1,6 @@
 import { World } from "./world"
 import { Point, Size } from "./geometry";
-import { Graphics } from "./graphics";
+import { Graphics, RectangleTexture } from "./graphics/graphics";
 import { Controller } from "./controller";
 import { Physics } from "./physics";
 import { Parser } from "./parser";
@@ -11,7 +11,8 @@ export class Oddvar {
 	private controller = new Controller();
 	private physics = new Physics();
 	public constructor(worldJSON: string) {
-		const parser = new Parser([this.world, this.graphics, this.controller, this.physics], [Point, Size])
+		const parser = new Parser([this.world, this.graphics, this.controller, this.physics], 
+			[Point, Size, RectangleTexture])
 		parser.parseWorld(worldJSON);
 		let lastTime = 0;
 		let Tick = (t: number) => {

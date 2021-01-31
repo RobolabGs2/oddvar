@@ -1,7 +1,7 @@
 function applyToConstructor(constructor: Function, argArray: any[]) {
-    var args = [null].concat(argArray) as any;
-    var factoryFunction = constructor.bind.apply(constructor, args);
-    return new factoryFunction();
+	var args = [null].concat(argArray) as any;
+	var factoryFunction = constructor.bind.apply(constructor, args);
+	return new factoryFunction();
 }
 
 export class Parser {
@@ -13,12 +13,18 @@ export class Parser {
 	}
 	parseWorld(jsonWorld: string) {
 		let json = JSON.parse(jsonWorld, (key: string, value: any) => {
-			const primitiveConstructor = this.primitives.get(key);
-			if (primitiveConstructor)
-				return applyToConstructor(primitiveConstructor, value);
-			const primitiveValue = Array.from(this.primitives.keys()).find(v => value[v]);
-			if (primitiveValue)
-				return value[primitiveValue]
+			if (!value) {
+				return value;
+			}
+			if (Array.isArray(value)) {
+				const primitiveConstructor = this.primitives.get(key);
+				if (primitiveConstructor)
+					return applyToConstructor(primitiveConstructor, value);
+			} else if (typeof (value) === "object") {
+				const primitiveValue = Array.from(this.primitives.keys()).find(v => value[v]);
+				if (primitiveValue)
+					return value[primitiveValue]
+			}
 			return value;
 		}) as [];
 		json.forEach(element => {
@@ -26,7 +32,7 @@ export class Parser {
 		});
 	}
 
-	parseElement({ type, constructor, child }: { type: string, constructor: [], child: [] }, parent?: any) {
+	parseElement({ type, constructor, child }: ElementRecipe, parent?: any) {
 		const [factoryName, constructorName] = type.split(".");
 		const factory = this.factories.get(factoryName);
 		if (!factory)
@@ -37,4 +43,10 @@ export class Parser {
 		const elem = constructorMethod.call(factory, ...(parent ? [parent, ...constructor] : constructor));
 		child?.forEach(element => this.parseElement(element, elem));
 	}
+}
+
+export interface ElementRecipe {
+	type: string
+	constructor: []
+	child: []
 }
