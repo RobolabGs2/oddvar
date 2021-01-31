@@ -3,16 +3,16 @@ import { Point, Size } from "./geometry";
 import { Graphics } from "./graphics";
 import { Controller } from "./controller";
 import { Physics } from "./physics";
+import { Parser } from "./parser";
 
-export class Oddvar
-{
+export class Oddvar {
 	private world = new World();
 	private graphics = new Graphics();
 	private controller = new Controller();
 	private physics = new Physics();
-
-	public constructor() {
-		this.Init();
+	public constructor(worldJSON: string) {
+		const parser = new Parser([this.world, this.graphics, this.controller, this.physics], [Point, Size])
+		parser.parseWorld(worldJSON);
 		let lastTime = 0;
 		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;
@@ -26,18 +26,5 @@ export class Oddvar
 			requestAnimationFrame(Tick);
 		};
 		requestAnimationFrame(Tick);
-	}
-
-	private Init() {
-		let entity = this.world.CreateEntity(new Point(50, 20), 0.0); {
-			this.physics.CreateRectangleBody(entity, new Size(10, 10));
-			this.graphics.CreateRectangle(entity, new Size(10, 10));
-			this.controller.CreateWalkController(entity);
-			let tail = this.world.CreateTailEntity(entity, new Point(20, 0)); {
-				this.physics.CreateRectangleBody(tail, new Size(5, 5));
-				this.graphics.CreateRectangle(tail, new Size(5, 5));
-				this.controller.CreateWalkController(tail);
-			}
-		}
 	}
 }
