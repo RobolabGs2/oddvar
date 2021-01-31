@@ -1,6 +1,7 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { Entity} from "./world"
 import { Point, Size } from "./geometry";
+import { RectangleBody, Body } from "./physics";
 
 
 export abstract class Control extends Deadly
@@ -34,6 +35,19 @@ export class WalkController extends Control
 	}
 }
 
+export class KickController extends Control
+{
+	constructor(private body: Body, velocity: Point, isStatic: boolean) {
+		super();
+		body.lineVelocity = velocity;
+		body.isStataic = isStatic;
+		this.Die();
+	}
+
+	public Tick(dt: number) {
+	}
+}
+
 export class Controller extends DeadlyWorld<Control>
 {
 	public Tick(dt: number) {
@@ -44,5 +58,9 @@ export class Controller extends DeadlyWorld<Control>
 
 	public CreateWalkController(entity: Entity): WalkController {
 		return this.AddDeadly(new WalkController(entity));
+	}
+
+	public CreateKickController(body: Body, velocity: Point, isStatic: boolean = false): KickController {
+		return this.AddDeadly(new KickController(body, velocity, isStatic));
 	}
 }

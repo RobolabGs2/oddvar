@@ -2,6 +2,11 @@ import { Deadly, DeadlyWorld } from "./base"
 import { Entity} from "./world"
 import { Matrix, Point, Size } from "./geometry";
 
+export interface PhysicalMaterial
+{
+	density: number;
+}
+
 export abstract class Essence extends Deadly
 {
 	public get X() { return this.entity.location.x }
@@ -23,6 +28,10 @@ export abstract class Body extends Essence
 	public angleForce = 0;
 	public angleVelocity = 0;
 
+	public constructor (entity: Entity, public readonly material: PhysicalMaterial) {
+		super(entity);
+	}
+
 	public abstract Abba(): {p1: Point, p2: Point};
 
 	public Tick(dt: number) {
@@ -33,14 +42,32 @@ export abstract class Body extends Essence
 			return;
 		}
 
-		this.entity.rotation += dt * this.angleVelocity;
 		this.angleVelocity += dt * this.angleForce;
+		this.entity.rotation += dt * this.angleVelocity;
 		this.angleForce = 0;
 
-		this.entity.location = this.entity.location.Add(this.lineVelocity.Mult(dt));
 		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt));
+		this.entity.location = this.entity.location.Add(this.lineVelocity.Mult(dt));
 		this.lineForce.x = 0;
 		this.lineForce.y = 0;
+	}
+
+	public Hit(force: Point, point: Point) {
+		let delta = this.entity.location.Sub(point);
+		let deltaLen = delta.Len();
+		let deltaNorm = delta.Div(deltaLen);
+		let lineForce = deltaNorm.Mult(deltaNorm.Dot(force));
+		let angleForce = force.Sub(lineForce);
+		this.lineForce = this.lineForce.Add(lineForce);
+
+		let p = point.Add(angleForce);
+		let p1 = point;
+		let p2 = this.entity.location;
+		let delta2 = p2.Sub(p1);
+		let area = p2.x * p1.y - p2.y * p1.x;
+		let value = delta2.y * p.x - delta2.x * p.y + area;
+
+		this.angleForce += angleForce.Len() * deltaLen / 100 * Math.sign(value);
 	}
 }
 
@@ -48,12 +75,31 @@ export class RectangleBody extends Body
 {
 	private abba = {p1: new Point(0, 0), p2: new Point(0, 0)};
 
-	public constructor(entity: Entity, public size: Size) {
-		super(entity);
+	public constructor(entity: Entity, public readonly material: PhysicalMaterial, public size: Size) {
+		super(entity, material);
 	}
 
 	public Abba() {
 		return this.abba;
+	}
+
+	public RectanglePoints(): { points: Point[], m: Matrix, size: Size, zero: Point} {
+		let m = this.entity.Transform();
+		let size = this.size;
+		let zero = new Point(0, 0).Transform(m);
+
+		let points = [
+			new Point(size.width / 2, size.height / 2),
+			new Point(-size.width / 2, size.height / 2),
+			new Point(-size.width / 2, -size.height / 2),
+			new Point(size.width / 2, -size.height / 2)
+		];
+
+		for (let i = 0; i < 4; ++i) {
+			points[i] = points[i].Transform(m);
+		}
+
+		return { points: points, m: m, size: size, zero: zero};
 	}
 
 	public Tick(dt: number) {
@@ -86,6 +132,7 @@ export class Physics extends DeadlyWorld<Body>
 				if (abba1.p1.y > abba2.p2.y || abba1.p2.y < abba2.p1.y)
 					continue;
 				this.Intersect(b1, b2);
+				this.Intersect(b2, b1);
 			}
 		}
 
@@ -95,7 +142,62 @@ export class Physics extends DeadlyWorld<Body>
 	}
 
 	private Intersect(b1: Body, b2: Body) {
-		//console.log("intersect?");
+		if (b1 instanceof(RectangleBody)) {
+			if (b2 instanceof(RectangleBody))
+				this.IntersectRectangleRectangle(b1, b2);
+		}
+	}
+
+	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody) {
+		let base1 = b1.RectanglePoints();
+		let base2 = b2.RectanglePoints();
+		for (let i = 0; i < 4; ++i) {
+			let p = base1.points[i];
+			let intersect = this.IntersectPointPoly(p, base2.points);
+			if (intersect.intersect) {
+				const k = 1000;
+				b1.Hit(intersect.nearNorm.Mult(intersect.nearDist * k), p);
+				b2.Hit(intersect.nearNorm.Mult(-intersect.nearDist * k), p);
+				console.log(intersect.nearNorm);
+			}
+		}
+	}
+
+	private IntersectPointPoly(p: Point, poly: Point[]): {
+			intersect: boolean,
+			near: number,
+			nearDist: number,
+			nearNorm: Point
+		} {
+		let len = poly.length;
+		let near = -1;
+		let nearDist = Infinity;
+		let nearNorm = new Point(0, 0);
+		let intersect = true;
+		for (let i = 0; i < len; ++i) {
+			let p1 = poly[i];
+			let p2 = poly[(i + 1) % len];
+			let delta = p2.Sub(p1);
+			let area = p2.x * p1.y - p2.y * p1.x;
+			let value = delta.y * p.x - delta.x * p.y + area
+			if (value >= 0) {
+				intersect = false;
+				break;
+			}
+			let deltaLen = delta.Len();
+			let distance = Math.abs(value) / delta.Len();
+			if (distance < nearDist) {
+				near = i;
+				nearDist = distance;
+				nearNorm = new Point(delta.y, -delta.x).Div(deltaLen);
+			}
+		}
+		return {
+			intersect: intersect,
+			near: near,
+			nearDist: nearDist,
+			nearNorm: nearNorm
+		};
 	}
 
 	private Sort() {
@@ -111,7 +213,6 @@ export class Physics extends DeadlyWorld<Body>
 		let buf = this.bodies[i];
 		this.bodies[i] = this.bodies[j];
 		this.bodies[j] = buf;
-		//console.log("Swap!!!");
 	}
 
 	private AddBody<T extends Body>(body: T): T {
@@ -125,7 +226,7 @@ export class Physics extends DeadlyWorld<Body>
 		return body;
 	}
 
-	public CreateRectangleBody(e: Entity, size: Size) {
-		return this.AddBody(this.AddDeadly(new RectangleBody(e, size)));
+	public CreateRectangleBody(e: Entity, material: PhysicalMaterial, size: Size) {
+		return this.AddBody(this.AddDeadly(new RectangleBody(e, material, size)));
 	}
 }
