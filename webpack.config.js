@@ -52,6 +52,7 @@ module.exports = (env) => {
             splitChunks: {
                 chunks: 'all',
             },
+            minimize: false
         },
     }
 };
