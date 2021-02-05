@@ -22,7 +22,7 @@ export abstract class Essence extends Deadly
 
 export abstract class Body extends Essence
 {
-	public isStataic = false;
+	public isStatic = false;
 	public lineVelocity = new Point(0, 0);
 	public lineForce = new Point(0, 0);
 	public angleForce = 0;
@@ -35,7 +35,7 @@ export abstract class Body extends Essence
 	public abstract Abba(): {p1: Point, p2: Point};
 
 	public Tick(dt: number) {
-		if (this.isStataic) {
+		if (this.isStatic) {
 			this.angleForce = 0;
 			this.lineForce.x = 0;
 			this.lineForce.y = 0;
@@ -158,7 +158,7 @@ export class Physics extends DeadlyWorld<Body>
 				const k = 1000;
 				b1.Hit(intersect.nearNorm.Mult(intersect.nearDist * k), p);
 				b2.Hit(intersect.nearNorm.Mult(-intersect.nearDist * k), p);
-				console.log(intersect.nearNorm);
+				// console.log(intersect.nearNorm);
 			}
 		}
 	}

@@ -67,9 +67,13 @@ export class Matrix
 	}
 
 	public static Rotation(angle: number): Matrix {
-		let result = Matrix.Ident();
 		let sin = Math.sin(angle);
 		let cos = Math.cos(angle);
+		return this.RotationCosSin(cos, sin);
+	}
+	
+	public static RotationCosSin(cos: number, sin: number): Matrix {
+		let result = Matrix.Ident();
 		result.data[0][0] = cos;
 		result.data[0][1] = sin;
 		result.data[1][0] = -sin;

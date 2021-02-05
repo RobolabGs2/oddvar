@@ -1,11 +1,10 @@
 import { Deadly, DeadlyWorld } from "base"
-import { Entity} from "world"
+import { Entity } from "world"
 import { Point } from "geometry";
 import { Body } from "physics";
 
 
-export abstract class Control extends Deadly
-{
+export abstract class Control extends Deadly {
 	public constructor() {
 		super();
 	}
@@ -13,8 +12,7 @@ export abstract class Control extends Deadly
 	public abstract Tick(d: number): void;
 }
 
-export class WalkController extends Control
-{
+export class WalkController extends Control {
 	private time = 0;
 	private counter = 0;
 	constructor(private entity: Entity) {
@@ -28,19 +26,38 @@ export class WalkController extends Control
 		let velocity = new Point(10, 0);
 		this.entity.location = this.entity.location.Add(velocity.Mult(dt));
 		this.entity.rotation += dt * 0.5;
-		if(this.time > 20) {
+		if (this.time > 20) {
 			console.log(this.counter);
 			this.entity.Die();
 		}
 	}
 }
 
-export class KickController extends Control
-{
+export class PathWalkController extends Control {
+	private targetIndex = 0;
+	constructor(private body: Body, private path: Point[]) {
+		super();
+		body.DeathSubscribe(() => this.Die());
+	}
+
+	public Tick(dt: number) {
+		const location = this.body.entity.location;
+		if (this.path[this.targetIndex].Dist(location) < 10)
+			this.targetIndex = (this.targetIndex + 1) % this.path.length
+		const target = this.Point();
+		this.body.Hit(new Point(10, 0), target)
+	}
+
+	public Point(): Point {
+		return this.path[this.targetIndex];
+	}
+}
+
+export class KickController extends Control {
 	constructor(private body: Body, velocity: Point, isStatic: boolean) {
 		super();
 		body.lineVelocity = velocity;
-		body.isStataic = isStatic;
+		body.isStatic = isStatic;
 		this.Die();
 	}
 
@@ -62,5 +79,9 @@ export class Controller extends DeadlyWorld<Control>
 
 	public CreateKickController(body: Body, velocity: Point, isStatic: boolean = false): KickController {
 		return this.AddDeadly(new KickController(body, velocity, isStatic));
+	}
+
+	public CreatePathWalkController(body: Body, path: Point[]): PathWalkController {
+		return this.AddDeadly(new PathWalkController(body, path));
 	}
 }

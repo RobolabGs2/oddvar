@@ -1,7 +1,7 @@
 import { Deadly, DeadlyWorld } from "base"
 import { Entity } from "world"
-import { Matrix, Size } from "geometry";
-import { RectangleBody } from "physics";
+import { Matrix, Point, Size } from "geometry";
+import { RectangleBody, Body } from "physics";
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
 	c.transform(
@@ -14,22 +14,83 @@ export abstract class Avatar extends Deadly {
 	public constructor() {
 		super();
 	}
-
 	public abstract Tick(dt: number, context: CanvasRenderingContext2D): void;
+}
+
+export abstract class DeadlyAvatar extends Deadly {
+	public constructor(deadly: Deadly) {
+		super();
+		deadly.DeathSubscribe(() => this.Die())
+	}
+}
+
+export interface Texture {
+	Draw(context: CanvasRenderingContext2D): void;
 }
 
 export interface RectangleTexture {
 	Draw(context: CanvasRenderingContext2D, size: Size): void;
 }
 
-export class EntityAvatar extends Avatar {
+export class EntityAvatar extends DeadlyAvatar {
 	public constructor(public readonly entity: Entity, public readonly size: Size, public readonly texture: RectangleTexture) {
-		super();
-		entity.DeathSubscribe(() => this.Die());
+		super(entity);
 	}
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
 		TransformContext(context, this.entity.Transform());
 		this.texture.Draw(context, this.size);
+	}
+}
+
+interface Pointable {
+	Point(): Point
+}
+
+function DrawVector(context: CanvasRenderingContext2D, vec: Point) {
+	context.beginPath();
+	context.moveTo(0, 0);
+	context.lineTo(vec.x, vec.y)
+	context.stroke();
+	const len = vec.Len()
+	const norm = vec.Div(len);
+	TransformContext(context, Matrix.RotationCosSin(norm.x, norm.y).Mult(Matrix.Translate(vec)))
+	context.beginPath()
+	const dy = context.lineWidth+2;
+	const dx = dy+4;
+	context.moveTo(-dx, -dy);
+	context.lineTo(0, 0);
+	context.lineTo(-dx, dy)
+	context.stroke();
+	context.fillText(len.toFixed(2), 0, 0);
+}
+
+export class DebugBodyAvatar extends DeadlyAvatar {
+	public constructor(public readonly body: Body) {
+		super(body);
+	}
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		context.fillStyle = "blue";
+		context.strokeStyle = "grey";
+		context.lineWidth = 3;
+		context.translate(this.body.X, this.body.Y);
+		[this.body.lineVelocity].forEach((vec) => {
+			context.save();
+			DrawVector(context, vec);
+			context.restore();
+		})
+	}
+}
+
+export class PointAvatar extends DeadlyAvatar {
+	private texture = new RectangleTexture({ fill: "blue" })
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		const p = this.parent.Point();
+		context.translate(p.x, p.y)
+		this.texture.Draw(context, new Size(5, 5));
+	}
+	public constructor(public readonly parent: Deadly & Pointable) {
+		super(parent);
+
 	}
 }
 
@@ -49,15 +110,15 @@ export class RectangleTexture implements RectangleTexture {
 	}
 
 	public Draw(context: CanvasRenderingContext2D, size: Size): void {
-		if(this.settings.fill) {
+		if (this.settings.fill) {
 			context.fillStyle = this.settings.fill;
 			context.fillRect(-size.width / 2, -size.height / 2, size.width, size.height);
 		}
-		if(this.settings.stroke) {
+		if (this.settings.stroke) {
 			context.strokeStyle = this.settings.stroke;
 			context.strokeRect(-size.width / 2, -size.height / 2, size.width, size.height);
 		}
-		
+
 	}
 }
 
@@ -89,5 +150,13 @@ export class Graphics extends DeadlyWorld<Avatar>
 
 	public CreateRectangleBodyAvatar(body: RectangleBody, texture: RectangleTexture): RectangleBodyAvatar {
 		return this.AddDeadly(new RectangleBodyAvatar(body, texture));
+	}
+
+	public CreatePointAvatar(parent: Deadly & Pointable): PointAvatar {
+		return this.AddDeadly(new PointAvatar(parent));
+	}
+
+	public CreateDebugBodyAvatar(body: Body) {
+		return this.AddDeadly(new DebugBodyAvatar(body));
 	}
 }

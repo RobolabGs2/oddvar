@@ -11,12 +11,26 @@ import { Oddvar } from "oddvar";
 						"type": "physics.RectangleBody",
 						"constructor": [{ "density": 1 }, { "Size": [20, 20] }],
 						"child": [
+							// {
+							// 	"type": "controller.KickController",
+							// 	"constructor": [{ "Point": [100, 0] }]
+							// },
 							{
-								"type": "controller.KickController",
-								"constructor": [{ "Point": [100, 0] }]
+								"type": "controller.PathWalkController",
+								"constructor": [[{ "Point": [250, 250] },{ "Point": [200, 200] },{ "Point": [150, 150] }]],
+								"child": [
+									{
+										"type": "graphics.PointAvatar",
+										"constructor": [],
+									}
+								]
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
+								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
+							},
+							{
+								"type": "graphics.DebugBodyAvatar",
 								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
 							}
 						]
