@@ -20,6 +20,10 @@ export class Point
 		return Math.sqrt(this.Dot(this));
 	}
 
+	public Norm(): Point {
+		return this.Div(this.Len());
+	}
+
 	public Dist(p: Point): number {
 		return p.Sub(this).Len();
 	}
@@ -47,6 +51,10 @@ export class Point
 export class Size
 {
 	public constructor(public width: number, public height: number) {
+	}
+
+	public Area(): number {
+		return this.width * this.height;
 	}
 }
 

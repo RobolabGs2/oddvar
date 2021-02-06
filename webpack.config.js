@@ -61,6 +61,7 @@ module.exports = (env) => {
 					uglifyOptions: {
 						mangle: false,
 					},
+					sourceMap: true
 				}),
 			],
 		},

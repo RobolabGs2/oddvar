@@ -45,7 +45,8 @@ export class PathWalkController extends Control {
 		if (this.path[this.targetIndex].Dist(location) < 10)
 			this.targetIndex = (this.targetIndex + 1) % this.path.length
 		const target = this.Point();
-		this.body.Hit(new Point(10, 0), target)
+		let force = target.Sub(location).Norm();
+		this.body.Hit(force.Mult(10000), location.Add(force))
 	}
 
 	public Point(): Point {

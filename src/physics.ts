@@ -7,6 +7,9 @@ export interface PhysicalMaterial
 	density: number;
 }
 
+export interface CollisionListener {(b1: Body, b2: Body): void}
+
+
 export abstract class Essence extends Deadly
 {
 	public get X() { return this.entity.location.x }
@@ -28,11 +31,27 @@ export abstract class Body extends Essence
 	public angleForce = 0;
 	public angleVelocity = 0;
 
+	private CollisionEvents = new Set<CollisionListener>();
+
 	public constructor (entity: Entity, public readonly material: PhysicalMaterial) {
 		super(entity);
 	}
 
 	public abstract Abba(): {p1: Point, p2: Point};
+	public abstract Mass(): number;
+	public abstract MomentOfInertia(): number;
+
+	public AddCollisionListener(listener: CollisionListener) {
+		this.CollisionEvents.add(listener);
+	}
+
+	public RemoveCollisionListener(listener: CollisionListener) {
+		this.CollisionEvents.delete(listener);
+	}
+
+	public CallCollisionListener(b2: Body) {
+		this.CollisionEvents.forEach(l => l(this, b2));
+	}
 
 	public Tick(dt: number) {
 		if (this.isStatic) {
@@ -42,11 +61,14 @@ export abstract class Body extends Essence
 			return;
 		}
 
-		this.angleVelocity += dt * this.angleForce;
+		let m = this.Mass();
+		let inertia = this.MomentOfInertia();
+
+		this.angleVelocity += dt * this.angleForce * inertia;
 		this.entity.rotation += dt * this.angleVelocity;
 		this.angleForce = 0;
 
-		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt));
+		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt * m));
 		this.entity.location = this.entity.location.Add(this.lineVelocity.Mult(dt));
 		this.lineForce.x = 0;
 		this.lineForce.y = 0;
@@ -67,7 +89,7 @@ export abstract class Body extends Essence
 		let area = p2.x * p1.y - p2.y * p1.x;
 		let value = delta2.y * p.x - delta2.x * p.y + area;
 
-		this.angleForce += angleForce.Len() * deltaLen / 100 * Math.sign(value);
+		this.angleForce += angleForce.Len() * deltaLen * Math.sign(value);
 	}
 }
 
@@ -81,6 +103,15 @@ export class RectangleBody extends Body
 
 	public Abba() {
 		return this.abba;
+	}
+
+	public Mass(): number {
+		return 1/(this.size.Area() * this.material.density);
+	}
+
+	public MomentOfInertia(): number {
+		return 1 / (this.size.width * this.size.height * (this.size.height * this.size.height +
+			this.size.width * this.size.width) * 4 * this.material.density / 3);
 	}
 
 	public RectanglePoints(): { points: Point[], m: Matrix, size: Size, zero: Point} {
@@ -131,8 +162,13 @@ export class Physics extends DeadlyWorld<Body>
 					break;
 				if (abba1.p1.y > abba2.p2.y || abba1.p2.y < abba2.p1.y)
 					continue;
-				this.Intersect(b1, b2);
-				this.Intersect(b2, b1);
+				let isCollision = false;
+				isCollision = this.Intersect(b1, b2) || isCollision;
+				isCollision = this.Intersect(b2, b1) || isCollision;
+				if (isCollision) {
+					b1.CallCollisionListener(b2);
+					b2.CallCollisionListener(b1);
+				}
 			}
 		}
 
@@ -141,26 +177,29 @@ export class Physics extends DeadlyWorld<Body>
 		})
 	}
 
-	private Intersect(b1: Body, b2: Body) {
-		if (b1 instanceof(RectangleBody)) {
+	private Intersect(b1: Body, b2: Body): boolean {
+		if (b1 instanceof(RectangleBody))
 			if (b2 instanceof(RectangleBody))
-				this.IntersectRectangleRectangle(b1, b2);
-		}
+				return this.IntersectRectangleRectangle(b1, b2);
+		return false;
 	}
 
-	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody) {
+	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody): boolean {
 		let base1 = b1.RectanglePoints();
 		let base2 = b2.RectanglePoints();
+		let result = false;
 		for (let i = 0; i < 4; ++i) {
 			let p = base1.points[i];
 			let intersect = this.IntersectPointPoly(p, base2.points);
 			if (intersect.intersect) {
-				const k = 1000;
+				result = true;
+				const k = 1000000;
 				b1.Hit(intersect.nearNorm.Mult(intersect.nearDist * k), p);
 				b2.Hit(intersect.nearNorm.Mult(-intersect.nearDist * k), p);
 				// console.log(intersect.nearNorm);
 			}
 		}
+		return result;
 	}
 
 	private IntersectPointPoly(p: Point, poly: Point[]): {
