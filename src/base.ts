@@ -8,6 +8,10 @@ export class Deadly
 		return this.deathList.push(callback) - 1;
 	}
 
+	public DeathUnsubscribe(index: number) {
+		return this.deathList[index] = d => {};
+	}
+
 	public Die() {
 		this.deathList.forEach(e => {
 			e(this);

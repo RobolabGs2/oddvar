@@ -21,6 +21,28 @@ export abstract class Essence extends Deadly
 	}
 
 	public abstract Tick(dt: number): void;
+	public Clear() { }
+}
+
+export abstract class Sensor extends Essence
+{
+	protected blacklist = new Map<Body, number>();
+
+	public AddToIgnore(body: Body) {
+		this.blacklist.set(body, body.DeathSubscribe(b => {
+			this.blacklist.delete(body);
+		}))
+	}
+
+	public RemoveFromIgnore(body: Body) {
+		const index = this.blacklist.get(body);
+		if (index) {
+			body.DeathUnsubscribe(index);
+			this.blacklist.delete(body);
+		}
+	}
+
+	public Take(body: Body) { }
 }
 
 export abstract class Body extends Essence
@@ -75,46 +97,101 @@ export abstract class Body extends Essence
 	}
 
 	public Hit(force: Point, point: Point) {
-		let delta = this.entity.location.Sub(point);
-		let deltaLen = delta.Len();
-		let deltaNorm = delta.Div(deltaLen);
-		let lineForce = deltaNorm.Mult(deltaNorm.Dot(force));
-		let angleForce = force.Sub(lineForce);
+		const delta = this.entity.location.Sub(point);
+		const deltaLen = delta.Len();
+		const deltaNorm = delta.Div(deltaLen);
+		const lineForce = deltaNorm.Mult(deltaNorm.Dot(force));
+		const angleForce = force.Sub(lineForce);
 		this.lineForce = this.lineForce.Add(lineForce);
 
-		let p = point.Add(angleForce);
-		let p1 = point;
-		let p2 = this.entity.location;
-		let delta2 = p2.Sub(p1);
-		let area = p2.x * p1.y - p2.y * p1.x;
-		let value = delta2.y * p.x - delta2.x * p.y + area;
+		const p = point.Add(angleForce);
+		const p1 = point;
+		const p2 = this.entity.location;
+		const delta2 = p2.Sub(p1);
+		const area = p2.x * p1.y - p2.y * p1.x;
+		const value = delta2.y * p.x - delta2.x * p.y + area;
 
 		this.angleForce += angleForce.Len() * deltaLen * Math.sign(value);
+	}
+}
+
+export class RaySensor extends Sensor
+{
+	public distance = Infinity;
+	public observable: Body | null = null;
+
+	private start = new Point(0, 0);
+	private direction = new Point(1, 0);
+
+	private TakeRectangleBody(body: RectangleBody) {
+		const points = body.RectanglePoints();
+		const len = points.points.length;
+		for(let i = 0; i < len; ++i) {
+			if (this.TakeLineSegment(points.points[i], points.points[(i + 1) % len]))
+				this.observable = body;
+		}
+	}
+
+	private Det(p1: Point, p2: Point) {
+		return p1.x * p2.y - p1.y * p2.x;
+	}
+
+	private TakeLineSegment(p1: Point, p2: Point) {
+		const negv = p1.Sub(p2);
+		const D = this.Det(this.direction, negv);
+		if (D == 0) return;
+
+		const dist = p1.Sub(this.start);
+		const invD = 1 / D;
+		const v = this.Det(this.direction, dist) * invD;
+		const t = this.Det(dist, negv) * invD;
+		if (v >= 0 && v < 1 && t > 0 && t < this.distance) {
+			this.distance = t;
+			return true;
+		}
+		return false;
+	}
+
+	public Tick(dt: number) {
+	}
+
+	public Clear() {
+		this.distance = Infinity;
+		this.observable = null;
+		const m = this.entity.Transform();
+		this.start = new Point(0, 0).Transform(m);
+		this.direction = new Point(1, 0).Transform(m).Sub(this.start);
+	}
+
+	public Take(body: Body) {
+		if (this.blacklist.get(body))
+			return;
+		if (body instanceof(RectangleBody))
+			return this.TakeRectangleBody(body);
+		throw new Error("unknown body");
 	}
 }
 
 export class RectangleBody extends Body
 {
 	private abba = {p1: new Point(0, 0), p2: new Point(0, 0)};
+	private rectanglePoints = { points: new Array<Point>(), m: Matrix.Ident(), size: new Size(0, 0), zero: new Point(0, 0)}
 
 	public constructor(entity: Entity, public readonly material: PhysicalMaterial, public size: Size) {
 		super(entity, material);
 	}
 
-	public Abba() {
-		return this.abba;
+	private RecalculateAbba() {
+		let m = this.entity.Transform();
+		let zero = new Point(0, 0).Transform(m);
+		let p1 = new Point(this.size.width / 2, this.size.height / 2).Transform(m).Sub(zero);
+		let p2 = new Point(this.size.width / 2, -this.size.height / 2).Transform(m).Sub(zero);
+		let x = Math.max(Math.abs(p1.x), Math.abs(p2.x));
+		let y = Math.max(Math.abs(p1.y), Math.abs(p2.y));
+		this.abba = {p1: new Point(zero.x - x, zero.y - y), p2: new Point(zero.x + x, zero.y + y)};
 	}
 
-	public Mass(): number {
-		return 1/(this.size.Area() * this.material.density);
-	}
-
-	public MomentOfInertia(): number {
-		return 1 / (this.size.width * this.size.height * (this.size.height * this.size.height +
-			this.size.width * this.size.width) * 4 * this.material.density / 3);
-	}
-
-	public RectanglePoints(): { points: Point[], m: Matrix, size: Size, zero: Point} {
+	private RecalculateRectanglePoints() {
 		let m = this.entity.Transform();
 		let size = this.size;
 		let zero = new Point(0, 0).Transform(m);
@@ -130,31 +207,51 @@ export class RectangleBody extends Body
 			points[i] = points[i].Transform(m);
 		}
 
-		return { points: points, m: m, size: size, zero: zero};
+		this.rectanglePoints = { points: points, m: m, size: size, zero: zero};
+	}
+
+	public Abba() {
+		return this.abba;
+	}
+
+	public Mass(): number {
+		return 1/(this.size.Area() * this.material.density);
+	}
+
+	public MomentOfInertia(): number {
+		return 1 / (this.size.width * this.size.height * (this.size.height * this.size.height +
+			this.size.width * this.size.width) * 4 * this.material.density / 3);
+	}
+
+	public RectanglePoints(): {points: Point[], m: Matrix, size: Size, zero: Point} {
+		return this.rectanglePoints;
+	}
+
+	public Clear() {
+		this.RecalculateAbba();
+		this.RecalculateRectanglePoints();
 	}
 
 	public Tick(dt: number) {
 		super.Tick(dt);
-		let m = this.entity.Transform();
-		let zero = new Point(0, 0).Transform(m);
-		let p1 = new Point(this.size.width / 2, this.size.height / 2).Transform(m).Sub(zero);
-		let p2 = new Point(this.size.width / 2, -this.size.height / 2).Transform(m).Sub(zero);
-		let x = Math.max(Math.abs(p1.x), Math.abs(p2.x));
-		let y = Math.max(Math.abs(p1.y), Math.abs(p2.y));
-		this.abba = {p1: new Point(zero.x - x, zero.y - y), p2: new Point(zero.x + x, zero.y + y)};
 	}
 }
 
-export class Physics extends DeadlyWorld<Body>
+export class Physics extends DeadlyWorld<Essence>
 {
-	public bodies = new Array<Body>();
+	private bodies = new Array<Body>();
+	private sensors = new Set<Sensor>();
 
 	public Tick(dt: number) {
+		this.Clear();
 		this.Sort();
 
 		for (let i = 0; i < this.bodies.length; ++i) {
 			let b1 = this.bodies[i];
 			let abba1 = b1.Abba();
+
+			this.sensors.forEach(s => s.Take(b1));
+
 			for (let j  = i + 1; j < this.bodies.length; ++j) {
 				let b2 = this.bodies[j];
 				let abba2 = b2.Abba();
@@ -181,7 +278,7 @@ export class Physics extends DeadlyWorld<Body>
 		if (b1 instanceof(RectangleBody))
 			if (b2 instanceof(RectangleBody))
 				return this.IntersectRectangleRectangle(b1, b2);
-		return false;
+		throw new Error("unknown body");
 	}
 
 	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody): boolean {
@@ -196,7 +293,6 @@ export class Physics extends DeadlyWorld<Body>
 				const k = 1000000;
 				b1.Hit(intersect.nearNorm.Mult(intersect.nearDist * k), p);
 				b2.Hit(intersect.nearNorm.Mult(-intersect.nearDist * k), p);
-				// console.log(intersect.nearNorm);
 			}
 		}
 		return result;
@@ -239,6 +335,10 @@ export class Physics extends DeadlyWorld<Body>
 		};
 	}
 
+	private Clear() {
+		this.mortals.forEach(b => b.Clear());
+	}
+
 	private Sort() {
 		for (let i = 1; i < this.bodies.length; ++i)
 			for (let j = i; j > 0; --j) {
@@ -265,7 +365,19 @@ export class Physics extends DeadlyWorld<Body>
 		return body;
 	}
 
+	private AddSensor<T extends Sensor>(sensor: T) {
+		this.sensors.add(sensor);
+		sensor.DeathSubscribe(s => {
+			this.sensors.delete(sensor);
+		});
+		return sensor
+	}
+
 	public CreateRectangleBody(e: Entity, material: PhysicalMaterial, size: Size) {
 		return this.AddBody(this.AddDeadly(new RectangleBody(e, material, size)));
+	}
+
+	public CreateRaySensor(e: Entity) {
+		return this.AddSensor(this.AddDeadly(new RaySensor(e)));
 	}
 }

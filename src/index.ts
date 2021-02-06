@@ -37,6 +37,22 @@ import { Oddvar } from "oddvar";
 					},
 					{
 						"type": "world.TailEntity",
+						"constructor": [{ "Point": [11, 0] }, 0.0],
+						"child": [
+							{
+								"type": "physics.RaySensor",
+								"constructor": [],
+								"child": [
+									{
+										"type": "graphics.DebugRaySensor",
+										"constructor": []
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "world.TailEntity",
 						"constructor": [{ "Point": [20, 0] }],
 						"child": [
 							{

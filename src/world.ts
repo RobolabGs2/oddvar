@@ -14,6 +14,11 @@ export class Entity extends Deadly {
 		return Matrix.Rotation(this.rotation).
 			Mult(Matrix.Translate(this.location));
 	}
+
+	public InverseTransform(): Matrix {
+		return Matrix.Translate(this.location.Mult(-1)).
+			Mult(Matrix.Rotation(-this.rotation));
+	}
 }
 
 export class TailEntity extends Entity {
@@ -28,6 +33,10 @@ export class TailEntity extends Entity {
 
 	public Transform(): Matrix {
 		return super.Transform().Mult(this.parent.Transform());
+	}
+
+	public InverseTransform(): Matrix {
+		return this.parent.InverseTransform().Mult(super.InverseTransform());
 	}
 }
 

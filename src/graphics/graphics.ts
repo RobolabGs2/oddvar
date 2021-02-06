@@ -1,7 +1,7 @@
 import { Deadly, DeadlyWorld } from "base"
 import { Entity } from "world"
 import { Matrix, Point, Size } from "geometry";
-import { RectangleBody, Body } from "physics";
+import { RectangleBody, Body, RaySensor } from "physics";
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
 	c.transform(
@@ -78,6 +78,21 @@ export class DebugBodyAvatar extends DeadlyAvatar {
 			DrawVector(context, vec);
 			context.restore();
 		})
+	}
+}
+
+export class DebugRaySensor extends DeadlyAvatar {
+	public constructor(public readonly ray: RaySensor) {
+		super(ray);
+	}
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		context.fillStyle = "#770";
+		context.strokeStyle = "#770";
+		context.lineWidth = 3;
+		TransformContext(context, this.ray.entity.Transform());
+		context.save();
+		DrawVector(context, new Point(this.ray.distance, 0));
+		context.restore();
 	}
 }
 
@@ -158,5 +173,9 @@ export class Graphics extends DeadlyWorld<Avatar>
 
 	public CreateDebugBodyAvatar(body: Body) {
 		return this.AddDeadly(new DebugBodyAvatar(body));
+	}
+
+	public CreateDebugRaySensor(ray: RaySensor) {
+		return this.AddDeadly(new DebugRaySensor(ray));
 	}
 }
