@@ -5,6 +5,9 @@ import { Controller } from "controller";
 import { Physics } from "physics";
 import { Parser } from "parser";
 
+/**
+ * This is Oddvar
+ */
 export class Oddvar {
 	private world = new World();
 	private graphics = new Graphics();

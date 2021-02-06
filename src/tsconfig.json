@@ -12,9 +12,13 @@
             "es6",
             "scripthost",
             "es2015.collection"
-        ]
+        ],
+        "baseUrl": "./",
     },
+    "include": [
+        "./**/*"
+    ],
     "exclude": [
-        "node_modules"
+        "node_modules",
     ]
 }

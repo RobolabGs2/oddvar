@@ -23,9 +23,9 @@ module.exports = (env) => {
 				base: './',
 				favicon: './favicon.png'
 			}),
-			// new CopyPlugin([
-			// {from: './resources/*.png', to: './resources', flatten: true}
-			// ]),
+			new CopyPlugin([
+			{from: './resources/*.json', to: './resources', flatten: true}
+			]),
 		],
 		devtool: 'inline-source-map',
 		module: {
