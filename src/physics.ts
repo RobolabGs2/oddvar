@@ -59,6 +59,7 @@ export abstract class Body extends Essence
 		super(entity);
 	}
 
+	public abstract Map(p: Point): number;
 	public abstract Abba(): {p1: Point, p2: Point};
 	public abstract Mass(): number;
 	public abstract MomentOfInertia(): number;
@@ -208,6 +209,14 @@ export class RectangleBody extends Body
 		}
 
 		this.rectanglePoints = { points: points, m: m, size: size, zero: zero};
+	}
+
+	public Map(p: Point): number {
+		p = p.Transform(this.entity.InverseTransform());
+		return new Point(
+			Math.max(Math.abs(p.x) - this.size.width / 2, 0),
+			Math.max(Math.abs(p.y) - this.size.height / 2, 0)
+		).Len();
 	}
 
 	public Abba() {
@@ -371,6 +380,12 @@ export class Physics extends DeadlyWorld<Essence>
 			this.sensors.delete(sensor);
 		});
 		return sensor
+	}
+
+	public Map(p: Point): number {
+		let min = Infinity;
+		this.bodies.forEach(b => min = Math.min(b.Map(p), min));
+		return min;
 	}
 
 	public CreateRectangleBody(e: Entity, material: PhysicalMaterial, size: Size) {
