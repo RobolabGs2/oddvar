@@ -14,9 +14,20 @@ export class Oddvar {
 	private controller = new Controller();
 	private physics = new Physics();
 	public constructor(worldJSON: string) {
-		const parser = new Parser([this.world, this.graphics, this.controller, this.physics], 
+		const parser = new Parser([this.world, this.graphics, this.controller, this.physics],
 			[Point, Size, RectangleTexture])
 		parser.parseWorld(worldJSON);
+		fetch("resources/reflection.json", {
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json"
+			}
+		}).
+			then(response => response.json()).
+			then(parser.newTypeManager.bind(parser)).
+			then(x => x.FactoryListView((ev)=>console.log(ev))).
+			then(HTMLElement.prototype.append.bind(document.body)).
+			catch(e => console.error(e));
 		let lastTime = 0;
 		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;

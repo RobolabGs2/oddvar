@@ -48,10 +48,14 @@ class FunctionDescription extends SignatureDescription {
 	name: string
 }
 
+function typenameOfSymbol(symbol: ts.Symbol, checker: ts.TypeChecker): string {
+	return checker.typeToString(checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!));
+}
+
 class FieldDescription extends NamedSymbolDesctiption {
 	public constructor(symbol: ts.Symbol, checker: ts.TypeChecker) {
 		super(symbol, checker)
-		this.type = checker.typeToString(checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!));
+		this.type = typenameOfSymbol(symbol, checker);
 	}
 	type: string;
 }
@@ -89,8 +93,15 @@ class ClassDescription extends InterfaceDescription {
 			symbol.valueDeclaration!
 		);
 		this.consturctors = constructorType.getConstructSignatures().map(s => new SignatureDescription(s, checker));
+		
+		const prototypeType = checker.getBaseTypes(constructorType as ts.InterfaceType);
+		this.prototype = prototypeType.length ? prototypeType[0].symbol.name : "";
+		if(prototypeType.length > 1) {
+			throw new Error(`${this.name} has ${prototypeType.length} prototypes!`)
+		}
 	}
 	consturctors: SignatureDescription[];
+	prototype: string;
 }
 
 /** Generate documentation for all classes in a set of .ts files */

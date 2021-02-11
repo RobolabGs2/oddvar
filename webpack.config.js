@@ -4,6 +4,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
 module.exports = (env) => {
 	return {
@@ -26,6 +27,7 @@ module.exports = (env) => {
 			new CopyPlugin([
 			{from: './resources/*.json', to: './resources', flatten: true}
 			]),
+			new ForkTsCheckerWebpackPlugin({typescript: {configFile: "src/tsconfig.json"}}),
 		],
 		devtool: 'inline-source-map',
 		module: {
@@ -41,10 +43,20 @@ module.exports = (env) => {
 					test: /\.css$/i,
 					use: [MiniCssExtractPlugin.loader, 'css-loader'],
 				},
+				{
+                    test: /\.s[ac]ss$/i,
+                    use: [
+                        MiniCssExtractPlugin.loader,
+                        // Translates CSS into CommonJS
+                        'css-loader',
+                        // Compiles Sass to CSS
+                        'sass-loader',
+                    ],
+                }
 			],
 		},
 		resolve: {
-			extensions: ['.tsx', '.ts', '.js'],
+			extensions: ['.tsx', '.ts', '.js', '.scss', 'css'],
 			modules: [path.resolve(__dirname, 'src'), 'node_modules']
 		},
 		output: {
