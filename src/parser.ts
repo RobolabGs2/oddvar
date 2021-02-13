@@ -76,6 +76,16 @@ export interface ElementRecipe {
 	child: []
 }
 
+type ConstructorArgument = string | number | object
+
+interface DeadlyRecipe {
+	type: string
+	name?: string
+	constructor: ConstructorArgument[]
+	child?: DeadlyRecipe[]
+}
+
+
 export interface ReflectionJSON {
 	classes: ClassDescription[];
 	interfaces: InterfaceDescription[];
@@ -148,7 +158,7 @@ export class TypeManager {
 	}
 
 	instanceOf(expected: string, actual: string): boolean {
-		return expected===actual || this.inheritanceLists.get(expected)?.find(x=>x===actual) === actual
+		return expected === actual || this.inheritanceLists.get(expected)?.find(x => x === actual) === actual
 	}
 	// isChild(parent: string, child: string) {
 	// 	let type: string|undefined = child
@@ -156,6 +166,29 @@ export class TypeManager {
 	// 		type = this.inheritanceTree.get(type!)
 	// 	return type === parent;
 	// }
+
+
+	constructorParamFromMap(signature: SignatureDescription, map: Map<string, any>): ConstructorArgument[] {
+		return signature.parameters.map(param => {
+			const value = map.get(param.name);
+			return this.switchByType<ConstructorArgument>(param.type, {
+				nullable: (type) => value, // TODO it's work only nullable primitive
+				primitive: (type) => value,
+				class: (clazz) => {
+					const classConstructor = value as Map<string, any>;
+					const res = {} as any;
+					res[clazz.name] = this.constructorParamFromMap(clazz.consturctors[0], classConstructor);
+					return res as object;
+				},
+				deadly: (type) => "DEADLY",
+				interface: (interf) => {
+					const interfaceFields = value as Map<string, any>;
+					// TODO: works only interface with primirive fields
+					return Object.entries(interfaceFields.entries());
+				},
+			})
+		});
+	}
 
 	FactoryListView(click: (ev: { factory: ClassDescription, method: FunctionDescription }) => void): HTMLElement {
 
@@ -170,7 +203,25 @@ export class TypeManager {
 				if (current.firstChild) {
 					current.removeChild(current.firstChild)
 				}
-				current.appendChild(this.MethodView(method))
+				const [elem, output] = this.MethodView(method);
+				current.appendChild(
+					createElement(
+						"form",
+						AppendHTML(
+							elem,
+							createElement("input", SetInputType("submit"))
+						),
+						AddEventListener("submit", (ev: Event) => {
+							ev.preventDefault();
+							const deadly: DeadlyRecipe = {
+								name: method.returnType,
+								type: `${factory.name.toLowerCase()}.${method.returnType}`,
+								constructor: this.constructorParamFromMap(method, output),
+							}
+							console.log(JSON.stringify(deadly, undefined, 4))
+						})
+					)
+				)
 			}
 		}
 		const methodPrefix = "Create";
@@ -179,15 +230,12 @@ export class TypeManager {
 			SetStyles(style => style.cursor = "pointer"),
 			AddEventListener("click", hideChildOfLI),
 			AppendHTML(
-				createElement("style",
-					style => style.textContent = `input {width: 32px;}`),
 				Iterators.Wrap(
 					this.factories.values()
 				).map(
 					factory => createElement(
 						"li",
 						FillHTML(factory),
-						// AddEventListener("click", hideChild),
 						AppendHTML(
 							createElement("ul",
 								AppendHTML(...factory.methods.
@@ -208,64 +256,136 @@ export class TypeManager {
 		)
 	}
 
-	MethodView(method: FunctionDescription): HTMLElement {
-		return createElement(
+	MethodView(method: FunctionDescription): [HTMLElement, Map<string, any>] {
+		const parametrs = new Map<string, any>();
+		return [createElement(
 			"article",
 			AppendHTML(
 				createElement("header", FillHTML({ name: method.returnType, documentation: method.documentation })),
 				createElement(
 					"ul",
-					AppendHTML(method.parameters.map(this.ParameterInput)),
+					AppendHTML(method.parameters.map(this.ParameterInput.bind(this, parametrs))),
 					AddEventListener("click", hideChildOfLI),
 				)
-			))
+			)), parametrs]
 	}
 
-	ParameterInput = (param: FieldDescription) => {
+	ParameterInput = (output: Map<string, any>, param: FieldDescription) => {
 		return createElement("li",
-			FillHTML({ name: param.name, documentation: param.documentation }),
+			FillHTML({ name: param.name, documentation: param.type }),
 			AppendHTML(
-				this.TypeInput(param.type),
+				this.TypeInput(param.name, param.type, output),
 			))
 	}
 
-	getOrDefault<T>(nullable: T|null|undefined, default_: T): T {
-		if(nullable) {
+	getOrDefault<T>(nullable: T | null | undefined, default_: T): T {
+		if (nullable) {
 			return nullable;
 		}
 		return default_;
 	}
+	private readonly nullRegexp = /null|undefined/;
 
-	TypeInput(type: string): HTMLElement {
+	switchByType<T>(type: string, actions: {
+		nullable: (type: string) => T,
+		interface: (desc: InterfaceDescription) => T,
+		deadly: (desc: ClassDescription | string) => T,
+		class: (desc: ClassDescription) => T,
+		primitive: (type: string) => T,
+	}): T {
+		if (type.match(/\|/)) {
+			const types = type.split(" | ");
+			const mainType = types.filter(x => !x.match(this.nullRegexp));
+			if (mainType.length != 1)
+				throw new Error(`${type} is not supported now, only nullable union supported!`);
+			return actions.nullable(mainType[0]);
+		}
 		if (this.interfaces.has(type)) {
-			const interf = this.interfaces.get(type)!;
-			return createElement("ul",
-				AppendHTML(interf.fields.map(this.ParameterInput)),
-			)
+			return actions.interface(this.interfaces.get(type)!);
 		}
-		if(this.instanceOf("Deadly", type))
-			return createElement(
-				"ul",
-				AppendHTML([type].concat(this.getOrDefault(this.inheritanceLists.get(type), [])).map(x=>createElement("li", (li=>li.textContent=x))))
-			)
-		if (this.classes.has(type)) {
-			const clazz = this.classes.get(type)!;
-			return createElement("ul",
-				AppendHTML(clazz.consturctors[0].parameters.map(this.ParameterInput)),
-			)
-		}
-		switch (type) {
-			case "string":
-				return createElement("input")
-			case "number":
-				return createElement("input", SetInputType("number"))
-			case "boolean":
-				return createElement("input", SetInputType("checkbox"))
-			default:
-				return createElement("a")
-		}
+		if (this.instanceOf("Deadly", type))
+			return actions.deadly(type);
+		if (this.classes.has(type))
+			return actions.class(this.classes.get(type)!);
+		return actions.primitive(type);
 	}
+	TypeInput(name: string, type: string, output: Map<string, any>, required = true): HTMLElement {
+		const additionalModifiers = (type: string) => {
+			switch (type) {
+				case "number":
+					return [SetInputType("number")]
+				case "boolean":
+					return [SetRequired(false), SetInputType("checkbox")]
+				// TODO
+				// case "color":
+				// 	return [SetInputType("color")]
+				default:
+					return []
+			}
+		}
+		const getValue = (input: HTMLInputElement) => {
+			switch (input.type) {
+				case "number": return input.valueAsNumber;
+				case "checkbox": return input.checked;
+				default: return input.value;
+			}
+		}
+		return this.switchByType(type, {
+			nullable: (type) => this.TypeInput(name, type, output, false),
+			class: (clazz) => {
+				const newMap1 = new Map<string, any>();
+				output.set(name, newMap1);
+				return createElement("ul",
+					AppendHTML(clazz.consturctors[0].parameters.map(this.ParameterInput.bind(this, newMap1))),
+				)
+			},
+			deadly: (type) => {
+				return createElement(
+					"ul",
+					CSSClass("unsupported"),
+					AppendHTML(
+						[type as string].concat(this.getOrDefault(this.inheritanceLists.get(type as string), [])).
+							map(x => createElement("li", (li => li.textContent = x)))
+					)
+				)
+			},
+			interface: (interf) => {
+				const newMap = new Map<string, any>();
+				output.set(name, newMap);
+				return createElement("ul",
+					AppendHTML(interf.fields.map(this.ParameterInput.bind(this, newMap))),
+				)
+			},
+			primitive: (type) => {
+				return createElement(
+					"input",
+					SetTitle(type),
+					SetRequired(required),
+					SetName(name),
+					AddEventListener("change", function (ev: Event) {
+						output.set(name, getValue(this as HTMLInputElement))
+					}),
+					...additionalModifiers(type));
+			}
+		});
+	}
+}
 
+function SetTitle(title: string) {
+	return (elem: HTMLElement) => elem.title = title;
+}
+
+function CSSClass(className: string) {
+	return (elem: HTMLElement) => elem.classList.add(className);
+}
+
+
+function SetName(name: string) {
+	return (input: HTMLInputElement) => input.name = name;
+}
+
+function SetRequired(required = true) {
+	return (input: HTMLInputElement) => input.required = required;
 }
 
 function SetInputType(type: string) {

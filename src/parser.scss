@@ -3,3 +3,14 @@
         display: none;
     }
 }
+
+input {
+    width: 32px;
+    &[type=submit] {
+        width: auto;
+    }
+}
+
+.unsupported {
+    background-color: red;
+}

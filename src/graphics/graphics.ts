@@ -28,9 +28,9 @@ export interface Texture {
 	Draw(context: CanvasRenderingContext2D): void;
 }
 
-export interface RectangleTexture {
-	Draw(context: CanvasRenderingContext2D, size: Size): void;
-}
+// export interface class RectangleTexture {
+// 	interface Draw(context: CanvasRenderingContext2D, size: Size): void;
+// }
 
 export class EntityAvatar extends DeadlyAvatar {
 	public constructor(public readonly entity: Entity, public readonly size: Size, public readonly texture: RectangleTexture) {
@@ -109,9 +109,11 @@ export class PointAvatar extends DeadlyAvatar {
 	}
 }
 
+type Color = string
+
 export interface ColorSettings {
-	fill?: string
-	stroke?: string
+	fill?: Color
+	stroke?: Color
 }
 
 export class RectangleBodyAvatar extends EntityAvatar {
@@ -120,7 +122,7 @@ export class RectangleBodyAvatar extends EntityAvatar {
 	}
 }
 
-export class RectangleTexture implements RectangleTexture {
+export class RectangleTexture { //implements RectangleTexture {
 	public constructor(private settings: ColorSettings = { fill: "black" }) {
 	}
 

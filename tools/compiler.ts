@@ -92,9 +92,13 @@ class ClassDescription extends InterfaceDescription {
 			symbol,
 			symbol.valueDeclaration!
 		);
+		// if (!constructorType.isClassOrInterface()) {
+			// throw new Error(`${this.name} is not a class!`);
+		// }
 		this.consturctors = constructorType.getConstructSignatures().map(s => new SignatureDescription(s, checker));
 		
 		const prototypeType = checker.getBaseTypes(constructorType as ts.InterfaceType);
+		checker.isImplementationOfOverload
 		this.prototype = prototypeType.length ? prototypeType[0].symbol.name : "";
 		if(prototypeType.length > 1) {
 			throw new Error(`${this.name} has ${prototypeType.length} prototypes!`)
