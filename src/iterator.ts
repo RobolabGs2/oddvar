@@ -26,7 +26,7 @@ export namespace Iterators {
 		map<U>(mapper: (x: T) => U): Wrapper<U> {
 			return this as unknown as Wrapper<U>;
 		}
-		filter(predicat: (x: T) => boolean): Wrapper<T> {
+		filter(predicate: (x: T) => boolean): Wrapper<T> {
 			return this;
 		}
 		toArray(): T[] {

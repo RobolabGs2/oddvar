@@ -26,7 +26,11 @@ export class Oddvar {
 		}).
 			then(response => response.json()).
 			then(parser.newTypeManager.bind(parser)).
-			then(x => x.FactoryListView((deadlyRecipe) => parser.parseWorld(JSON.stringify([deadlyRecipe])))).
+			then(x => x.FactoryListView((deadlyRecipe) => {
+				const json = JSON.stringify([deadlyRecipe], undefined, 2);
+				console.log(json);
+				parser.parseWorld(json)
+			})).
 			then(HTMLElement.prototype.append.bind(document.body)).
 			catch(e => console.error(e));
 		let lastTime = 0;
