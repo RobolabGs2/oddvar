@@ -38,7 +38,7 @@ export class Parser {
 
 	private namedEntities = new Map<string, Deadly>();
 
-	parseElement({ type, constructor, child, name }: ElementRecipe, parent?: any) {
+	parseElement({ type, constructor, child, name }: DeadlyRecipe, parent?: any) {
 		const [factoryName, constructorName] = type.split(".");
 		const factory = this.factories.get(factoryName);
 		if (!factory)
@@ -51,7 +51,7 @@ export class Parser {
 			...(parent ?
 				[parent, ...constructor]
 				:
-				constructor.map(param => (typeof param) === "string" && this.namedEntities.has(param) ? this.namedEntities.get(param) : param)));
+				constructor.map(param => (typeof param) === "string" && this.namedEntities.has(param as string) ? this.namedEntities.get(param as string) : param)));
 		if (elem instanceof Deadly) {
 			elem.Name = name ? name : `${type}${(Math.random() * 100000000).toFixed(0)}`
 			if (name)
@@ -192,7 +192,7 @@ export class TypeManager {
 		});
 	}
 
-	FactoryListView(click: (ev: { factory: ClassDescription, method: FunctionDescription }) => void): HTMLElement {
+	FactoryListView(click: (json: DeadlyRecipe) => void): HTMLElement {
 
 		const current = createElement(
 			"div",
@@ -201,7 +201,6 @@ export class TypeManager {
 		document.body.appendChild(current);
 		const invokeClickEvent = (factory: ClassDescription, method: FunctionDescription, mouseEvent: MouseEvent) => {
 			if (mouseEvent.button === 0) {
-				click({ factory, method })
 				if (current.firstChild) {
 					current.removeChild(current.firstChild)
 				}
@@ -234,7 +233,9 @@ export class TypeManager {
 								this.json.set(type, deadlies);
 							}
 							deadlies.set(deadly.name!, deadly);
-							console.log(JSON.stringify(deadly, undefined, 4))
+							const json = JSON.stringify(deadly, undefined, 4);
+							console.log(json)
+							click(deadly);
 							invokeClickEvent(factory, method, mouseEvent);
 						})
 					)

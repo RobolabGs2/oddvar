@@ -14,7 +14,8 @@ export class Oddvar {
 	private controller = new Controller();
 	private physics = new Physics();
 	public constructor(worldJSON: string) {
-		const parser = new Parser([this.world, this.graphics, this.controller, this.physics],
+		const parser = new Parser(
+			[this.world, this.graphics, this.controller, this.physics],
 			[Point, Size, RectangleTexture])
 		parser.parseWorld(worldJSON);
 		fetch("resources/reflection.json", {
@@ -25,7 +26,7 @@ export class Oddvar {
 		}).
 			then(response => response.json()).
 			then(parser.newTypeManager.bind(parser)).
-			then(x => x.FactoryListView((ev)=>console.log(ev))).
+			then(x => x.FactoryListView((deadlyRecipe) => parser.parseWorld(JSON.stringify([deadlyRecipe])))).
 			then(HTMLElement.prototype.append.bind(document.body)).
 			catch(e => console.error(e));
 		let lastTime = 0;
@@ -34,7 +35,6 @@ export class Oddvar {
 			lastTime = t;
 			if (dt > 0.3)
 				dt = 0.3;
-
 			this.physics.Tick(dt);
 			this.controller.Tick(dt);
 			this.graphics.Tick(dt);
