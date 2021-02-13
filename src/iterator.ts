@@ -1,13 +1,18 @@
 export namespace Iterators {
-
-	export class Wrapper<T> {
+	export interface Wrapper<T> {
+		map<U>(mapper: (x: T)=>U): Wrapper<U>
+		filter(predicat: (x: T) => boolean): Wrapper<T>
+		toArray(): T[]
+		forEach(action: (value: T, index: number) => void): void
+	}
+	export class IteratorWrapper<T> implements Wrapper<T>{
 		constructor(public readonly iterator: IterableIterator<T>) {
 		}
 		map<U>(mapper: (x: T)=>U) {
-			return new Wrapper(map(this.iterator, mapper))
+			return new IteratorWrapper(map(this.iterator, mapper))
 		}
 		filter(predicat: (x: T) => boolean) {
-			return new Wrapper(filter(this.iterator, predicat))
+			return new IteratorWrapper(filter(this.iterator, predicat))
 		}
 		toArray() {
 			return Array.from(this.iterator);
@@ -16,8 +21,27 @@ export namespace Iterators {
 			forEach(this.iterator, action);
 		}
 	}
-	export function Wrap<T>(iterator: IterableIterator<T>) {
-		return new Wrapper(iterator);
+
+	class NullWrapper<T> implements Wrapper<T> {
+		map<U>(mapper: (x: T) => U): Wrapper<U> {
+			return this as unknown as Wrapper<U>;
+		}
+		filter(predicat: (x: T) => boolean): Wrapper<T> {
+			return this;
+		}
+		toArray(): T[] {
+			return [];
+		}
+		forEach(action: (value: T, index: number) => void): void{}
+	}
+
+	export function Wrap<T>(iterator: IterableIterator<T>): Wrapper<T> {
+		return new IteratorWrapper(iterator);
+	}
+	export function WrapOrNoting<T>(iterator?: IterableIterator<T>): Wrapper<T> {
+		if(iterator)
+			return Wrap(iterator);
+		return new NullWrapper;
 	}
 	export function* map<V, T>(iter: IterableIterator<V>, map: (value: V) => T) {
 		for (let i of iter)

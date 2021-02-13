@@ -12,7 +12,8 @@
             "dom",
             "es6",
             "scripthost",
-            "es2015.collection"
+            "es2015.collection",
+            "es2019"
         ],
         "baseUrl": "./",
     },

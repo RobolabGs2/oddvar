@@ -80,9 +80,9 @@ type ConstructorArgument = string | number | object
 
 interface DeadlyRecipe {
 	type: string
-	name?: string
+	name: string
 	constructor: ConstructorArgument[]
-	child?: DeadlyRecipe[]
+	child: DeadlyRecipe[]
 }
 
 
@@ -180,11 +180,13 @@ export class TypeManager {
 					res[clazz.name] = this.constructorParamFromMap(clazz.consturctors[0], classConstructor);
 					return res as object;
 				},
-				deadly: (type) => "DEADLY",
+				deadly: (type) => value,
 				interface: (interf) => {
 					const interfaceFields = value as Map<string, any>;
+					console.log(interf.name);
+					console.log(value);
 					// TODO: works only interface with primirive fields
-					return Object.entries(interfaceFields.entries());
+					return Array.from(interfaceFields.entries()).reduce((cap, cur) => { cap[cur[0]] = cur[1]; return cap }, {} as any);
 				},
 			})
 		});
@@ -197,28 +199,43 @@ export class TypeManager {
 			SetStyles(styles => styles.width = "250px"),
 		)
 		document.body.appendChild(current);
-		const invokeClickEvent = (factory: ClassDescription, method: FunctionDescription, ev: MouseEvent) => {
-			if (ev.button === 0) {
+		const invokeClickEvent = (factory: ClassDescription, method: FunctionDescription, mouseEvent: MouseEvent) => {
+			if (mouseEvent.button === 0) {
 				click({ factory, method })
 				if (current.firstChild) {
 					current.removeChild(current.firstChild)
 				}
 				const [elem, output] = this.MethodView(method);
+				const type = method.returnType;
+				const nameInput = createElement(
+					"input",
+					SetRequired(),
+					(input) => input.value = `${type}${this.getOrDefault(this.json.get(type)?.size, 0)}`
+				)
 				current.appendChild(
 					createElement(
 						"form",
 						AppendHTML(
+							nameInput,
 							elem,
 							createElement("input", SetInputType("submit"))
 						),
 						AddEventListener("submit", (ev: Event) => {
 							ev.preventDefault();
 							const deadly: DeadlyRecipe = {
-								name: method.returnType,
-								type: `${factory.name.toLowerCase()}.${method.returnType}`,
+								name: nameInput.value,
+								type: `${factory.name.toLowerCase()}.${type}`,
 								constructor: this.constructorParamFromMap(method, output),
+								child: [],
 							}
+							let deadlies = this.json.get(type)
+							if (!deadlies) {
+								deadlies = new Map<string, DeadlyRecipe>();
+								this.json.set(type, deadlies);
+							}
+							deadlies.set(deadly.name!, deadly);
 							console.log(JSON.stringify(deadly, undefined, 4))
+							invokeClickEvent(factory, method, mouseEvent);
 						})
 					)
 				)
@@ -286,10 +303,12 @@ export class TypeManager {
 	}
 	private readonly nullRegexp = /null|undefined/;
 
+	private json = new Map<string, Map<string, DeadlyRecipe>>()
+
 	switchByType<T>(type: string, actions: {
 		nullable: (type: string) => T,
 		interface: (desc: InterfaceDescription) => T,
-		deadly: (desc: ClassDescription | string) => T,
+		deadly: (desc: ClassDescription) => T,
 		class: (desc: ClassDescription) => T,
 		primitive: (type: string) => T,
 	}): T {
@@ -304,7 +323,7 @@ export class TypeManager {
 			return actions.interface(this.interfaces.get(type)!);
 		}
 		if (this.instanceOf("Deadly", type))
-			return actions.deadly(type);
+			return actions.deadly(this.classes.get(type)!);
 		if (this.classes.has(type))
 			return actions.class(this.classes.get(type)!);
 		return actions.primitive(type);
@@ -341,12 +360,27 @@ export class TypeManager {
 			},
 			deadly: (type) => {
 				return createElement(
-					"ul",
-					CSSClass("unsupported"),
+					"select",
+					SetRequired(required),
+					AddEventListener("change", function (ev) {
+						const select = this as HTMLSelectElement;
+						output.set(name, select.value);
+					}),
 					AppendHTML(
-						[type as string].concat(this.getOrDefault(this.inheritanceLists.get(type as string), [])).
-							map(x => createElement("li", (li => li.textContent = x)))
-					)
+						[type.name, ...this.getOrDefault(this.inheritanceLists.get(type.name), [])].
+							flatMap(typeName =>
+								Iterators.WrapOrNoting(this.json.get(typeName)?.keys()).map(name =>
+									createElement(
+										"option",
+										(option) => {
+											option.value = name
+											option.text = name
+										}
+									)
+								).toArray()
+							),
+					),
+					(select) => select.dispatchEvent(new Event("change"))
 				)
 			},
 			interface: (interf) => {
@@ -385,7 +419,7 @@ function SetName(name: string) {
 }
 
 function SetRequired(required = true) {
-	return (input: HTMLInputElement) => input.required = required;
+	return (input: HTMLInputElement | HTMLSelectElement) => input.required = required;
 }
 
 function SetInputType(type: string) {
@@ -407,10 +441,10 @@ interface ForEachable<T> {
 	forEach(each: (value: T) => void): void;
 }
 
-function AppendHTML(...elems: HTMLElement[]): (parent: HTMLElement) => void
-function AppendHTML(elems: ForEachable<HTMLElement>): (parent: HTMLElement) => void
-function AppendHTML(...elems: (ForEachable<HTMLElement> | HTMLElement)[]): (parent: HTMLElement) => void
-function AppendHTML(...elems: (ForEachable<HTMLElement> | HTMLElement)[]): (parent: HTMLElement) => void {
+function AppendHTML<T extends HTMLElement>(...elems: T[]): (parent: HTMLElement) => void
+function AppendHTML<T extends HTMLElement>(elems: ForEachable<T>): (parent: HTMLElement) => void
+function AppendHTML<T extends HTMLElement>(...elems: (ForEachable<T> | HTMLElement)[]): (parent: HTMLElement) => void
+function AppendHTML<T extends HTMLElement>(...elems: (ForEachable<T> | HTMLElement)[]): (parent: HTMLElement) => void {
 	return (parent: HTMLElement) =>
 		elems.forEach(value => {
 			if (value instanceof HTMLElement) {
