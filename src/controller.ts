@@ -1,7 +1,7 @@
 import { Deadly, DeadlyWorld } from "base"
 import { Entity } from "world"
 import { Point } from "geometry";
-import { Body } from "physics";
+import { Body } from "physics/body";
 
 
 export abstract class Control extends Deadly {

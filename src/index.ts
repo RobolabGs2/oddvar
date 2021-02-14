@@ -5,7 +5,7 @@ import { Oddvar } from "oddvar";
 		[
 			{
 				"type": "world.Entity",
-				"constructor": [{ "Point": [100, 200] }, 0.1],
+				"constructor": [{ "Point": [150, 100] }, 0.1],
 				"child": [
 					{
 						"name": "Cubik",
@@ -28,12 +28,8 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
+								"constructor": [{ "RectangleTexture": [{ "fill": "lime", "stroke": "green" }] }]
 							},
-							{
-								"type": "graphics.DebugBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
-							}
 						]
 					},
 					{
@@ -68,9 +64,39 @@ import { Oddvar } from "oddvar";
 				]
 			},
 			{
-				"type": "graphics.RectangleBodyAvatar",
-				"constructor": ["Cubik", { "RectangleTexture": [{ "fill": "rgba(0, 255, 128, 0.5)" }] }]
-			},//	1
+				"type": "world.Entity",
+				"constructor": [{ "Point": [250, 100] }, 0.1],
+				"child": [
+					{
+						"name": "Cubik",
+						"type": "physics.RectangleBody",
+						"constructor": [{ "density": 1 }, { "Size": [30, 30] }],
+						"child": [
+							{
+								"type": "graphics.RectangleBodyAvatar",
+								"constructor": [{ "RectangleTexture": [{ "fill": "pink", "stroke": "green" }] }]
+							},
+						]
+					}
+				]
+			},
+			{
+				"type": "world.Entity",
+				"constructor": [{ "Point": [200, 150] }, 0.1],
+				"child": [
+					{
+						"name": "Cubik",
+						"type": "physics.RectangleBody",
+						"constructor": [{ "density": 1 }, { "Size": [50, 50] }],
+						"child": [
+							{
+								"type": "graphics.RectangleBodyAvatar",
+								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
+							},
+						]
+					}
+				]
+			},	//	1
 			{
 				"type": "world.Entity",
 				"constructor": [{ "Point": [300, 300] }, -0.785398],

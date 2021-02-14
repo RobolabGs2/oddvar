@@ -2,15 +2,22 @@ import { World } from "world"
 import { Point, Size } from "geometry";
 import { Graphics, RectangleTexture } from "graphics/graphics";
 import { Controller } from "controller";
-import { Physics } from "physics";
+import { Physics } from "physics/physics";
 import { Parser } from "parser";
+import * as HTML from "html";
 
 /**
  * This is Oddvar
  */
 export class Oddvar {
+	private pause = false;
 	private world = new World();
-	private graphics = new Graphics();
+	private graphics = new Graphics(HTML.CreateElement("canvas", c => {
+		c.width = 500;
+		c.height = 500;
+		document.body.append(c);
+	}, HTML.AddEventListener("click", () => { this.pause = ! this.pause })));
+
 	private controller = new Controller();
 	private physics = new Physics();
 	public constructor(worldJSON: string) {
@@ -39,8 +46,11 @@ export class Oddvar {
 			lastTime = t;
 			if (dt > 0.03)
 				dt = 0.03;
-			this.physics.Tick(dt);
-			this.controller.Tick(dt);
+
+			if (!this.pause) {
+				this.physics.Tick(dt);
+				this.controller.Tick(dt);
+			}
 			this.graphics.Tick(dt);
 			requestAnimationFrame(Tick);
 		};

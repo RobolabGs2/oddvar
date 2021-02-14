@@ -1,7 +1,8 @@
 import { Deadly, DeadlyWorld } from "base"
 import { Entity } from "world"
 import { Matrix, Point, Size } from "geometry";
-import { RectangleBody, Body, RaySensor } from "physics";
+import { Body, RectangleBody } from "physics/body";
+import { RaySensor } from "physics/sensor";
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
 	c.transform(
@@ -141,15 +142,11 @@ export class RectangleTexture { //implements RectangleTexture {
 
 export class Graphics extends DeadlyWorld<Avatar>
 {
-	private canvas = document.createElement("canvas");
 	public readonly context: CanvasRenderingContext2D;
 
-	constructor(parent: HTMLElement = document.body) {
+	constructor(private canvas: HTMLCanvasElement) {
 		super();
-		this.canvas.width = 500;
-		this.canvas.height = 500;
 		this.context = this.canvas.getContext("2d")!
-		parent.appendChild(this.canvas);
 	}
 
 	public Tick(dt: number) {
