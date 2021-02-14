@@ -21,8 +21,8 @@ export class Oddvar {
 		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;
 			lastTime = t;
-			if (dt > 0.3)
-				dt = 0.3;
+			if (dt > 0.03)
+				dt = 0.03;
 
 			this.physics.Tick(dt);
 			this.controller.Tick(dt);

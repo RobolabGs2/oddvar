@@ -76,6 +76,13 @@ export abstract class Body extends Essence
 		this.CollisionEvents.forEach(l => l(this, b2));
 	}
 
+	public GetVelocity(p: Point): Point {
+		const delta = this.entity.location.Sub(p);
+		return this.lineVelocity.Add(
+			new Point(delta.y, -delta.x).Norm().Mult(delta.Len() * this.angleVelocity)
+		);
+	}
+
 	public Tick(dt: number) {
 		if (this.isStatic) {
 			this.angleForce = 0;
@@ -87,11 +94,11 @@ export abstract class Body extends Essence
 		let m = this.Mass();
 		let inertia = this.MomentOfInertia();
 
-		this.angleVelocity += dt * this.angleForce * inertia;
+		this.angleVelocity += dt * this.angleForce / inertia;
 		this.entity.rotation += dt * this.angleVelocity;
 		this.angleForce = 0;
 
-		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt * m));
+		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt / m));
 		this.entity.location = this.entity.location.Add(this.lineVelocity.Mult(dt));
 		this.lineForce.x = 0;
 		this.lineForce.y = 0;
@@ -224,11 +231,11 @@ export class RectangleBody extends Body
 	}
 
 	public Mass(): number {
-		return 1/(this.size.Area() * this.material.density);
+		return (this.size.Area() * this.material.density);
 	}
 
 	public MomentOfInertia(): number {
-		return 1 / (this.size.width * this.size.height * (this.size.height * this.size.height +
+		return (this.size.width * this.size.height * (this.size.height * this.size.height +
 			this.size.width * this.size.width) * 4 * this.material.density / 3);
 	}
 
@@ -284,6 +291,8 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
+		if (b1.isStatic && b2.isStatic)
+			return false;
 		if (b1 instanceof(RectangleBody))
 			if (b2 instanceof(RectangleBody))
 				return this.IntersectRectangleRectangle(b1, b2);
@@ -300,6 +309,9 @@ export class Physics extends DeadlyWorld<Essence>
 			if (intersect.intersect) {
 				result = true;
 				const k = 1000000;
+				const dv = b2.GetVelocity(p).Sub(b1.GetVelocity(p));
+				if (intersect.nearNorm.Dot(dv) < 0)
+					continue;
 				b1.Hit(intersect.nearNorm.Mult(intersect.nearDist * k), p);
 				b2.Hit(intersect.nearNorm.Mult(-intersect.nearDist * k), p);
 			}
