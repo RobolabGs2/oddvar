@@ -7,8 +7,11 @@ const CopyPlugin = require('copy-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
 module.exports = (env) => {
+	// development mode by default
+	env = env ? env : { production: false }
 	return {
-		entry: "./src/index.ts",
+		mode: env.production ? 'production' : 'development',
+		entry: './src/index.ts',
 		plugins: [
 			new CleanWebpackPlugin(),
 			new MiniCssExtractPlugin(),
@@ -17,19 +20,19 @@ module.exports = (env) => {
 				chunks: ['main'],
 				filename: `index.html`,
 				meta: {
-					viewport: "width=device-width",
-					charset: "UTF-8"
+					viewport: 'width=device-width',
+					charset: 'UTF-8'
 				},
 				hash: true,
 				base: './',
 				favicon: './favicon.png'
 			}),
 			new CopyPlugin([
-			{from: './resources/*.json', to: './resources', flatten: true}
+				{ from: './resources/*.json', to: './resources', flatten: true }
 			]),
-			new ForkTsCheckerWebpackPlugin({typescript: {configFile: "src/tsconfig.json"}}),
+			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: 'src/tsconfig.json' } }),
 		],
-		devtool: 'inline-source-map',
+		devtool: env.production ? 'none' : 'source-map',
 		module: {
 			rules: [
 				{
@@ -44,19 +47,19 @@ module.exports = (env) => {
 					use: [MiniCssExtractPlugin.loader, 'css-loader'],
 				},
 				{
-                    test: /\.s[ac]ss$/i,
-                    use: [
-                        MiniCssExtractPlugin.loader,
-                        // Translates CSS into CommonJS
-                        'css-loader',
-                        // Compiles Sass to CSS
-                        'sass-loader',
-                    ],
-                }
+					test: /\.s[ac]ss$/i,
+					use: [
+						MiniCssExtractPlugin.loader,
+						// Translates CSS into CommonJS
+						'css-loader',
+						// Compiles Sass to CSS
+						'sass-loader',
+					],
+				}
 			],
 		},
 		resolve: {
-			extensions: ['.tsx', '.ts', '.js', '.scss', 'css'],
+			extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
 			modules: [path.resolve(__dirname, 'src'), 'node_modules']
 		},
 		output: {
@@ -67,13 +70,13 @@ module.exports = (env) => {
 			splitChunks: {
 				chunks: 'all',
 			},
-			minimize: true,
+			minimize: env.production,
 			minimizer: [
 				new UglifyJsPlugin({
 					uglifyOptions: {
 						mangle: false,
 					},
-					sourceMap: true
+					sourceMap: !env.production
 				}),
 			],
 		},

@@ -98,10 +98,9 @@ class ClassDescription extends InterfaceDescription {
 		this.consturctors = constructorType.getConstructSignatures().map(s => new SignatureDescription(s, checker));
 		
 		const prototypeType = checker.getBaseTypes(constructorType as ts.InterfaceType);
-		checker.isImplementationOfOverload
 		this.prototype = prototypeType.length ? prototypeType[0].symbol.name : "";
 		if(prototypeType.length > 1) {
-			throw new Error(`${this.name} has ${prototypeType.length} prototypes!`)
+			throw new Error(`${this.name} has ${prototypeType.length} prototypes: ${prototypeType.map(p=>p.symbol.name).join(",")}!`)
 		}
 	}
 	consturctors: SignatureDescription[];
@@ -171,7 +170,7 @@ function generateDocumentation(
 	}
 }
 
-console.log(process.argv)
+const startTime = new Date().getTime();
 const args = process.argv.slice(2);
 const inputFile = args[0];
 const inputTSConfig = args[1]
@@ -181,13 +180,17 @@ const config = ts.readConfigFile(inputTSConfig, ts.sys.readFile);
 if (config.error) {
 	console.error(config.error);
 } else {
-	console.log(config.config);
 	const c = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, cutLast(inputTSConfig))
 	if (c.errors.length) {
 		console.error(c.errors);
 	}
 	const res = generateDocumentation([inputFile], c.options)
 	fs.writeFileSync(outputFile, JSON.stringify(res, undefined, minify ? undefined : "\t"));
+	console.log(`Time: ${new Date().getTime() - startTime}ms`);
+	console.log(`Classes: ${res.classes.length}`)
+	console.log(`Interfaces: ${res.interfaces.length}`)
+	console.log(`Reflection json written in ${outputFile}!`);
+	console.log();
 }
 
 function cutLast(path: string): string {
