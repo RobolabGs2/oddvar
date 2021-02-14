@@ -8,6 +8,7 @@ import { Oddvar } from "oddvar";
 				"constructor": [{ "Point": [100, 200] }, 0.1],
 				"child": [
 					{
+						"name": "Cubik",
 						"type": "physics.RectangleBody",
 						"constructor": [{ "density": 1 }, { "Size": [20, 20] }],
 						"child": [
@@ -65,7 +66,11 @@ import { Oddvar } from "oddvar";
 						]
 					}
 				]
-			},	//	1
+			},
+			{
+				"type": "graphics.RectangleBodyAvatar",
+				"constructor": ["Cubik", { "RectangleTexture": [{ "fill": "rgba(0, 255, 128, 0.5)" }] }]
+			},//	1
 			{
 				"type": "world.Entity",
 				"constructor": [{ "Point": [300, 300] }, -0.785398],

@@ -48,10 +48,14 @@ class FunctionDescription extends SignatureDescription {
 	name: string
 }
 
+function typenameOfSymbol(symbol: ts.Symbol, checker: ts.TypeChecker): string {
+	return checker.typeToString(checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!));
+}
+
 class FieldDescription extends NamedSymbolDesctiption {
 	public constructor(symbol: ts.Symbol, checker: ts.TypeChecker) {
 		super(symbol, checker)
-		this.type = checker.typeToString(checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!));
+		this.type = typenameOfSymbol(symbol, checker);
 	}
 	type: string;
 }
@@ -88,9 +92,19 @@ class ClassDescription extends InterfaceDescription {
 			symbol,
 			symbol.valueDeclaration!
 		);
+		// if (!constructorType.isClassOrInterface()) {
+			// throw new Error(`${this.name} is not a class!`);
+		// }
 		this.consturctors = constructorType.getConstructSignatures().map(s => new SignatureDescription(s, checker));
+		
+		const prototypeType = checker.getBaseTypes(constructorType as ts.InterfaceType);
+		this.prototype = prototypeType.length ? prototypeType[0].symbol.name : "";
+		if(prototypeType.length > 1) {
+			throw new Error(`${this.name} has ${prototypeType.length} prototypes: ${prototypeType.map(p=>p.symbol.name).join(",")}!`)
+		}
 	}
 	consturctors: SignatureDescription[];
+	prototype: string;
 }
 
 /** Generate documentation for all classes in a set of .ts files */
@@ -156,7 +170,7 @@ function generateDocumentation(
 	}
 }
 
-console.log(process.argv)
+const startTime = new Date().getTime();
 const args = process.argv.slice(2);
 const inputFile = args[0];
 const inputTSConfig = args[1]
@@ -166,13 +180,17 @@ const config = ts.readConfigFile(inputTSConfig, ts.sys.readFile);
 if (config.error) {
 	console.error(config.error);
 } else {
-	console.log(config.config);
 	const c = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, cutLast(inputTSConfig))
 	if (c.errors.length) {
 		console.error(c.errors);
 	}
 	const res = generateDocumentation([inputFile], c.options)
 	fs.writeFileSync(outputFile, JSON.stringify(res, undefined, minify ? undefined : "\t"));
+	console.log(`Time: ${new Date().getTime() - startTime}ms`);
+	console.log(`Classes: ${res.classes.length}`)
+	console.log(`Interfaces: ${res.interfaces.length}`)
+	console.log(`Reflection json written in ${outputFile}!`);
+	console.log();
 }
 
 function cutLast(path: string): string {

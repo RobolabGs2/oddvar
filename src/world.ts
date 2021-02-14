@@ -20,7 +20,9 @@ export class Entity extends Deadly {
 			Mult(Matrix.Rotation(-this.rotation));
 	}
 }
-
+/**
+ * @deprecated
+ */
 export class TailEntity extends Entity {
 	public constructor(
 		public readonly parent: Entity,
