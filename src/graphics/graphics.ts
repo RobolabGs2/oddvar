@@ -3,6 +3,7 @@ import { Entity } from "world"
 import { Matrix, Point, Size } from "geometry";
 import { Body, RectangleBody } from "physics/body";
 import { RaySensor } from "physics/sensor";
+import { ColoredTexture, RectangleTexture } from "graphics/texture";
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
 	c.transform(
@@ -25,23 +26,22 @@ export abstract class DeadlyAvatar extends Deadly {
 	}
 }
 
-export interface Texture {
-	Draw(context: CanvasRenderingContext2D): void;
-}
-
-// export interface class RectangleTexture {
-// 	interface Draw(context: CanvasRenderingContext2D, size: Size): void;
-// }
 
 export class EntityAvatar extends DeadlyAvatar {
-	public constructor(public readonly entity: Entity, public readonly size: Size, public readonly texture: RectangleTexture) {
+	public constructor(
+		public readonly entity: Entity,
+		public readonly size: Size,
+		public readonly texture: RectangleTexture
+	) {
 		super(entity);
 	}
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
 		TransformContext(context, this.entity.Transform());
-		this.texture.Draw(context, this.size);
+		this.texture.DrawRectangle(context, this.size);
 	}
 }
+
+
 
 interface Pointable {
 	Point(): Point
@@ -56,8 +56,8 @@ function DrawVector(context: CanvasRenderingContext2D, vec: Point) {
 	const norm = vec.Div(len);
 	TransformContext(context, Matrix.RotationCosSin(norm.x, norm.y).Mult(Matrix.Translate(vec)))
 	context.beginPath()
-	const dy = context.lineWidth+2;
-	const dx = dy+4;
+	const dy = context.lineWidth + 2;
+	const dx = dy + 4;
 	context.moveTo(-dx, -dy);
 	context.lineTo(0, 0);
 	context.lineTo(-dx, dy)
@@ -98,11 +98,11 @@ export class DebugRaySensor extends DeadlyAvatar {
 }
 
 export class PointAvatar extends DeadlyAvatar {
-	private texture = new RectangleTexture({ fill: "blue" })
+	private texture = new ColoredTexture({ fill: "blue" })
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
 		const p = this.parent.Point();
 		context.translate(p.x, p.y)
-		this.texture.Draw(context, new Size(5, 5));
+		this.texture.DrawRectangle(context, new Size(5, 5));
 	}
 	public constructor(public readonly parent: Deadly & Pointable) {
 		super(parent);
@@ -110,39 +110,22 @@ export class PointAvatar extends DeadlyAvatar {
 	}
 }
 
-type Color = string
-
-export interface ColorSettings {
-	fill?: Color
-	stroke?: Color
-}
-
-export class RectangleBodyAvatar extends EntityAvatar {
-	public constructor(public readonly body: RectangleBody, texture: RectangleTexture) {
-		super(body.entity, body.size, texture)
+export class RectangleBodyAvatar extends DeadlyAvatar {
+	public constructor(
+		public readonly body: RectangleBody,
+		private readonly texture: RectangleTexture
+	) {
+		super(body)
 	}
-}
-
-export class RectangleTexture { //implements RectangleTexture {
-	public constructor(private settings: ColorSettings = { fill: "black" }) {
-	}
-
-	public Draw(context: CanvasRenderingContext2D, size: Size): void {
-		if (this.settings.fill) {
-			context.fillStyle = this.settings.fill;
-			context.fillRect(-size.width / 2, -size.height / 2, size.width, size.height);
-		}
-		if (this.settings.stroke) {
-			context.strokeStyle = this.settings.stroke;
-			context.strokeRect(-size.width / 2, -size.height / 2, size.width, size.height);
-		}
-
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		TransformContext(context, this.body.entity.Transform());
+		this.texture.DrawRectangle(context, this.body.size);
 	}
 }
 
 export class Graphics extends DeadlyWorld<Avatar>
 {
-	public readonly context: CanvasRenderingContext2D;
+	private readonly context: CanvasRenderingContext2D;
 
 	constructor(private canvas: HTMLCanvasElement) {
 		super();
@@ -150,7 +133,7 @@ export class Graphics extends DeadlyWorld<Avatar>
 	}
 
 	public Tick(dt: number) {
-		this.context.clearRect(0, 0, 500, 500);
+		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.mortals.forEach(e => {
 			this.context.save();
 			e.Tick(dt, this.context);

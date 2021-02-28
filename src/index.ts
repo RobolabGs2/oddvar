@@ -28,7 +28,7 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "lime", "stroke": "green" }] }]
+								"constructor": [{ "ColoredTexture": [{ "fill": "lime", "stroke": "green" }] }]
 							},
 						]
 					},
@@ -54,7 +54,7 @@ import { Oddvar } from "oddvar";
 						"child": [
 							{
 								"type": "graphics.EntityAvatar",
-								"constructor": [{ "Size": [5, 5] }, { "RectangleTexture": [{ "stroke": "red" }] }]
+								"constructor": [{ "Size": [5, 5] }, { "ColoredTexture": [{ "stroke": "red" }] }]
 							},
 							{
 								"type": "controller.WalkController"
@@ -74,7 +74,7 @@ import { Oddvar } from "oddvar";
 						"child": [
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "pink", "stroke": "green" }] }]
+								"constructor": [{ "ColoredTexture": [{ "fill": "pink", "stroke": "green" }] }]
 							},
 						]
 					}
@@ -91,7 +91,7 @@ import { Oddvar } from "oddvar";
 						"child": [
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "red", "stroke": "green" }] }]
+								"constructor": [{ "ColoredTexture": [{ "fill": "red", "stroke": "green" }] }]
 							},
 						]
 					}
@@ -111,7 +111,7 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "fill": "rgba(128, 0, 128, 0.5)" }] }]
+								"constructor": [{ "ColoredTexture": [{ "fill": "rgba(128, 0, 128, 0.5)" }] }]
 							}
 						]
 					}
@@ -131,7 +131,7 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [{ "stroke": "#0a0" }] }]
+								"constructor": [{ "ColoredTexture": [{ "stroke": "#0a0" }] }]
 							}
 						]
 					}
@@ -151,7 +151,7 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [] }]
+								"constructor": [{ "ColoredTexture": [] }]
 							}
 						]
 					}
@@ -171,7 +171,7 @@ import { Oddvar } from "oddvar";
 							},
 							{
 								"type": "graphics.RectangleBodyAvatar",
-								"constructor": [{ "RectangleTexture": [] }]
+								"constructor": [{ "ColoredTexture": [] }]
 							}
 						]
 					}

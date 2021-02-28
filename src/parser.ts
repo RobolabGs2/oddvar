@@ -1,5 +1,5 @@
-import {Deadly} from "base";
-import {Iterators} from "iterator";
+import { Deadly } from "base";
+import { Iterators } from "iterator";
 import "parser.scss";
 import * as HTML from "html";
 
@@ -116,6 +116,22 @@ interface ClassDescription extends InterfaceDescription {
 	readonly prototype: string;
 }
 
+function IsImplements(classDesc: ClassDescription, interfaceDesc: InterfaceDescription): boolean {
+	// TODO fix
+	if (interfaceDesc.name.endsWith("Listener"))
+		return false;
+	return interfaceDesc.methods.
+		every(interfaceMethod => classDesc.methods.find(classMethod => FunctionsAreEquals(interfaceMethod, classMethod)))
+		&&
+		interfaceDesc.fields.every(interfaceField => classDesc.fields.find(classField => classField.name === interfaceField.name && classField.type === interfaceField.type))
+}
+
+function FunctionsAreEquals(desc1: FunctionDescription, desc2: FunctionDescription): boolean {
+	if (desc1.name !== desc2.name || desc1.returnType != desc2.returnType || desc1.parameters.length != desc2.parameters.length)
+		return false;
+	return desc1.parameters.every((param, i) => param.type === desc2.parameters[i].type);
+}
+
 const hideChildOfLI = (ev: MouseEvent) => {
 	const target = ev.target as HTMLElement;
 	if (ev.button === 0 && target.tagName.toLowerCase() == "li") {
@@ -130,6 +146,7 @@ const hideChildOfLI = (ev: MouseEvent) => {
 export class TypeManager {
 	private inheritanceTree = new Map<string, string>();
 	private inheritanceLists = new Map<string, string[]>();
+	private implementationsLists: Map<string, string[]>;
 	constructor(
 		public readonly factories: Map<string, ClassDescription>,
 		public readonly classes: Map<string, ClassDescription>,
@@ -148,7 +165,14 @@ export class TypeManager {
 				}
 			}
 		});
+		this.implementationsLists = new Map<string, string[]>(
+			Iterators.Wrap(interfaces.values()).
+				map(desc => [
+					desc.name,
+					Iterators.Wrap(classes.values()).filter(classDesc => IsImplements(classDesc, desc)).map(d => d.name).toArray()] as [string, string[]]).toArray()
+		);
 		console.log(this.inheritanceLists)
+		console.log(this.implementationsLists)
 	}
 
 	instanceOf(expected: string, actual: string): boolean {
@@ -321,6 +345,8 @@ export class TypeManager {
 					];
 				case "boolean":
 					return [HTML.SetRequired(false), HTML.SetInputType("checkbox")];
+				// case "ImageBitmap":
+					// return [HTML.SetInputType("file")]
 				// TODO
 				// case "color":
 				// 	return [SetInputType("color")]
@@ -371,11 +397,15 @@ export class TypeManager {
 				)
 			},
 			interface: (interf) => {
-				const newMap = new Map<string, any>();
-				output.set(name, newMap);
-				return HTML.CreateElement("ul",
-					HTML.Append(interf.fields.map(this.ParameterInput.bind(this, newMap))),
-				)
+				if (interf.methods.length === 0) {
+					const newMap = new Map<string, any>();
+					output.set(name, newMap);
+					return HTML.CreateElement("ul",
+						HTML.Append(interf.fields.map(this.ParameterInput.bind(this, newMap))),
+					)
+				} else {
+					return this.TypeInput(name, this.implementationsLists.get(interf.name)![1], output, required)
+				}
 			},
 			primitive: (type) => {
 				return HTML.CreateElement(

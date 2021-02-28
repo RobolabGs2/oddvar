@@ -1,10 +1,11 @@
 import { World } from "world"
 import { Point, Size } from "geometry";
-import { Graphics, RectangleTexture } from "graphics/graphics";
+import { Graphics } from "graphics/graphics";
 import { Controller } from "controller";
 import { Physics } from "physics/physics";
 import { Parser } from "parser";
 import * as HTML from "html";
+import { ColoredTexture } from "graphics/texture";
 
 /**
  * This is Oddvar
@@ -23,7 +24,7 @@ export class Oddvar {
 	public constructor(worldJSON: string) {
 		const parser = new Parser(
 			[this.world, this.graphics, this.controller, this.physics],
-			[Point, Size, RectangleTexture])
+			[Point, Size, ColoredTexture])
 		parser.parseWorld(worldJSON);
 		fetch("resources/reflection.json", {
 			method: "GET",
@@ -38,7 +39,7 @@ export class Oddvar {
 				console.log(json);
 				parser.parseWorld(json)
 			})).
-			then(HTMLElement.prototype.append.bind(document.body)).
+			then(elem => document.body.append(elem)).
 			catch(e => console.error(e));
 		let lastTime = 0;
 		let Tick = (t: number) => {

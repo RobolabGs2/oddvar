@@ -27,6 +27,7 @@
   "scripts": {
     "reflection": "ts-node tools/compiler.ts src/index.ts src/tsconfig.json resources/reflection.json true",
     "build": "yarn reflection & webpack --env.production",
-    "dev": "webpack-dev-server --open --content-base=static -w --watch-content-base"
+    "dev": "yarn reflection & webpack-dev-server --open --content-base=static -w --watch-content-base",
+    "dev2": "yarn reflection & webpack-dev-server --content-base=static -w --watch-content-base"
   }
 }
