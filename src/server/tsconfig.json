@@ -7,6 +7,10 @@
             "es2019"
         ],
         "moduleResolution": "node",
+        "baseUrl": "..",
+        
     },
-    "files": ["main.ts"]
+    "files": [
+        "main.ts"
+    ]
 }

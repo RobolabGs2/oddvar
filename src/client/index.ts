@@ -1,6 +1,8 @@
+import {testFunction} from "common/test"
+testFunction();
+
 console.log("Hello");
 console.log("ODDVAR");
-
 let swprotocol = window.location.protocol == "https:" ? "wss" : "ws";
 const url = `${swprotocol}://${window.location.hostname}:8999/`;
 const socket = new WebSocket(url);

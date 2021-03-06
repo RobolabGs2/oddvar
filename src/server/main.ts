@@ -2,7 +2,9 @@ import * as express from 'express';
 import * as http from 'http';
 import { AddressInfo } from 'node:net';
 import * as WebSocket from 'ws';
+import {testFunction} from '../common/test'
 
+testFunction();
 console.log("I AM SERVER!")
 
 const app = express();
