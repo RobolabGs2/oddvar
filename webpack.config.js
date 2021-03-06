@@ -11,12 +11,12 @@ module.exports = (env) => {
 	env = env ? env : { production: false }
 	return {
 		mode: env.production ? 'production' : 'development',
-		entry: './src/index.ts',
+		entry: './src/client/index.ts',
 		plugins: [
 			new CleanWebpackPlugin(),
 			new MiniCssExtractPlugin(),
 			new HtmlWebpackPlugin({
-				template: `./src/index.html`,
+				template: `./src/client/index.html`,
 				chunks: ['main'],
 				filename: `index.html`,
 				meta: {
@@ -30,7 +30,7 @@ module.exports = (env) => {
 			new CopyPlugin([
 				{ from: './resources/*.json', to: './resources', flatten: true }
 			]),
-			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: 'src/tsconfig.json' } }),
+			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: 'src/client/tsconfig.json' } }),
 		],
 		devtool: env.production ? 'none' : 'source-map',
 		module: {

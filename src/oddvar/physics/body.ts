@@ -1,7 +1,7 @@
-import { Deadly, DeadlyWorld } from "base"
+import { Deadly, DeadlyWorld } from "oddvar/base"
 import { Entity} from "world"
 import { Matrix, Point, Size } from "geometry";
-import { Essence } from "physics/essence";
+import { Essence } from "oddvar/physics/essence";
 
 export interface PhysicalMaterial
 {

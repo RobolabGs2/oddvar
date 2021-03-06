@@ -1,4 +1,4 @@
-import { Deadly, DeadlyWorld } from "base"
+import { Deadly, DeadlyWorld } from "oddvar/base"
 import { Matrix, Point } from "geometry"
 
 
