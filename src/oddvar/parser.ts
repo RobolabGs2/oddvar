@@ -1,7 +1,5 @@
-import {Deadly} from "base";
-import {Iterators} from "iterator";
-import "parser.scss";
-import * as HTML from "html";
+import { Deadly } from "./base";
+import { Iterators } from "./iterator";
 
 function applyToConstructor(constructor: Function, argArray: any[]) {
 	const args = [null].concat(argArray) as any;
@@ -72,7 +70,7 @@ export class Parser {
 
 type ConstructorArgument = string | number | object
 
-interface DeadlyRecipe {
+export interface DeadlyRecipe {
 	type: string
 	name: string
 	constructor: ConstructorArgument[]
@@ -98,11 +96,11 @@ interface SignatureDescription extends DocumentedDesctiption {
 	readonly returnType: string;
 }
 
-interface FunctionDescription extends SignatureDescription {
+export interface FunctionDescription extends SignatureDescription {
 	readonly name: string
 }
 
-interface FieldDescription extends NamedSymbolDesctiption {
+export interface FieldDescription extends NamedSymbolDesctiption {
 	readonly type: string;
 }
 
@@ -111,22 +109,17 @@ interface InterfaceDescription extends NamedSymbolDesctiption {
 	readonly methods: FunctionDescription[];
 }
 
-interface ClassDescription extends InterfaceDescription {
+export interface ClassDescription extends InterfaceDescription {
 	readonly consturctors: SignatureDescription[];
 	readonly prototype: string;
 }
 
-const hideChildOfLI = (ev: MouseEvent) => {
-	const target = ev.target as HTMLElement;
-	if (ev.button === 0 && target.tagName.toLowerCase() == "li") {
-		const className = "hideChilds";
-		if (target.classList.contains(className))
-			target.classList.remove(className);
-		else
-			target.classList.add(className);
+export function getOrDefault<T>(nullable: T | null | undefined, default_: T): T {
+	if (nullable) {
+		return nullable;
 	}
-};
-
+	return default_;
+}
 export class TypeManager {
 	private inheritanceTree = new Map<string, string>();
 	private inheritanceLists = new Map<string, string[]>();
@@ -139,20 +132,48 @@ export class TypeManager {
 			if (desc.prototype) {
 				this.inheritanceTree.set(desc.name, desc.prototype);
 				for (let type: string | undefined = desc.prototype; type; type = this.inheritanceTree.get(type!)) {
-					let siblings = this.inheritanceLists.get(type);
-					if (siblings) {
-						siblings.push(desc.name);
-					} else {
-						this.inheritanceLists.set(desc.prototype, [desc.name])
-					}
+					this.addChild(type, desc);
 				}
 			}
 		});
-		console.log(this.inheritanceLists)
+	}
+
+	private addChild(type: string, desc: ClassDescription) {
+		let siblings = this.inheritanceLists.get(type);
+		if (siblings) {
+			siblings.push(desc.name);
+		} else {
+			this.inheritanceLists.set(desc.prototype, [desc.name]);
+		}
 	}
 
 	instanceOf(expected: string, actual: string): boolean {
 		return expected === actual || this.inheritanceLists.get(expected)?.find(x => x === actual) === actual
+	}
+
+	*getDeadlies(deadlyName: string) {
+		for (let deadlies of [deadlyName, ...getOrDefault(this.inheritanceLists.get(deadlyName), [])].
+			map(typeName =>
+				Iterators.WrapOrNoting(this._json.get(typeName)?.values()))) {
+			for (let deadly of deadlies.toArray())
+				yield deadly;
+		}
+	}
+
+	createDeadly(name: string, type: string, factory: string, method: SignatureDescription, params: Map<string, any>): DeadlyRecipe {
+		const deadly: DeadlyRecipe = {
+			name: name,
+			type: `${factory.toLowerCase()}.${type}`,
+			constructor: this.constructorParamFromMap(method, params),
+			child: [],
+		};
+		let deadlies = this._json.get(type);
+		if (!deadlies) {
+			deadlies = new Map<string, DeadlyRecipe>();
+			this._json.set(type, deadlies);
+		}
+		deadlies.set(deadly.name, deadly);
+		return deadly;
 	}
 
 	constructorParamFromMap(signature: SignatureDescription, map: Map<string, any>): ConstructorArgument[] {
@@ -176,117 +197,12 @@ export class TypeManager {
 			})
 		});
 	}
-
-	FactoryListView(click: (json: DeadlyRecipe) => void): HTMLElement {
-
-		const current = HTML.CreateElement(
-			"div",
-			HTML.SetStyles(styles => styles.width = "250px"),
-		);
-		document.body.appendChild(current);
-		const invokeClickEvent = (factory: ClassDescription, method: FunctionDescription, mouseEvent: MouseEvent) => {
-			if (mouseEvent.button === 0) {
-				if (current.firstChild) {
-					current.removeChild(current.firstChild)
-				}
-				const [elem, output] = this.MethodView(method);
-				const type = method.returnType;
-				const nameInput = HTML.CreateElement(
-					"input",
-					HTML.SetRequired(),
-					(input) => input.value = `${type}${this.getOrDefault(this.json.get(type)?.size, 0)}`
-				);
-				current.appendChild(
-					HTML.CreateElement(
-						"form",
-						HTML.Append(
-							nameInput,
-							elem,
-							HTML.CreateElement("input", HTML.SetInputType("submit"))
-						),
-						HTML.AddEventListener("submit", (ev: Event) => {
-							ev.preventDefault();
-							const deadly: DeadlyRecipe = {
-								name: nameInput.value,
-								type: `${factory.name.toLowerCase()}.${type}`,
-								constructor: this.constructorParamFromMap(method, output),
-								child: [],
-							};
-							let deadlies = this.json.get(type);
-							if (!deadlies) {
-								deadlies = new Map<string, DeadlyRecipe>();
-								this.json.set(type, deadlies);
-							}
-							deadlies.set(deadly.name, deadly);
-							click(deadly);
-							invokeClickEvent(factory, method, mouseEvent);
-						})
-					)
-				)
-			}
-		};
-		const methodPrefix = "Create";
-		return HTML.CreateElement(
-			"ul",
-			HTML.SetStyles(style => style.cursor = "pointer"),
-			HTML.AddEventListener("click", hideChildOfLI),
-			HTML.Append(
-				Iterators.Wrap(
-					this.factories.values()
-				).map(
-					factory => HTML.CreateElement(
-						"li",
-						HTML.SetText(factory.name, factory.documentation),
-						HTML.Append(
-							HTML.CreateElement("ul",
-								HTML.Append(...factory.methods.
-									filter(x => x.name.startsWith(methodPrefix)).
-									map(
-										method => HTML.CreateElement(
-											"li",
-											HTML.SetText(method.returnType, method.documentation),
-											HTML.AddEventListener("click", invokeClickEvent.bind(null, factory, method))
-										)
-									)
-								)
-							)
-						)
-					)
-				)
-			)
-		)
-	}
-
-	MethodView(method: FunctionDescription): [HTMLElement, Map<string, any>] {
-		const parametrs = new Map<string, any>();
-		return [HTML.CreateElement(
-			"article",
-			HTML.Append(
-				HTML.CreateElement("header", HTML.SetText(method.returnType, method.documentation)),
-				HTML.CreateElement(
-					"ul",
-					HTML.Append(method.parameters.map(this.ParameterInput.bind(this, parametrs))),
-				)
-			)), parametrs]
-	}
-
-	ParameterInput = (output: Map<string, any>, param: FieldDescription) => {
-		return HTML.CreateElement("li",
-			HTML.SetText(param.name, param.type),
-			HTML.Append(
-				this.TypeInput(param.name, param.type, output),
-			))
-	};
-
-	getOrDefault<T>(nullable: T | null | undefined, default_: T): T {
-		if (nullable) {
-			return nullable;
-		}
-		return default_;
-	}
 	private readonly nullRegexp = /null|undefined/;
 
-	private json = new Map<string, Map<string, DeadlyRecipe>>();
+	private _json = new Map<string, Map<string, DeadlyRecipe>>();
+	public get json(): ReadonlyMap<string, ReadonlyMap<string, Readonly<DeadlyRecipe>>> {
+		return this._json
+	}
 
 	switchByType<T>(type: string, actions: {
 		nullable: (type: string) => T,
@@ -311,83 +227,5 @@ export class TypeManager {
 			return actions.class(this.classes.get(type)!);
 		return actions.primitive(type);
 	}
-	TypeInput(name: string, type: string, output: Map<string, any>, required = true): HTMLElement {
-		const additionalModifiers = (type: string) => {
-			switch (type) {
-				case "number":
-					return [
-						HTML.SetInputType("number"),
-						HTML.SetNumberInputRange(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 0.5)
-					];
-				case "boolean":
-					return [HTML.SetRequired(false), HTML.SetInputType("checkbox")];
-				// TODO
-				// case "color":
-				// 	return [SetInputType("color")]
-				default:
-					return []
-			}
-		};
-		const getValue = (input: HTMLInputElement) => {
-			switch (input.type) {
-				case "number": return input.valueAsNumber;
-				case "radio":
-				case "checkbox": return input.checked;
-				default: return input.value;
-			}
-		};
-		return this.switchByType(type, {
-			nullable: (type) => this.TypeInput(name, type, output, false),
-			class: (clazz) => {
-				const newMap1 = new Map<string, any>();
-				output.set(name, newMap1);
-				return HTML.CreateElement("ul",
-					HTML.Append(clazz.consturctors[0].parameters.map(this.ParameterInput.bind(this, newMap1))),
-				)
-			},
-			deadly: (type) => {
-				return HTML.CreateElement(
-					"select",
-					HTML.SetRequired(required),
-					HTML.AddEventListener("change", function (ev) {
-						const select = this as HTMLSelectElement;
-						output.set(name, select.value);
-					}),
-					HTML.Append(
-						[type.name, ...this.getOrDefault(this.inheritanceLists.get(type.name), [])].
-							flatMap(typeName =>
-								Iterators.WrapOrNoting(this.json.get(typeName)?.keys()).map(name =>
-									HTML.CreateElement(
-										"option",
-										(option) => {
-											option.value = name;
-											option.text = name
-										}
-									)
-								).toArray()
-							),
-					),
-					(select) => select.dispatchEvent(new Event("change"))
-				)
-			},
-			interface: (interf) => {
-				const newMap = new Map<string, any>();
-				output.set(name, newMap);
-				return HTML.CreateElement("ul",
-					HTML.Append(interf.fields.map(this.ParameterInput.bind(this, newMap))),
-				)
-			},
-			primitive: (type) => {
-				return HTML.CreateElement(
-					"input",
-					HTML.SetTitle(type),
-					HTML.SetRequired(required),
-					HTML.SetName(name),
-					HTML.AddEventListener("change", function (ev: Event) {
-						output.set(name, getValue(this as HTMLInputElement))
-					}),
-					...additionalModifiers(type));
-			}
-		});
-	}
+
 }

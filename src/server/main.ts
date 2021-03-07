@@ -1,6 +1,6 @@
 import * as express from 'express';
 import * as http from 'http';
-import { AddressInfo } from 'node:net';
+import { AddressInfo } from 'net';
 import * as WebSocket from 'ws';
 import {testFunction} from '../common/test'
 
