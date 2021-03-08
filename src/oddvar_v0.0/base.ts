@@ -1,7 +1,7 @@
 
 export interface DeathListener{(c: Deadly): void}
 
-export abstract class Deadly implements Serializable
+export class Deadly
 {
 	public Name: string = "Untitled";
 
@@ -19,13 +19,9 @@ export abstract class Deadly implements Serializable
 			e(this);
 		});
 	}
-
-	abstract FromDelta(delta: any): void;
-	abstract ToDelta(force: boolean): any;
-	abstract ToConstructor(): any[];
 }
 
-export abstract class DeadlyWorld<T extends Deadly> implements Factory
+export class DeadlyWorld<T extends Deadly>
 {
 	protected mortals = new Set<T>();
 
@@ -34,19 +30,4 @@ export abstract class DeadlyWorld<T extends Deadly> implements Factory
 		e.DeathSubscribe((d) => {this.mortals.delete(d as T)});
 		return e;
 	}
-
-	abstract Tick(dt: number): void;
-}
-
-export interface Serializable
-{
-	readonly Name: string;
-	FromDelta(delta: any): void;
-	ToDelta(force: boolean): any;
-	ToConstructor(): any[];
-}
-
-export interface Factory
-{
-	Tick(dt: number): void;
 }

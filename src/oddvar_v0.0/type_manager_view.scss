@@ -1,0 +1,30 @@
+.hideChilds {
+    &  * {
+        display: none;
+    }
+}
+
+input {
+    width: 100%;
+    &[type=submit] {
+        width: auto;
+    }
+}
+
+.unsupported {
+    background-color: red;
+}
+
+ul {
+    padding-inline-start: 30px;
+}
+
+canvas {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    display: flex;
+}

@@ -1,49 +1,147 @@
-import { Deadly, DeadlyWorld } from "oddvar/base"
-import { Matrix, Point } from "geometry"
+import { Deadly, DeadlyWorld } from "./base"
+import { Matrix, Point } from "./geometry"
 
+interface IEntity extends Deadly
+{
+	Transform(): Matrix;
+	InverseTransform(): Matrix;
+}
 
-export class Entity extends Deadly {
-	public constructor(
-		public location: Point,
-		public rotation: number = 0
-	) {
-		super()
+class Tranformation
+{
+	public modified: boolean = false;
+	private _location: Point;
+	private _rotation: number;
+
+	constructor(location: Point, rotation: number) {
+		this._location = location;
+		this._rotation = rotation;
 	}
 
-	public Transform(): Matrix {
+	public get location() : Point {
+		return this._location;
+	}
+
+	public set location(value: Point) {
+		this._location = value;
+		this.modified = true;
+	}
+
+	public get rotation() : number {
+		return this._rotation;
+	}
+
+	public set rotation(value: number) {
+		this._rotation = value;
+		this.modified = true;
+	}
+
+	ToDelta(force: boolean): any {
+		if (!this.modified && !force)
+			return null;
+		this.modified = false;
+		return {
+			location: this.location,
+			rotation: this.rotation
+		};
+	}
+
+	FromDelta(delta: any) {
+		this.location = delta.location;
+		this.rotation = delta.rotation;
+	}
+
+	public ToMatrix(): Matrix {
 		return Matrix.Rotation(this.rotation).
 			Mult(Matrix.Translate(this.location));
 	}
 
-	public InverseTransform(): Matrix {
+	public Inverse(): Matrix {
 		return Matrix.Translate(this.location.Mult(-1)).
 			Mult(Matrix.Rotation(-this.rotation));
 	}
 }
-/**
- * @deprecated
- */
-export class TailEntity extends Entity {
+
+export class Entity extends Deadly implements IEntity {
+	private shift: Tranformation;
+
 	public constructor(
-		public readonly parent: Entity,
 		location: Point,
 		rotation: number = 0
 	) {
-		super(location, rotation)
-		parent.DeathSubscribe(() => this.Die());
+		super();
+		this.shift = new Tranformation(location, rotation);
 	}
 
+	ToConstructor(): any[] {
+		return [
+			this.shift.location,
+			this.shift.rotation,
+		];
+	}
+
+	ToDelta(force: boolean): any {
+		return this.shift.ToDelta(force);
+	}
+
+	FromDelta(delta: any) {
+		this.shift.FromDelta(delta);
+	}
+
+
 	public Transform(): Matrix {
-		return super.Transform().Mult(this.parent.Transform());
+		return this.shift.ToMatrix();
 	}
 
 	public InverseTransform(): Matrix {
-		return this.parent.InverseTransform().Mult(super.InverseTransform());
+		return this.shift.Inverse();
+	}
+
+}
+
+export class TailEntity extends Deadly implements IEntity {
+	private shift: Tranformation;
+
+	public constructor(
+		public readonly parent: IEntity,
+		location: Point,
+		rotation: number = 0
+	) {
+		super();
+		parent.DeathSubscribe(() => this.Die());
+		this.shift = new Tranformation(location, rotation);
+	}
+
+	ToConstructor(): any[] {
+		return [
+			this.parent.Name,
+			this.shift.location,
+			this.shift.rotation,
+		];
+	}
+
+	FromDelta(delta: any) {
+		this.shift.FromDelta(delta);
+	}
+
+	ToDelta(force: boolean): any {
+		return this.shift.ToDelta(force)
+	}
+
+	public Transform(): Matrix {
+		return this.shift.ToMatrix().Mult(this.parent.Transform());
+	}
+
+	public InverseTransform(): Matrix {
+		return this.parent.InverseTransform().Mult(this.shift.Inverse());
 	}
 }
 
-export class World extends DeadlyWorld<Entity>
+export class World extends DeadlyWorld<IEntity>
 {
+	Tick(dt: number) {
+		throw new Error("Method not implemented.");
+	}
 	public constructor() {
 		super();
 	}
