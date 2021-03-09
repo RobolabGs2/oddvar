@@ -4,11 +4,10 @@
         "sourceMap": true,
         "strict": true,
         "target": "ES5",
+        "downlevelIteration": true,
         "lib": [
             "es2019"
         ],
-        "moduleResolution": "node",
         "baseUrl": "..",
-        
     }
 }

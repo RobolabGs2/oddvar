@@ -1,14 +1,12 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { Matrix, Point } from "./geometry"
 
-interface IEntity extends Deadly
-{
+interface IEntity extends Deadly {
 	Transform(): Matrix;
 	InverseTransform(): Matrix;
 }
 
-class Tranformation
-{
+class Tranformation {
 	public modified: boolean = false;
 	private _location: Point;
 	private _rotation: number;
@@ -18,7 +16,7 @@ class Tranformation
 		this._rotation = rotation;
 	}
 
-	public get location() : Point {
+	public get location(): Point {
 		return this._location;
 	}
 
@@ -27,7 +25,7 @@ class Tranformation
 		this.modified = true;
 	}
 
-	public get rotation() : number {
+	public get rotation(): number {
 		return this._rotation;
 	}
 
@@ -66,10 +64,11 @@ export class Entity extends Deadly implements IEntity {
 	private shift: Tranformation;
 
 	public constructor(
+		name: string,
 		location: Point,
 		rotation: number = 0
 	) {
-		super();
+		super(name);
 		this.shift = new Tranformation(location, rotation);
 	}
 
@@ -103,11 +102,12 @@ export class TailEntity extends Deadly implements IEntity {
 	private shift: Tranformation;
 
 	public constructor(
+		name: string,
 		public readonly parent: IEntity,
 		location: Point,
 		rotation: number = 0
 	) {
-		super();
+		super(name);
 		parent.DeathSubscribe(() => this.Die());
 		this.shift = new Tranformation(location, rotation);
 	}
@@ -146,11 +146,11 @@ export class World extends DeadlyWorld<IEntity>
 		super();
 	}
 
-	public CreateEntity(location: Point, rotation: number = 0): Entity {
-		return this.AddDeadly(new Entity(location, rotation));
+	public CreateEntity(name: string, location: Point, rotation: number = 0): Entity {
+		return this.AddDeadly(new Entity(name, location, rotation));
 	}
 
-	public CreateTailEntity(target: Entity, location: Point, rotation: number = 0): TailEntity {
-		return this.AddDeadly(new TailEntity(target, location, rotation));
+	public CreateTailEntity(name: string, target: Entity, location: Point, rotation: number = 0): TailEntity {
+		return this.AddDeadly(new TailEntity(name, target, location, rotation));
 	}
 }

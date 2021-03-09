@@ -31,7 +31,7 @@
     "ws": "^7.4.4"
   },
   "scripts": {
-    "reflection": "ts-node tools/compiler.ts src/client/index.ts src/client/tsconfig.json resources/reflection.json true",
+    "reflection": "ts-node tools/compiler.ts src/oddvar/oddvar.ts src/oddvar/tsconfig.json resources/reflection.json true",
     "build-client": "yarn reflection & webpack --env.production",
     "dev-client": "webpack-dev-server --open --content-base=static -w --watch-content-base",
     "run-server": "ts-node --dir src/server main.ts"

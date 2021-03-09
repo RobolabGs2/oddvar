@@ -3,12 +3,19 @@ import { Processor } from "./processor";
 console.log("Hello ODDVAR");
 let swprotocol = window.location.protocol == "https:" ? "wss" : "ws";
 const url = `${swprotocol}://${window.location.hostname}:8999/`;
-const socket = new WebSocket(url);
 
-socket.addEventListener("open", function (e) {
-	console.log("[open] Соединение установлено", e);
-	let processor = new Processor(socket);
-});
+getJSON("resources/reflection.json").then(reflectionJSON => {
+	let processor = new Processor(new WebSocket(url), reflectionJSON);
+})
+
+function getJSON(url: string): Promise<any> {
+	return fetch(url, {
+		method: "GET",
+		headers: {
+			"Content-Type": "application/json"
+		}
+	}).then(r => r.json())
+}
 
 // socket.addEventListener("message", function (event) {
 // 	const data = event.data;

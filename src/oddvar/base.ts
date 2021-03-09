@@ -1,9 +1,8 @@
 
-export interface DeathListener{(c: Deadly): void}
+export interface DeathListener { (c: Deadly): void }
 
-export abstract class Deadly implements Serializable
-{
-	public Name: string = "Untitled";
+export abstract class Deadly implements Serializable {
+	constructor(public readonly Name: string) { }
 
 	private deathList = new Array<DeathListener>();
 	public DeathSubscribe(callback: DeathListener): number {
@@ -11,7 +10,7 @@ export abstract class Deadly implements Serializable
 	}
 
 	public DeathUnsubscribe(index: number) {
-		return this.deathList[index] = d => {};
+		return this.deathList[index] = d => { };
 	}
 
 	public Die() {
@@ -25,28 +24,31 @@ export abstract class Deadly implements Serializable
 	abstract ToConstructor(): any[];
 }
 
-export abstract class DeadlyWorld<T extends Deadly> implements Factory
-{
+export abstract class DeadlyWorld<T extends Deadly> implements Factory {
 	protected mortals = new Set<T>();
 
 	protected AddDeadly<E extends T>(e: E): E {
 		this.mortals.add(e);
-		e.DeathSubscribe((d) => {this.mortals.delete(d as T)});
+		e.DeathSubscribe((d) => { this.mortals.delete(d as T) });
 		return e;
 	}
 
 	abstract Tick(dt: number): void;
 }
 
-export interface Serializable
-{
+export function AsInterface(s: Serializable): Record<string, any> {
+	const parent: Record<string, any> = {};
+	parent[`${s.constructor.name}`] = s.ToConstructor()
+	return parent
+}
+
+export interface Serializable {
 	readonly Name: string;
 	FromDelta(delta: any): void;
 	ToDelta(force: boolean): any;
 	ToConstructor(): any[];
 }
 
-export interface Factory
-{
+export interface Factory {
 	Tick(dt: number): void;
 }

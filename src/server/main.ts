@@ -3,14 +3,17 @@ import * as http from 'http';
 import { AddressInfo } from 'net';
 import * as WebSocket from 'ws';
 import { Processor } from './processor';
+import * as fs from 'fs';
 
-
+console.log(process.cwd())
+const reflectionJSONFile = fs.readFileSync("resources/reflection.json", {encoding: "utf-8"});
 const app = express();
-const processor = new Processor();
+const processor = new Processor(JSON.parse(reflectionJSONFile));
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+console.log(process.argv)
 wss.on('connection', (ws: WebSocket) => {
 	processor.AddClient(ws);
 });

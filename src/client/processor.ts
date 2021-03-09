@@ -1,16 +1,15 @@
 import { Point } from '../oddvar/geometry';
-import { Oddvar } from "../oddvar/oddvar"
+import { Oddvar, ReflectionJSON } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
+import { ServerMessageTypeMap } from '../oddvar/protocol';
 
 
-export class Processor
-{
+export class Processor {
 	private oddvar: Oddvar;
-	constructor(private socket: WebSocket) {
+	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON) {
 		const world = new World();
-		this.oddvar = new Oddvar(world);
-		this.oddvar.AddInUnderWorld(world.CreateEntity(new Point(0, 0)));
-
+		this.oddvar = new Oddvar(world, reflectionJSON);
+		
 		let lastTime = 0;
 		setInterval(() => {
 			const t = new Date().getTime();
@@ -20,10 +19,13 @@ export class Processor
 		}, 15);
 
 		socket.addEventListener("message", (event) => {
-			// TODO: { type: string, data: any } to common
-			const data: { type: string, data: any } = JSON.parse(event.data);
-			if (data.type == "snapshot") {
-				this.oddvar.ApplyDelta(data.data);
+			const data = JSON.parse(event.data);
+			switch (data.type as keyof ServerMessageTypeMap) {
+				case "snapshot":
+					this.oddvar.ApplySnapshot(data.data);
+					break;
+				default:
+					console.error("unknown type", data)
 			}
 		});
 	}

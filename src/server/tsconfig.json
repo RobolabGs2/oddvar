@@ -1,16 +1,9 @@
 {
     "compilerOptions": {
-        "noImplicitAny": true,
-        "sourceMap": true,
-        "strict": true,
-        "target": "ES5",
-        "lib": [
-            "es2019"
-        ],
         "moduleResolution": "node",
         "baseUrl": "..",
-        
     },
+    "extends": "../tsconfig.json",
     "files": [
         "main.ts"
     ]

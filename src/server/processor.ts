@@ -1,18 +1,19 @@
 import { Point } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
-import { Oddvar } from "../oddvar/oddvar"
+import { Oddvar, ReflectionJSON } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
+import { CreateServerMessage } from "../oddvar/protocol"
 
-export class Processor
-{
+export class Processor {
 	private oddvar: Oddvar;
 	private webSockets = new Map<number, WebSocket>();
 	private lastID = 0;
 
-	constructor() {
+	constructor(reflectionJSON: ReflectionJSON) {
 		const world = new World();
-		this.oddvar = new Oddvar(world);
-		this.oddvar.AddInUnderWorld(world.CreateEntity(new Point(10, 10)));
+		this.oddvar = new Oddvar(world, reflectionJSON);
+		const e = this.oddvar.Add(world).CreateEntity("Entity1", new Point(10, 10));
+		this.oddvar.Add(world).CreateTailEntity("Entity2", e, new Point(1, 2), 1);
 
 		let lastTime = 0;
 		setInterval(() => {
@@ -23,7 +24,7 @@ export class Processor
 		}, 15);
 
 		setInterval(() => {
-			const delta = JSON.stringify({ type: "snapshot", data: this.oddvar.GetDelta(true)}); // TODO: GetDelta()
+			const delta = CreateServerMessage("snapshot", { Delta: this.oddvar.GetDelta() });
 			this.webSockets.forEach(ws => ws.send(delta));
 		}, 100);
 	}
@@ -32,6 +33,10 @@ export class Processor
 		this.webSockets.set(this.lastID, ws);
 		const id = this.lastID;
 		++this.lastID;
+		// TODO: add new connect in special queue (кучка)
+		const json = CreateServerMessage("snapshot", this.oddvar.GetSnapshot());
+		console.log(json)
+		ws.send(json)
 
 		// TODO: connect to oddvar
 		ws.on('message', (message: string) => {
