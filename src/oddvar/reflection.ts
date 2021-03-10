@@ -50,7 +50,7 @@ export class TypeManager {
 	private inheritanceTree = new Map<string, string>();
 	private inheritanceLists = new Map<string, string[]>();
 	constructor(
-		public readonly factories: Map<string, ClassDescription>,
+		public readonly factories: Map<string, InterfaceDescription>,
 		public readonly classes: Map<string, ClassDescription>,
 		public readonly interfaces: Map<string, InterfaceDescription>
 	) {

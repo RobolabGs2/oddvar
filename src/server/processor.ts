@@ -1,20 +1,27 @@
 import { Point } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
-import { Oddvar } from "../oddvar/oddvar"
+import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
 import { CreateServerMessage } from "../oddvar/protocol"
-import { ReflectionJSON } from 'oddvar/reflection';
+import { ReflectionJSON } from '../oddvar/reflection';
+import { ServerPlayers } from './players';
+import { Player, Players } from 'oddvar/players';
+import { stringify } from 'node:querystring';
 
 export class Processor {
 	private oddvar: Oddvar;
+	private players: ServerPlayers;
 	private webSockets = new Map<number, WebSocket>();
+	private newConnectionSockets = new Array<WebSocket>();
 	private lastID = 0;
 
 	constructor(reflectionJSON: ReflectionJSON) {
 		const world = new World();
-		this.oddvar = new Oddvar(world, reflectionJSON);
-		const e = this.oddvar.Add(world).CreateEntity("Entity1", new Point(10, 10));
-		this.oddvar.Add(world).CreateTailEntity("Entity2", e, new Point(1, 2), 1);
+		this.players = new ServerPlayers();
+		this.oddvar = new Oddvar(new Worlds(world, this.players), reflectionJSON);
+
+		const e = this.oddvar.Add("World").CreateEntity("Entity1", new Point(10, 10));
+		this.oddvar.Add("World").CreateTailEntity("Entity2", e, new Point(1, 2), 1);
 
 		let lastTime = 0;
 		setInterval(() => {
@@ -27,26 +34,44 @@ export class Processor {
 		setInterval(() => {
 			const delta = CreateServerMessage("snapshot", { Delta: this.oddvar.GetDelta() });
 			this.webSockets.forEach(ws => ws.send(delta));
+
+			if (this.newConnectionSockets.length > 0) {
+				const json = CreateServerMessage("snapshot", this.oddvar.GetSnapshot());
+				this.newConnectionSockets.forEach(ws => {
+					const id = this.AddSocket(ws, json);
+					console.log("Add client %d", id);
+				});
+				this.newConnectionSockets.length = 0;
+			}
 		}, 100);
 	}
 
-	public AddClient(ws: WebSocket) {
+	private PushSocket(ws: WebSocket): number {
 		this.webSockets.set(this.lastID, ws);
 		const id = this.lastID;
 		++this.lastID;
-		// TODO: add new connect in special queue (кучка)
-		const json = CreateServerMessage("snapshot", this.oddvar.GetSnapshot());
-		console.log(json)
+		return this.lastID - 1;
+	}
+
+	private AddSocket(ws: WebSocket, json: string): number {
+		const id = this.PushSocket(ws);
+		ws.send(CreateServerMessage("id", id));
 		ws.send(json)
 
-		// TODO: connect to oddvar
+		this.oddvar.Add("Players").CreatePlayer(`origin user name ${id}#kljdsfghdfklsghdhfj`, id);
 		ws.on('message', (message: string) => {
-			console.log('received: %s', message);
+			this.players.AddUserInput(id, message);
 		});
 
 		ws.on('close', (code, r) => {
 			console.warn('close: %d %s', code, r);
 			this.webSockets.delete(id);
+			this.players.DeletePlayer(id);
 		})
+		return id;
+	}
+
+	public AddClient(ws: WebSocket) {
+		this.newConnectionSockets.push(ws);
 	}
 }

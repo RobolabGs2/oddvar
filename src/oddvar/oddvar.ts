@@ -1,14 +1,16 @@
 import { World } from "./world";
-import { Deadly, Factory, Serializable } from "./base";
+import { Deadly, DeadlyWorld, Factory, Serializable } from "./base";
 import { Iterators } from "./iterator";
 import { Point } from "./geometry";
-import { ClassDescription, ConstructorArgument, DeadlyRecipe, ReflectionJSON, TypeManager } from "./reflection";
+import { ClassDescription, ConstructorArgument, DeadlyRecipe, InterfaceDescription, ReflectionJSON, TypeManager } from "./reflection";
+import { Player, Players } from "./players";
 
 
 class Soul {
 	constructor(
 		public readonly factory: string,
-		public readonly target: Serializable
+		public readonly target: Serializable,
+		public readonly type: string
 	) { }
 }
 
@@ -21,20 +23,33 @@ function isCreateMethod(propertyName: string | symbol | number, property: any): 
 	return typeof propertyName === "string" && propertyName.startsWith("Create") && property instanceof Function
 }
 
+export class Worlds
+{
+	constructor(
+	readonly World: World,
+	readonly Players: Players) {
+	}
+}
+
 export class Oddvar {
 	public underworld = new Map<string, Soul>();
 	private parser: Parser;
 	constructor(
-		public world: World,
+		private worlds: Worlds,
 		reflectionJson: ReflectionJSON
 	) {
-		this.parser = new Parser([world].map(this.Add.bind(this)), [Point], reflectionJson, this.underworld);
+		let map = new Map<string, any>();
+		for(let factory in worlds) {
+			map.set(factory, this.Add(factory as keyof Worlds));
+		}
+		this.parser = new Parser(map, [Point], reflectionJson, this.underworld);
 	}
 
 	public tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;
-		// factories.tick(dt);
+		this.worlds.Players.Tick(dt);
+		// TODO: factories.tick(dt);
 	}
 
 	public GetDelta(force: boolean = false): Record<string, any> {
@@ -53,18 +68,19 @@ export class Oddvar {
 		}
 	}
 
-	private AddInUnderworld(factory: string, s: Serializable) {
-		this.underworld.set(s.Name, new Soul(factory, s));
+	private AddInUnderworld(factory: string, s: Deadly, type: string) {
+		this.underworld.set(s.Name, new Soul(factory, s, type));
+		s.DeathSubscribe(() => {this.underworld.delete(s.Name)})
 	}
 
-	public Add<T extends Factory>(factory: T): T {
-		return new Proxy<T>(factory, {
+	public Add<T extends keyof Worlds>(factory: T): Worlds[T] {
+		return new Proxy<Worlds[T]>(this.worlds[factory], {
 			get: (target, propertyName, recevier) => {
 				const property = Reflect.get(target, propertyName, recevier)
 				if (!isCreateMethod(propertyName, property)) return property
 				return (...params: any) => {
 					const deadly = property.apply(target, params);
-					this.AddInUnderworld(target.constructor.name, deadly);
+					this.AddInUnderworld(factory, deadly, propertyName.toString().substr("create".length));
 					return deadly;
 				}
 			}
@@ -75,7 +91,7 @@ export class Oddvar {
 		return Iterators.Wrap(this.underworld.entries()).map(([name, soul]) => {
 			return {
 				factory: soul.factory,
-				type: soul.target.constructor.name,
+				type: soul.type,
 				name: name,
 				constructor: soul.target.ToConstructor(),
 			}
@@ -105,11 +121,11 @@ export class Parser {
 	private factories: Map<string, any>;
 	private typeManager: TypeManager;
 	public constructor(
-		factories: object[], primitives: any[], reflectionJson: ReflectionJSON,
+		factories: Map<string, any>, primitives: any[], reflectionJson: ReflectionJSON,
 		private underworld: ReadonlyMap<string, Soul>,
 		private creatorPrefix = "Create"
 	) {
-		this.factories = new Map(factories.map(v => [v.constructor.name, v]));
+		this.factories = factories;
 		this.primitives = new Map(primitives.map(v => v.prototype.constructor).map(value => [value.name, value]));
 		this.typeManager = this.newTypeManager(reflectionJson);
 	}
@@ -123,7 +139,7 @@ export class Parser {
 		const constructorMethod = factoryWorld[factoryMethodName] as Function | undefined;
 		const constructorSignature = this.typeManager.factories.get(factory)?.methods.find(d => d.name === factoryMethodName)
 		if (!constructorMethod || !(constructorMethod instanceof Function) || !constructorSignature)
-			throw new Error(`Unknown factory method '${constructorMethod}' for ${type}!`);
+			throw new Error(`Unknown factory method '${factoryMethodName}' for ${type}!`);
 		const elem = constructorMethod.call(
 			factoryWorld,
 			...[name, ...constructor].map((param, i) => {
@@ -171,9 +187,10 @@ export class Parser {
 	}
 
 	private newTypeManager(json: ReflectionJSON): TypeManager {
-		const factories = new Map<string, ClassDescription>();
+		const factories = new Map<string, InterfaceDescription>();
 		const classes = new Map<string, ClassDescription>();
 		json.classes.forEach(desc => (this.factories.has(desc.name) ? factories : classes).set(desc.name, desc));
+		json.interfaces.forEach(desc => (this.factories.has(desc.name) ? factories : classes).set(desc.name, desc));
 		return new TypeManager(factories, classes, new Map(json.interfaces.map(desc => [desc.name, desc])));
 	}
 

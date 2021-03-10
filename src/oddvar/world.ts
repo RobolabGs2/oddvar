@@ -87,7 +87,6 @@ export class Entity extends Deadly implements IEntity {
 		this.shift.FromDelta(delta);
 	}
 
-
 	public Transform(): Matrix {
 		return this.shift.ToMatrix();
 	}
