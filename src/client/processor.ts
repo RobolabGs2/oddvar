@@ -1,7 +1,7 @@
-import { Point } from '../oddvar/geometry';
-import { Oddvar, ReflectionJSON } from "../oddvar/oddvar"
+import { Oddvar } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
 import { ServerMessageTypeMap } from '../oddvar/protocol';
+import { ReflectionJSON } from '../oddvar/reflection';
 
 
 export class Processor {

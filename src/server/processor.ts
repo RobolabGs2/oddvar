@@ -1,8 +1,9 @@
 import { Point } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
-import { Oddvar, ReflectionJSON } from "../oddvar/oddvar"
+import { Oddvar } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
 import { CreateServerMessage } from "../oddvar/protocol"
+import { ReflectionJSON } from 'oddvar/reflection';
 
 export class Processor {
 	private oddvar: Oddvar;
