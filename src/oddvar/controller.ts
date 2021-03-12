@@ -20,6 +20,7 @@ export class WalkController extends Control {
 	}
 
 	public Tick(dt: number) {
+		this.modified = true;
 		this.time += dt;
 		let velocity = new Point(10, 0);
 		this.entity.location = this.entity.location.Add(velocity.Mult(dt));
@@ -54,6 +55,7 @@ export class SpinRoundController extends Control {
 	}
 
 	public Tick(dt: number) {
+		this.modified = true;
 		this.time += dt;
 		this.entity.rotation += dt * 0.5;
 	}
@@ -77,7 +79,13 @@ export class SpinRoundController extends Control {
 
 export class Controller extends DeadlyWorld<Control>
 {
+	constructor(private enableTick: boolean) {
+		super();
+	}
+
 	public Tick(dt: number) {
+		if (!this.enableTick)
+			return;
 		this.mortals.forEach(e => {
 			e.Tick(dt);
 		})

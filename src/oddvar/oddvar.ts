@@ -127,7 +127,7 @@ export class Oddvar {
 
 	public ApplySnapshot(snapshot: OddvarSnapshot): void {
 		this.ApplyConstructors(snapshot.Constructors);
-		this.ApplyDelta(this.GetDelta())
+		this.ApplyDelta(snapshot.Delta)
 		if (snapshot.Destructors)
 			this.ApplyDestructors(snapshot.Destructors);
 	}

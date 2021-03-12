@@ -20,7 +20,7 @@ export class Processor {
 	constructor(reflectionJSON: ReflectionJSON) {
 		const world = new World();
 		const graphics = this.CreateEmptyGraphics();
-		const controller = new Controller();
+		const controller = new Controller(true);
 		this.players = new ServerPlayers();
 		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
 
@@ -59,10 +59,7 @@ export class Processor {
 
 	private CreateEmptyGraphics() {
 		return new Graphics(new Proxy<CanvasRenderingContext2D>( { } as CanvasRenderingContext2D, {
-			get: (target, propertyName, recevier) => {
-				return (...params: any) => {
-				}
-			}
+			get: () => {return () => {}}
 		}));
 	}
 

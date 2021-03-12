@@ -15,7 +15,7 @@ export class Processor {
 		const world = new World();
 		const graphics = this.CreateGraphics();
 		this.players = new ClientPlayers(socket);
-		const controller = new Controller();
+		const controller = new Controller(true);
 		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
 		
 		let lastTime = 0;
