@@ -1,7 +1,7 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { Matrix, Point } from "./geometry"
 
-interface IEntity extends Deadly {
+export interface IEntity extends Deadly {
 	Transform(): Matrix;
 	InverseTransform(): Matrix;
 }

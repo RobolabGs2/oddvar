@@ -45,6 +45,35 @@ export class WalkController extends Control {
 	}
 }
 
+export class SpinRoundController extends Control {
+	private modified: boolean = false;
+	private time = 0;
+	constructor(name: string, private entity: Entity) {
+		super(name);
+		entity.DeathSubscribe(() => this.Die());
+	}
+
+	public Tick(dt: number) {
+		this.time += dt;
+		this.entity.rotation += dt * 0.5;
+	}
+
+	FromDelta(delta: any): void {
+		this.time = delta;
+	}
+
+	ToDelta(force: boolean) {
+		if (!this.modified && !force)
+			return null;
+		this.modified = false;
+		return this.time;
+	}
+
+	ToConstructor(): any[] {
+		return [this.entity.Name]
+	}
+}
+
 
 export class Controller extends DeadlyWorld<Control>
 {
@@ -56,5 +85,9 @@ export class Controller extends DeadlyWorld<Control>
 
 	public CreateWalkController(name: string, entity: Entity): WalkController {
 		return this.AddDeadly(new WalkController(name, entity));
+	}
+
+	public CreateSpinRoundController(name: string, entity: Entity): SpinRoundController {
+		return this.AddDeadly(new SpinRoundController(name, entity));
 	}
 }

@@ -24,10 +24,15 @@ export class Processor {
 		this.players = new ServerPlayers();
 		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
 
-		const e = this.oddvar.Add("World").CreateEntity("Entity1", new Point(10, 10));
-		this.oddvar.Add("World").CreateTailEntity("Entity2", e, new Point(1, 2), 1);
-		this.oddvar.Add("Graphics").CreateEntityAvatar("Avatar1", e, new Size(50, 50), new RectangleTexture({ fill: "black" }))
+		const e = this.oddvar.Add("World").CreateEntity("Entity1", new Point(100, 10));
+		this.oddvar.Add("Graphics").CreateEntityAvatar("Avatar1", e, new Size(5, 5), new RectangleTexture())
 		this.oddvar.Add("Controller").CreateWalkController("Controller1", e)
+
+		const e2 = this.oddvar.Add("World").CreateEntity("Entity2", new Point(100, 100));
+		const te1 = this.oddvar.Add("World").CreateTailEntity("TailEntity1", e2, new Point(70, 2), 1);
+		this.oddvar.Add("Graphics").CreateTailEntityAvatar("Avatar2", te1, new Size(10, 10), new RectangleTexture())
+		this.oddvar.Add("Graphics").CreateEntityAvatar("Avatar3", e2, new Size(50, 50), new RectangleTexture())
+		this.oddvar.Add("Controller").CreateSpinRoundController("Controller2", e2)
 
 		let lastTime = 0;
 		setInterval(() => {
