@@ -1,12 +1,14 @@
-import { Point } from '../oddvar/geometry';
+import { Point, Size } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
 import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
 import { CreateServerMessage } from "../oddvar/protocol"
 import { ReflectionJSON } from '../oddvar/reflection';
+import { Graphics, RectangleTexture } from '../oddvar/graphics';
 import { ServerPlayers } from './players';
 import { Player, Players } from 'oddvar/players';
 import { stringify } from 'node:querystring';
+import { Controller } from '../oddvar/controller';
 
 export class Processor {
 	private oddvar: Oddvar;
@@ -17,11 +19,15 @@ export class Processor {
 
 	constructor(reflectionJSON: ReflectionJSON) {
 		const world = new World();
+		const graphics = this.CreateEmptyGraphics();
+		const controller = new Controller();
 		this.players = new ServerPlayers();
-		this.oddvar = new Oddvar(new Worlds(world, this.players), reflectionJSON);
+		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
 
 		const e = this.oddvar.Add("World").CreateEntity("Entity1", new Point(10, 10));
 		this.oddvar.Add("World").CreateTailEntity("Entity2", e, new Point(1, 2), 1);
+		this.oddvar.Add("Graphics").CreateEntityAvatar("Avatar1", e, new Size(50, 50), new RectangleTexture({ fill: "black" }))
+		this.oddvar.Add("Controller").CreateWalkController("Controller1", e)
 
 		let lastTime = 0;
 		setInterval(() => {
@@ -32,11 +38,11 @@ export class Processor {
 		}, 15);
 
 		setInterval(() => {
-			const delta = CreateServerMessage("snapshot", { Delta: this.oddvar.GetDelta() });
+			const delta = CreateServerMessage("snapshot", this.oddvar.GetSnapshot(false));
 			this.webSockets.forEach(ws => ws.send(delta));
 
 			if (this.newConnectionSockets.length > 0) {
-				const json = CreateServerMessage("snapshot", this.oddvar.GetSnapshot());
+				const json = CreateServerMessage("snapshot", this.oddvar.GetSnapshot(true));
 				this.newConnectionSockets.forEach(ws => {
 					const id = this.AddSocket(ws, json);
 					console.log("Add client %d", id);
@@ -44,6 +50,15 @@ export class Processor {
 				this.newConnectionSockets.length = 0;
 			}
 		}, 100);
+	}
+
+	private CreateEmptyGraphics() {
+		return new Graphics(new Proxy<CanvasRenderingContext2D>( { } as CanvasRenderingContext2D, {
+			get: (target, propertyName, recevier) => {
+				return (...params: any) => {
+				}
+			}
+		}));
 	}
 
 	private PushSocket(ws: WebSocket): number {

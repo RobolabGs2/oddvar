@@ -61,7 +61,7 @@ class Tranformation {
 }
 
 export class Entity extends Deadly implements IEntity {
-	private shift: Tranformation;
+	private readonly shift: Tranformation;
 
 	public constructor(
 		name: string,
@@ -70,6 +70,22 @@ export class Entity extends Deadly implements IEntity {
 	) {
 		super(name);
 		this.shift = new Tranformation(location, rotation);
+	}
+
+	public get location(): Point {
+		return this.shift.location;
+	}
+
+	public set location(value: Point) {
+		this.shift.location = value;
+	}
+
+	public get rotation(): number {
+		return this.shift.rotation;
+	}
+
+	public set rotation(value: number) {
+		this.shift.rotation = value;
 	}
 
 	ToConstructor(): any[] {
@@ -98,7 +114,7 @@ export class Entity extends Deadly implements IEntity {
 }
 
 export class TailEntity extends Deadly implements IEntity {
-	private shift: Tranformation;
+	private readonly shift: Tranformation;
 
 	public constructor(
 		name: string,
@@ -109,6 +125,22 @@ export class TailEntity extends Deadly implements IEntity {
 		super(name);
 		parent.DeathSubscribe(() => this.Die());
 		this.shift = new Tranformation(location, rotation);
+	}
+
+	public get location(): Point {
+		return this.shift.location;
+	}
+
+	public set location(value: Point) {
+		this.shift.location = value;
+	}
+
+	public get rotation(): number {
+		return this.shift.rotation;
+	}
+
+	public set rotation(value: number) {
+		this.shift.rotation = value;
 	}
 
 	ToConstructor(): any[] {

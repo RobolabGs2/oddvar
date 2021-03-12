@@ -33,7 +33,7 @@
   "scripts": {
     "reflection": "ts-node tools/compiler.ts src/oddvar/oddvar.ts src/tsconfig.json resources/reflection.json true",
     "build-client": "yarn reflection & webpack --env.production",
-    "dev-client": "webpack-dev-server --open --content-base=static -w --watch-content-base",
+    "dev-client": "webpack-dev-server --content-base=static -w --watch-content-base --host 0.0.0.0",
     "run-server": "ts-node -P src/server/tsconfig.json src/server/main.ts",
     "dev-server": "ts-node-dev -P src/server/tsconfig.json src/server/main.ts"
   }

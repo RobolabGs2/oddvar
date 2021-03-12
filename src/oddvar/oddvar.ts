@@ -1,22 +1,25 @@
 import { World } from "./world";
 import { Deadly, DeadlyWorld, Factory, Serializable } from "./base";
 import { Iterators } from "./iterator";
-import { Point } from "./geometry";
+import { Point, Size } from "./geometry";
 import { ClassDescription, ConstructorArgument, DeadlyRecipe, InterfaceDescription, ReflectionJSON, TypeManager } from "./reflection";
 import { Player, Players } from "./players";
+import { Graphics, RectangleTexture } from "./graphics";
+import { Controller } from "./controller";
 
 
 class Soul {
 	constructor(
 		public readonly factory: string,
-		public readonly target: Serializable,
+		public readonly target: Deadly,
 		public readonly type: string
 	) { }
 }
 
 export type OddvarSnapshot = {
-	Constructor?: DeadlyRecipe[]
+	Constructors: DeadlyRecipe[]
 	Delta: Record<string, any>
+	Destructors?: string[]
 }
 
 function isCreateMethod(propertyName: string | symbol | number, property: any): boolean {
@@ -27,12 +30,16 @@ export class Worlds
 {
 	constructor(
 	readonly World: World,
-	readonly Players: Players) {
+	readonly Players: Players,
+	readonly Graphics: Graphics,
+	readonly Controller: Controller) {
 	}
 }
 
 export class Oddvar {
 	public underworld = new Map<string, Soul>();
+	private newSouls = new Array<Soul>();
+	private deletedSouls = new Array<string>();
 	private parser: Parser;
 	constructor(
 		private worlds: Worlds,
@@ -42,14 +49,15 @@ export class Oddvar {
 		for(let factory in worlds) {
 			map.set(factory, this.Add(factory as keyof Worlds));
 		}
-		this.parser = new Parser(map, [Point], reflectionJson, this.underworld);
+		this.parser = new Parser(map, [Point, Size, RectangleTexture], reflectionJson, this.underworld);
 	}
 
 	public tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;
 		this.worlds.Players.Tick(dt);
-		// TODO: factories.tick(dt);
+		this.worlds.Graphics.Tick(dt);
+		this.worlds.Controller.Tick(dt);
 	}
 
 	public GetDelta(force: boolean = false): Record<string, any> {
@@ -69,8 +77,13 @@ export class Oddvar {
 	}
 
 	private AddInUnderworld(factory: string, s: Deadly, type: string) {
-		this.underworld.set(s.Name, new Soul(factory, s, type));
-		s.DeathSubscribe(() => {this.underworld.delete(s.Name)})
+		const soul = new Soul(factory, s, type);
+		this.underworld.set(s.Name, soul);
+		this.newSouls.push(soul);
+		s.DeathSubscribe(() => {
+			this.underworld.delete(s.Name);
+			this.deletedSouls.push(s.Name);
+		})
 	}
 
 	public Add<T extends keyof Worlds>(factory: T): Worlds[T] {
@@ -87,32 +100,47 @@ export class Oddvar {
 		});
 	}
 
-	public GetConstructors(): DeadlyRecipe[] {
-		return Iterators.Wrap(this.underworld.entries()).map(([name, soul]) => {
+	public GetConstructors(force: boolean): DeadlyRecipe[] {
+		const result = (force ? Iterators.Wrap(this.underworld.values()).toArray() : this.newSouls).map((soul) => {
 			return {
 				factory: soul.factory,
 				type: soul.type,
-				name: name,
+				name: soul.target.Name,
 				constructor: soul.target.ToConstructor(),
 			}
-		}).toArray();
+		});
+		this.newSouls.length = 0;
+		return result;
 	}
 
-	public GetSnapshot(): OddvarSnapshot {
+	public GetDestructors(): string[] {
+		return this.deletedSouls.splice(0, this.deletedSouls.length);
+	}
+
+	public GetSnapshot(force: boolean): OddvarSnapshot {
 		return {
-			Constructor: this.GetConstructors(),
-			Delta: this.GetDelta(true),
+			Constructors: this.GetConstructors(force),
+			Delta: this.GetDelta(force),
+			Destructors: !force ? this.GetDestructors() : undefined,
 		}
 	}
 
 	public ApplySnapshot(snapshot: OddvarSnapshot): void {
-		if (snapshot.Constructor)
-			this.ApplyConstructors(snapshot.Constructor);
+		this.ApplyConstructors(snapshot.Constructors);
 		this.ApplyDelta(this.GetDelta())
+		if (snapshot.Destructors)
+			this.ApplyDestructors(snapshot.Destructors);
 	}
 
 	public ApplyConstructors(constructors: DeadlyRecipe[]) {
 		constructors.forEach(rec => this.parser.parseElement(rec));
+	}
+
+	public ApplyDestructors(destructors: string[]) {
+		destructors.forEach(d => {
+			this.underworld.get(d)?.target.Die();
+			this.underworld.delete(d);
+		})
 	}
 }
 
@@ -144,7 +172,7 @@ export class Parser {
 			factoryWorld,
 			...[name, ...constructor].map((param, i) => {
 				const paramType = constructorSignature.parameters[i];
-				this.typeManager.switchByType<ConstructorArgument>(paramType.type, {
+				return this.typeManager.switchByType<ConstructorArgument>(paramType.type, {
 					primitive: () => param,
 					class: (desc) => {
 						if (!(param instanceof Array)) {

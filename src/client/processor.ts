@@ -3,6 +3,9 @@ import { World } from "../oddvar/world"
 import { ServerMessageTypeMap } from '../oddvar/protocol';
 import { ReflectionJSON } from '../oddvar/reflection';
 import { ClientPlayers } from "./players";
+import { Graphics } from "../oddvar/graphics";
+import * as HTML from "./html";
+import { Controller } from "../oddvar/controller";
 
 
 export class Processor {
@@ -10,21 +13,27 @@ export class Processor {
 	players: ClientPlayers;
 	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON) {
 		const world = new World();
+		const graphics = this.CreateGraphics();
 		this.players = new ClientPlayers(socket);
-		this.oddvar = new Oddvar(new Worlds(world, this.players), reflectionJSON);
+		const controller = new Controller();
+		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
 		
 		let lastTime = 0;
-		setInterval(() => {
-			const t = new Date().getTime();
+		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;
 			lastTime = t;
+			if (dt > 0.03)
+				dt = 0.03;
 			this.oddvar.tick(dt);
-		}, 15);
+			requestAnimationFrame(Tick);
+		};
+		requestAnimationFrame(Tick);
 
 		socket.addEventListener("message", (event) => {
 			const data = JSON.parse(event.data);
 			switch (data.type as keyof ServerMessageTypeMap) {
 				case "snapshot":
+					// console.log(data.data)
 					this.oddvar.ApplySnapshot(data.data);
 					break;
 				case "id":
@@ -34,5 +43,13 @@ export class Processor {
 					console.error("unknown type", data)
 			}
 		});
+	}
+
+	private CreateGraphics() {
+		return new Graphics(HTML.CreateElement("canvas", c => {
+			c.width = 500;
+			c.height = 500;
+			document.body.append(c);
+		}).getContext("2d")!);
 	}
 }
