@@ -108,6 +108,10 @@ export class ControlledWalker extends Control
 
 		move = move.Mult(5);
 		this.entity.location = move.Add(this.entity.location);
+		if (this.entity.location.x < 0) this.entity.location.x = 0;
+		if (this.entity.location.x > 500) this.entity.location.x = 500;
+		if (this.entity.location.y < 0) this.entity.location.y = 0;
+		if (this.entity.location.y > 500) this.entity.location.y = 500;
 	}
 
 	public get score() : number {
