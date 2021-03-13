@@ -27,7 +27,6 @@ export class WalkController extends Control {
 		this.entity.location = this.entity.location.Add(velocity.Mult(dt));
 		this.entity.rotation += dt * 0.5;
 		if (this.time > 20) {
-			console.log(this.counter);
 			this.entity.Die();
 		}
 	}

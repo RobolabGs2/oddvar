@@ -36,7 +36,6 @@ export class Processor {
 			const data = JSON.parse(event.data);
 			switch (data.type as keyof ServerMessageTypeMap) {
 				case "snapshot":
-					console.log((data.data as OddvarSnapshot).Delta)
 					this.manager.ApplySnapshot(data.data);
 					break;
 				case "id":

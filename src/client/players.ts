@@ -63,5 +63,8 @@ export class ClientPlayers extends DeadlyWorld<ClientPlayer> implements Players
 	}
 
 	Tick(dt: number): void {
+		if (this.player) {
+			this.player.input.length = 0;
+		}
 	}
 }

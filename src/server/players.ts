@@ -13,8 +13,6 @@ export class ServerPlayer extends Player
 	}
 
 	public Tick(dt: number) {
-		if(this.input.length > 0)
-			console.log(this.id, this.input);
 		this.input.length = 0;
 	}
 

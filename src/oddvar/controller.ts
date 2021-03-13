@@ -91,7 +91,6 @@ export class ControlledWalker extends Control
 	public Tick(dt: number): void {
 		let move = new Point(0, 0);
 		this.player.input.forEach(i => {
-			console.log(i)
 			const action = i.action == "down";
 			switch(i.key)
 			{
@@ -107,11 +106,8 @@ export class ControlledWalker extends Control
 		move.y -= this.keys.w ? 1 : 0;
 		move.y += this.keys.s ? 1 : 0;
 
-		move = move.Mult(10);
+		move = move.Mult(5);
 		this.entity.location = move.Add(this.entity.location);
-		if (move.Len() > 0) {
-			console.log(move, this.entity.location);
-		}
 	}
 
 	public get score() : number {
