@@ -80,6 +80,7 @@ export class SpinRoundController extends Control {
 export class ControlledWalker extends Control
 {
 	public modified: boolean = false;
+	private keys = {a: false, d: false, w: false, s: false}
 	private _score = 0;
 
 	constructor(name: string, public readonly entity: Entity, public readonly player: Player) {
@@ -91,14 +92,21 @@ export class ControlledWalker extends Control
 		let move = new Point(0, 0);
 		this.player.input.forEach(i => {
 			console.log(i)
-			switch(i)
+			const action = i.action == "down";
+			switch(i.key)
 			{
-				case "a": move.x -= 1; break;
-				case "d": move.x += 1; break;
-				case "w": move.y -= 1; break;
-				case "s": move.y += 1; break;
+				case "KeyA": this.modified = this.modified || this.keys.a != action; this.keys.a = action; break;
+				case "KeyD": this.modified = this.modified || this.keys.d != action; this.keys.d = action; break;
+				case "KeyW": this.modified = this.modified || this.keys.w != action; this.keys.w = action; break;
+				case "KeyS": this.modified = this.modified || this.keys.s != action; this.keys.s = action; break;
 			}
 		});
+
+		move.x -= this.keys.a ? 1 : 0;
+		move.x += this.keys.d ? 1 : 0;
+		move.y -= this.keys.w ? 1 : 0;
+		move.y += this.keys.s ? 1 : 0;
+
 		move = move.Mult(10);
 		this.entity.location = move.Add(this.entity.location);
 		if (move.Len() > 0) {
@@ -116,14 +124,16 @@ export class ControlledWalker extends Control
 	}
 
 	FromDelta(delta: any): void {
-		this._score = delta;
+		this._score = delta.score;
+		if (!this.player.isCurrent)
+			this.keys = delta.keys;
 	}
 
 	ToDelta(force: boolean) {
 		if (!this.modified && !force)
 			return null;
 		this.modified = false;
-		return this.score;
+		return { score: this.score, keys: this.keys };
 	}
 
 	ToConstructor(): any[] {

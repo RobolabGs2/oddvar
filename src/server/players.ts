@@ -1,10 +1,12 @@
 
+import { KeyInput } from 'oddvar/protocol';
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 
 export class ServerPlayer extends Player
 {
-	public input = new Array<string>();
+	readonly isCurrent = false;
+	public input = new Array<KeyInput>();
 
 	constructor(name: string, public readonly id: number) {
 		super(name);
@@ -40,7 +42,7 @@ export class ServerPlayers extends DeadlyWorld<ServerPlayer> implements Players
 		super();
 	}
 
-	public AddUserInput(id: number, input: string) {
+	public AddUserInput(id: number, input: KeyInput) {
 		this.players.get(id)?.input.push(input);
 	}
 

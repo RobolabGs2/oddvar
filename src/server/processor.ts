@@ -2,7 +2,7 @@ import { Point, Size } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
 import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { Entity, World } from "../oddvar/world"
-import { CreateServerMessage } from "../oddvar/protocol"
+import { ClientMessageTypeMap, CreateServerMessage } from "../oddvar/protocol"
 import { ReflectionJSON } from '../oddvar/reflection';
 import { Graphics, RectangleTexture } from '../oddvar/graphics';
 import { ServerPlayers } from './players';
@@ -12,9 +12,8 @@ import { ControlledWalker, Controller } from '../oddvar/controller';
 import { GameLogic, Manager } from '../oddvar/manager';
 import { Deadly } from '../oddvar/base';
 
-class TestGamelogic implements GameLogic
-{
-	private usersThings = new Map<number, { entity: Entity, controller: ControlledWalker}>();
+class TestGamelogic implements GameLogic {
+	private usersThings = new Map<number, { entity: Entity, controller: ControlledWalker }>();
 	private targetPoint: Entity;
 	private readonly size = new Size(20, 20);
 
@@ -40,10 +39,10 @@ class TestGamelogic implements GameLogic
 
 	AddUser(player: Player): void {
 		const e = this.oddvar.Add("World").CreateEntity(`test entity ${player.id}`, new Point(Math.random() * 500, Math.random() * 500));
-		this.oddvar.Add("Graphics").CreateEntityAvatar(`test avatar ${player.id}`, e, this.size, new RectangleTexture());
+		this.oddvar.Add("Graphics").CreateEntityAvatar(`test avatar ${player.id}`, e, this.size, new RectangleTexture({ fill: `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})` }));
 		const c = this.oddvar.Add("Controller").CreateControlledWalker(`test controlled wolker ${player.id}`, e, player);
 		this.oddvar.Add("Graphics").CreateControlledWalkerAvatar(`test avatar ${player.id} scode`, c)
-		this.usersThings.set(player.id, {entity: e, controller: c});
+		this.usersThings.set(player.id, { entity: e, controller: c });
 		player.DeathSubscribe(p => {
 			e.Die();
 			this.usersThings.delete(player.id);
@@ -87,12 +86,12 @@ export class Processor {
 				});
 				this.newConnectionSockets.length = 0;
 			}
-		}, 100);
+		}, 50);
 	}
 
 	private CreateEmptyGraphics() {
-		return new Graphics(new Proxy<CanvasRenderingContext2D>( { } as CanvasRenderingContext2D, {
-			get: () => {return () => {}}
+		return new Graphics(new Proxy<CanvasRenderingContext2D>({} as CanvasRenderingContext2D, {
+			get: () => { return () => { } }
 		}));
 	}
 
@@ -109,8 +108,15 @@ export class Processor {
 		ws.send(json)
 
 		this.manager.AddUser(id);
-		ws.on('message', (message: string) => {
-			this.players.AddUserInput(id, message);
+		ws.on('message', (event) => {
+			const data = JSON.parse(event.toString());
+			switch (data.type as keyof ClientMessageTypeMap) {
+				case "input":
+					this.players.AddUserInput(id, data.data);
+					break;
+				default:
+					console.error("unknown type", data)
+			}
 		});
 
 		ws.on('close', (code, r) => {

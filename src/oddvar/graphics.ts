@@ -78,9 +78,9 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 	}
 
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
 		TransformContext(context, this.controller.entity.Transform());
-		context.fillStyle = "black";
-		context.fillText(`${this.controller.player.id}: ${this.controller.score}`, 0, -25)
+		context.fillText(`${this.controller.score}`, 0, -25)
 	}
 
 	FromDelta(delta: any): void {
