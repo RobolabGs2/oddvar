@@ -52,15 +52,15 @@ export class Oddvar {
 		this.parser = new Parser(map, [Point, Size, RectangleTexture], reflectionJson, this.underworld);
 	}
 
-	public tick(dt: number) {
+	public Tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;
-		this.worlds.Players.Tick(dt);
 		this.worlds.Graphics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
+		this.worlds.Players.Tick(dt);
 	}
 
-	public GetDelta(force: boolean = false): Record<string, any> {
+	private GetDelta(force: boolean = false): Record<string, any> {
 		const result: Record<string, any> = {};
 		this.underworld.forEach((s, id) => {
 			const delta = s.target.ToDelta(force);
@@ -70,7 +70,7 @@ export class Oddvar {
 		return result;
 	}
 
-	public ApplyDelta(snapshot: Record<string, any>): void {
+	private ApplyDelta(snapshot: Record<string, any>): void {
 		for (let name in snapshot) {
 			this.underworld.get(name)?.target.FromDelta(snapshot[name]);
 		}
@@ -100,7 +100,7 @@ export class Oddvar {
 		});
 	}
 
-	public GetConstructors(force: boolean): DeadlyRecipe[] {
+	private GetConstructors(force: boolean): DeadlyRecipe[] {
 		const result = (force ? Iterators.Wrap(this.underworld.values()).toArray() : this.newSouls).map((soul) => {
 			return {
 				factory: soul.factory,
@@ -113,7 +113,7 @@ export class Oddvar {
 		return result;
 	}
 
-	public GetDestructors(): string[] {
+	private GetDestructors(): string[] {
 		return this.deletedSouls.splice(0, this.deletedSouls.length);
 	}
 
@@ -132,11 +132,11 @@ export class Oddvar {
 			this.ApplyDestructors(snapshot.Destructors);
 	}
 
-	public ApplyConstructors(constructors: DeadlyRecipe[]) {
+	private ApplyConstructors(constructors: DeadlyRecipe[]) {
 		constructors.forEach(rec => this.parser.parseElement(rec));
 	}
 
-	public ApplyDestructors(destructors: string[]) {
+	private ApplyDestructors(destructors: string[]) {
 		destructors.forEach(d => {
 			this.underworld.get(d)?.target.Die();
 			this.underworld.delete(d);
@@ -190,7 +190,7 @@ export class Parser {
 							const deadly = this.underworld.get(param)?.target
 							if (!deadly)
 								throw new Error(`Not found deadly with name ${param}`);
-							if (deadly.constructor.name != desc.name)
+							if (!this.typeManager.instanceOf(desc.name, deadly.constructor.name))
 								throw new TypeError(`Expected deadly ${param} typeof ${desc.name}, actual ${deadly.constructor.name} in deadly constructor ${name}`)
 							return deadly;
 						}

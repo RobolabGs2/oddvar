@@ -2,11 +2,11 @@
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 
-export class ClientPlayer extends Deadly implements Player
+export class ClientPlayer extends Player
 {
 	public input = new Array<string>();
 
-	constructor(name: string, readonly id: number) {
+	constructor(name: string, public readonly id: number) {
 		super(name);
 	}
 

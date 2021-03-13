@@ -2,11 +2,11 @@
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 
-export class ServerPlayer extends Deadly implements Player
+export class ServerPlayer extends Player
 {
 	public input = new Array<string>();
 
-	constructor(name: string, readonly id: number) {
+	constructor(name: string, public readonly id: number) {
 		super(name);
 	}
 
@@ -42,10 +42,6 @@ export class ServerPlayers extends DeadlyWorld<ServerPlayer> implements Players
 
 	public AddUserInput(id: number, input: string) {
 		this.players.get(id)?.input.push(input);
-	}
-
-	public DeletePlayer(id: number) {
-		this.players.get(id)?.Die();
 	}
 
 	private AddPlayer(player: ServerPlayer): ServerPlayer {

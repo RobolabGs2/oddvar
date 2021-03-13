@@ -1,3 +1,4 @@
+import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } from "node:constants";
 import { Deadly, DeadlyWorld } from "./base"
 import { Matrix, Point } from "./geometry"
 
@@ -16,11 +17,11 @@ class Tranformation {
 		this._rotation = rotation;
 	}
 
-	public get location(): Point {
+	public get location(): Readonly<Point> {
 		return this._location;
 	}
 
-	public set location(value: Point) {
+	public set location(value: Readonly<Point>) {
 		this._location = value;
 		this.modified = true;
 	}
@@ -45,8 +46,8 @@ class Tranformation {
 	}
 
 	FromDelta(delta: any) {
-		this.location = delta.location;
-		this.rotation = delta.rotation;
+		this._location = new Point(delta.location.x, delta.location.y);
+		this._rotation = delta.rotation;
 	}
 
 	public ToMatrix(): Matrix {

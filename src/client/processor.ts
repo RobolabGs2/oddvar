@@ -1,4 +1,4 @@
-import { Oddvar, Worlds } from "../oddvar/oddvar"
+import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
 import { ServerMessageTypeMap } from '../oddvar/protocol';
 import { ReflectionJSON } from '../oddvar/reflection';
@@ -6,25 +6,28 @@ import { ClientPlayers } from "./players";
 import { Graphics } from "../oddvar/graphics";
 import * as HTML from "./html";
 import { Controller } from "../oddvar/controller";
+import { Manager } from "../oddvar/manager";
+import { EmptyGameLogic } from "../oddvar/empty_game_logic";
 
 
 export class Processor {
-	private oddvar: Oddvar;
+	private manager: Manager;
 	players: ClientPlayers;
 	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON) {
 		const world = new World();
 		const graphics = this.CreateGraphics();
 		this.players = new ClientPlayers(socket);
 		const controller = new Controller(true);
-		this.oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
-		
+		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
+		this.manager = new Manager(oddvar, new EmptyGameLogic());
+
 		let lastTime = 0;
 		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;
 			lastTime = t;
 			if (dt > 0.03)
 				dt = 0.03;
-			this.oddvar.tick(dt);
+			this.manager.Tick(dt);
 			requestAnimationFrame(Tick);
 		};
 		requestAnimationFrame(Tick);
@@ -33,8 +36,8 @@ export class Processor {
 			const data = JSON.parse(event.data);
 			switch (data.type as keyof ServerMessageTypeMap) {
 				case "snapshot":
-					// console.log(data.data)
-					this.oddvar.ApplySnapshot(data.data);
+					console.log((data.data as OddvarSnapshot).Delta)
+					this.manager.ApplySnapshot(data.data);
 					break;
 				case "id":
 					this.players.myId = data.data;

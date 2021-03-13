@@ -1,7 +1,8 @@
 import { Deadly, DeadlyWorld } from "./base";
 
-export interface Player extends Deadly {
-	readonly input: ReadonlyArray<string>;
+export abstract class Player extends Deadly {
+	abstract readonly input: ReadonlyArray<string>;
+	abstract readonly id: number;
 }
 
 export interface Players extends DeadlyWorld<Player> {

@@ -1,6 +1,7 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { Entity, IEntity, TailEntity } from "./world"
 import { Matrix, Point, Size } from "./geometry";
+import { ControlledWalker } from "./controller";
 
 
 function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
@@ -68,6 +69,29 @@ export class TailEntityAvatar extends DeadlyAvatar {
 
 	ToConstructor(): any[] {
 		return [ this.entity.Name, this.size, this.texture.ToConstructor() ];
+	}
+}
+
+export class ControlledWalkerAvatar extends DeadlyAvatar {
+	public constructor(name: string, public readonly controller: ControlledWalker) {
+		super(name, controller);
+	}
+
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		TransformContext(context, this.controller.entity.Transform());
+		context.fillStyle = "black";
+		context.fillText(`${this.controller.player.id}: ${this.controller.score}`, 0, -25)
+	}
+
+	FromDelta(delta: any): void {
+	}
+	
+	ToDelta(force: boolean): any {
+		return undefined;
+	}
+
+	ToConstructor(): any[] {
+		return [ this.controller.Name];
 	}
 }
 
@@ -139,5 +163,9 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 
 	public CreateTailEntityAvatar(name: string, entity: TailEntity, size: Size, texture: RectangleTexture): TailEntityAvatar {
 		return this.AddDeadly(new TailEntityAvatar(name, entity, size, texture));
+	}
+
+	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker): ControlledWalkerAvatar {
+		return this.AddDeadly(new ControlledWalkerAvatar(name, controller));
 	}
 }
