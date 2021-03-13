@@ -39,9 +39,10 @@ class TestGamelogic implements GameLogic {
 
 	AddUser(player: Player): void {
 		const e = this.oddvar.Add("World").CreateEntity(`test entity ${player.id}`, new Point(Math.random() * 500, Math.random() * 500));
-		this.oddvar.Add("Graphics").CreateEntityAvatar(`test avatar ${player.id}`, e, this.size, new RectangleTexture({ fill: `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})` }));
+		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+		this.oddvar.Add("Graphics").CreateEntityAvatar(`test avatar ${player.id}`, e, this.size, new RectangleTexture({ fill: currentColor }));
 		const c = this.oddvar.Add("Controller").CreateControlledWalker(`test controlled wolker ${player.id}`, e, player);
-		this.oddvar.Add("Graphics").CreateControlledWalkerAvatar(`test avatar ${player.id} scode`, c)
+		this.oddvar.Add("Graphics").CreateControlledWalkerAvatar(`test avatar ${player.id} scode`, c, currentColor)
 		this.usersThings.set(player.id, { entity: e, controller: c });
 		player.DeathSubscribe(p => {
 			e.Die();

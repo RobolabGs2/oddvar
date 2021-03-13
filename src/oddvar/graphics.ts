@@ -73,13 +73,18 @@ export class TailEntityAvatar extends DeadlyAvatar {
 }
 
 export class ControlledWalkerAvatar extends DeadlyAvatar {
-	public constructor(name: string, public readonly controller: ControlledWalker) {
+	public constructor(name: string, public readonly controller: ControlledWalker, public readonly playerColor: string) {
 		super(name, controller);
 	}
 
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
-		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
+		if (this.controller.player.isCurrent) {
+			context.strokeStyle = this.playerColor;
+			context.lineWidth = 10;
+			context.strokeRect(0, 0, 500, 500);
+		}
 		TransformContext(context, this.controller.entity.Transform());
+		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
 		context.fillText(`${this.controller.score}`, 0, -25)
 	}
 
@@ -91,7 +96,7 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 	}
 
 	ToConstructor(): any[] {
-		return [ this.controller.Name];
+		return [ this.controller.Name, this.playerColor];
 	}
 }
 
@@ -165,7 +170,7 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 		return this.AddDeadly(new TailEntityAvatar(name, entity, size, texture));
 	}
 
-	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker): ControlledWalkerAvatar {
-		return this.AddDeadly(new ControlledWalkerAvatar(name, controller));
+	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker, playerColor: string): ControlledWalkerAvatar {
+		return this.AddDeadly(new ControlledWalkerAvatar(name, controller, playerColor));
 	}
 }
