@@ -7,6 +7,12 @@ export class ServerPlayer extends Player
 {
 	readonly isCurrent = false;
 	public input = new Array<KeyInput>();
+	public sync = -1;
+
+
+	public get wasSnapshot(): boolean {
+		return false;
+	}
 
 	constructor(name: string, public readonly id: number) {
 		super(name);
@@ -23,9 +29,7 @@ export class ServerPlayer extends Player
 	}
 
 	ToDelta(force: boolean): any {
-		if (!force)
-			return null;
-		return 1;
+		return this.sync;
 	}
 
 	FromDelta(delta: any) {
@@ -48,6 +52,13 @@ export class ServerPlayers extends DeadlyWorld<ServerPlayer> implements Players
 		this.players.set(player.id, player);
 		player.DeathSubscribe(() => this.players.delete(player.id));
 		return player;
+	}
+
+	public SetSync(id: number, sync: number) {
+		const player = this.players.get(id);
+		if (player) {
+			player.sync = sync
+		}
 	}
 
 	CreatePlayer(name: string, id: number): Player {

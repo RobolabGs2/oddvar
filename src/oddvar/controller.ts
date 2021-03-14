@@ -77,11 +77,19 @@ export class SpinRoundController extends Control {
 	}
 }
 
+type neededKeys = {a: boolean, w: boolean, s: boolean, d: boolean};
+type neededKeysSync = {[property in keyof neededKeys]: number};
+
 export class ControlledWalker extends Control
 {
 	public modified: boolean = false;
-	private keys = {a: false, d: false, w: false, s: false}
+	private keys: neededKeys = {a: false, d: false, w: false, s: false}
+	private keySync: neededKeysSync = {a: 10, d: 10, w: 10, s: 10}
 	private _score = 0;
+
+	private lastEntityLocation = new Point(0, 0);
+	private targetEntityLocation = new Point(0, 0);
+	private speed = new Point(0, 0);
 
 	constructor(name: string, public readonly entity: Entity, public readonly player: Player) {
 		super(name);
@@ -89,29 +97,56 @@ export class ControlledWalker extends Control
 	}
 
 	public Tick(dt: number): void {
+		const now = this.player.isCurrent ? Date.now() / 1000 : Infinity;
+		if (this.player.isCurrent && this.player.wasSnapshot) {
+			const serverDelay = now - this.player.sync / 1000;
+			dt += serverDelay;
+		}
+
 		let move = new Point(0, 0);
 		this.player.input.forEach(i => {
 			const action = i.action == "down";
 			switch(i.key)
 			{
-				case "KeyA": this.modified = this.modified || this.keys.a != action; this.keys.a = action; break;
-				case "KeyD": this.modified = this.modified || this.keys.d != action; this.keys.d = action; break;
-				case "KeyW": this.modified = this.modified || this.keys.w != action; this.keys.w = action; break;
-				case "KeyS": this.modified = this.modified || this.keys.s != action; this.keys.s = action; break;
+				case "KeyA": this.KeyHandler("a", action, now); break;
+				case "KeyD": this.KeyHandler("d", action, now); break;
+				case "KeyW": this.KeyHandler("w", action, now); break;
+				case "KeyS": this.KeyHandler("s", action, now); break;
 			}
 		});
 
-		move.x -= this.keys.a ? 1 : 0;
-		move.x += this.keys.d ? 1 : 0;
-		move.y -= this.keys.w ? 1 : 0;
-		move.y += this.keys.s ? 1 : 0;
+		move.x -= this.keys.a ? Math.min(dt, now - this.keySync.a) : Math.max(0, dt - (now - this.keySync.a));
+		move.x += this.keys.d ? Math.min(dt, now - this.keySync.d) : Math.max(0, dt - (now - this.keySync.d));
+		move.y -= this.keys.w ? Math.min(dt, now - this.keySync.w) : Math.max(0, dt - (now - this.keySync.w));
+		move.y += this.keys.s ? Math.min(dt, now - this.keySync.s) : Math.max(0, dt - (now - this.keySync.s));
 
-		move = move.Mult(5);
+		move = move.Mult(300);
 		this.entity.location = move.Add(this.entity.location);
 		if (this.entity.location.x < 0) this.entity.location.x = 0;
 		if (this.entity.location.x > 500) this.entity.location.x = 500;
 		if (this.entity.location.y < 0) this.entity.location.y = 0;
 		if (this.entity.location.y > 500) this.entity.location.y = 500;
+
+		if (this.player.isCurrent && this.player.wasSnapshot) {
+			this.targetEntityLocation = this.entity.location.Mult(1);
+			this.entity.location = this.lastEntityLocation;
+			this.speed = this.targetEntityLocation.Sub(this.lastEntityLocation).Mult(1 / dt); // TODO:
+		}
+		if (this.player.isCurrent && !this.player.wasSnapshot) {
+			// this.entity.location = this.entity.location.Add(this.speed.Mult(dt));
+			this.entity.location = this.entity.location.Add(this.targetEntityLocation.Sub(this.entity.location).Mult(0.2));
+		}
+	
+
+		this.lastEntityLocation = this.entity.location.Mult(1);
+	}
+
+	private KeyHandler(key: keyof neededKeys, action: boolean, now: number) {
+		if (this.keys[key] == action)
+			return;
+		this.modified = true;
+		this.keys[key] = action;
+		this.keySync[key] =  this.player.isCurrent ? now : 0;
 	}
 
 	public get score() : number {

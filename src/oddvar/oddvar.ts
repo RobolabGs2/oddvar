@@ -55,9 +55,9 @@ export class Oddvar {
 	public Tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;
-		this.worlds.Graphics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
 		this.worlds.Players.Tick(dt);
+		this.worlds.Graphics.Tick(dt);
 	}
 
 	private GetDelta(force: boolean = false): Record<string, any> {

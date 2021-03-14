@@ -6,9 +6,23 @@ import { CreateClientMessage, KeyInput } from '../oddvar/protocol';
 export class ClientPlayer extends Player
 {
 	public input = new Array<KeyInput>();
+	private _sync = -1;
+	private _wasSnapshot = false;
+
+	public get sync() : number {
+		return this._sync;
+	}
+
+	public get wasSnapshot(): boolean {
+		return this._wasSnapshot;
+	}
 
 	constructor(name: string, public readonly id: number, readonly isCurrent: boolean) {
 		super(name);
+	}
+
+	public Tick(dt: number) {
+		this._wasSnapshot = false;
 	}
 
 	ToConstructor(): any[] {
@@ -24,6 +38,8 @@ export class ClientPlayer extends Player
 	}
 
 	FromDelta(delta: any) {
+		this._sync = delta;
+		this._wasSnapshot = this.sync > 0;
 	}
 }
 
@@ -35,12 +51,12 @@ export class ClientPlayers extends DeadlyWorld<ClientPlayer> implements Players
 	constructor(ws: WebSocket) {
 		super();
 		document.addEventListener("keydown", ev => {
-			const input: KeyInput = { action: "down", key: ev.code};
+			const input: KeyInput = { action: "down", key: ev.code, sync: Date.now() };
 			ws.send(CreateClientMessage("input", input))
 			this.SetInput(input);
 		})
 		document.addEventListener("keyup", ev => {
-			const input: KeyInput = { action: "up", key: ev.code};
+			const input: KeyInput = { action: "up", key: ev.code, sync: Date.now()};
 			ws.send(CreateClientMessage("input", input))
 			this.SetInput(input);
 		})
@@ -66,5 +82,6 @@ export class ClientPlayers extends DeadlyWorld<ClientPlayer> implements Players
 		if (this.player) {
 			this.player.input.length = 0;
 		}
+		this.player?.Tick(dt);
 	}
 }

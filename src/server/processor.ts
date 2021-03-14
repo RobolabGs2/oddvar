@@ -115,6 +115,9 @@ export class Processor {
 				case "input":
 					this.players.AddUserInput(id, data.data);
 					break;
+				case "sync":
+					this.players.SetSync(id, data.data)
+					break;
 				default:
 					console.error("unknown type", data)
 			}

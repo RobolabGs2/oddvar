@@ -15,10 +15,11 @@ export function CreateServerMessage<K extends keyof ServerMessageTypeMap>(type: 
 	return JSON.stringify({ type, data }, undefined, 2)
 }
 
-export type KeyInput = { action: "up" | "down", key: string};
+export type KeyInput = { action: "up" | "down", key: string, sync: number};
 
 export interface ClientMessageTypeMap {
 	"input": KeyInput;
+	"sync": number;
 }
 
 export interface ClientMessage<K extends keyof ClientMessageTypeMap> {

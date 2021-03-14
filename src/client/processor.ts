@@ -1,6 +1,6 @@
 import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
-import { ServerMessageTypeMap } from '../oddvar/protocol';
+import { CreateClientMessage, ServerMessageTypeMap } from '../oddvar/protocol';
 import { ReflectionJSON } from '../oddvar/reflection';
 import { ClientPlayers } from "./players";
 import { Graphics } from "../oddvar/graphics";
@@ -28,9 +28,9 @@ export class Processor {
 			if (dt > 0.03)
 				dt = 0.03;
 			this.manager.Tick(dt);
+			socket.send(CreateClientMessage("sync", Date.now()));
 			requestAnimationFrame(Tick);
 		};
-		requestAnimationFrame(Tick);
 
 		socket.addEventListener("message", (event) => {
 			const data = JSON.parse(event.data);
@@ -45,6 +45,10 @@ export class Processor {
 					console.error("unknown type", data)
 			}
 		});
+
+		socket.addEventListener("open", () => {
+			requestAnimationFrame(Tick);
+		})
 	}
 
 	private CreateGraphics() {
