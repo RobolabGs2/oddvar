@@ -29,29 +29,7 @@ export interface Texture {
 // }
 
 export class EntityAvatar extends DeadlyAvatar {
-	public constructor(name: string, public readonly entity: Entity, public readonly size: Size, public readonly texture: RectangleTexture) {
-		super(name, entity);
-	}
-
-	public Tick(dt: number, context: CanvasRenderingContext2D): void {
-		TransformContext(context, this.entity.Transform());
-		this.texture.Draw(context, this.size);
-	}
-
-	FromDelta(delta: any): void {
-	}
-	
-	ToDelta(force: boolean): any {
-		return undefined;
-	}
-
-	ToConstructor(): any[] {
-		return [ this.entity.Name, this.size, this.texture.ToConstructor() ];
-	}
-}
-
-export class TailEntityAvatar extends DeadlyAvatar {
-	public constructor(name: string, public readonly entity: TailEntity, public readonly size: Size, public readonly texture: RectangleTexture) {
+	public constructor(name: string, public readonly entity: IEntity, public readonly size: Size, public readonly texture: RectangleTexture) {
 		super(name, entity);
 	}
 
@@ -162,12 +140,8 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 		})
 	}
 
-	public CreateEntityAvatar(name: string, entity: Entity, size: Size, texture: RectangleTexture): EntityAvatar {
+	public CreateEntityAvatar(name: string, entity: IEntity, size: Size, texture: RectangleTexture): EntityAvatar {
 		return this.AddDeadly(new EntityAvatar(name, entity, size, texture));
-	}
-
-	public CreateTailEntityAvatar(name: string, entity: TailEntity, size: Size, texture: RectangleTexture): TailEntityAvatar {
-		return this.AddDeadly(new TailEntityAvatar(name, entity, size, texture));
 	}
 
 	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker, playerColor: string): ControlledWalkerAvatar {

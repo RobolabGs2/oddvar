@@ -3,7 +3,7 @@ import { KeyInput } from 'oddvar/protocol';
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 
-export class ServerPlayer extends Player
+export class ServerPlayer extends Deadly implements Player
 {
 	readonly isCurrent = false;
 	public input = new Array<KeyInput>();

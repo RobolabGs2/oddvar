@@ -157,7 +157,6 @@ export class Parser {
 		this.primitives = new Map(primitives.map(v => v.prototype.constructor).map(value => [value.name, value]));
 		this.typeManager = this.newTypeManager(reflectionJson);
 	}
-	private namedEntities = new Map<string, Deadly>();
 
 	parseElement({ factory, type, constructor, name }: DeadlyRecipe) {
 		const factoryWorld = this.factories.get(factory);
@@ -190,10 +189,12 @@ export class Parser {
 							const deadly = this.underworld.get(param)?.target
 							if (!deadly)
 								throw new Error(`Not found deadly with name ${param}`);
-							if (!this.typeManager.instanceOf(desc.name, deadly.constructor.name))
+							const actualType = deadly.constructor.name;
+							if (!this.typeManager.instanceOf(desc.name, actualType) && !this.typeManager.implementsOf(desc.name, actualType))
 								throw new TypeError(`Expected deadly ${param} typeof ${desc.name}, actual ${deadly.constructor.name} in deadly constructor ${name}`)
 							return deadly;
 						}
+						throw new Error(`Expected deadly name, found '${typeof param}' ${param}`)
 						if (!this.typeManager.instanceOf(desc.name, param.constructor.name))
 							throw new TypeError(`Expected deadly typeof ${desc.name}, actual ${param.constructor.name} in deadly constructor ${name}`)
 						return param;
@@ -207,11 +208,7 @@ export class Parser {
 						return param
 					}
 				})
-				return (typeof param) === "string" && this.namedEntities.has(param as string) ? this.namedEntities.get(param as string) : param
 			}));
-		if (elem instanceof Deadly) {
-			this.namedEntities.set(elem.Name, elem)
-		}
 	}
 
 	private newTypeManager(json: ReflectionJSON): TypeManager {

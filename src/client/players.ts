@@ -3,7 +3,7 @@ import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 import { CreateClientMessage, KeyInput } from '../oddvar/protocol';
 
-export class ClientPlayer extends Player
+export class ClientPlayer extends Deadly implements Player
 {
 	public input = new Array<KeyInput>();
 	private _sync = -1;

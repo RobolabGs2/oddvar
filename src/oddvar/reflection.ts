@@ -39,42 +39,73 @@ export interface FieldDescription extends NamedSymbolDesctiption {
 export interface InterfaceDescription extends NamedSymbolDesctiption {
 	readonly fields: FieldDescription[];
 	readonly methods: FunctionDescription[];
+	readonly extends: string[];
 }
 
 export interface ClassDescription extends InterfaceDescription {
 	readonly consturctors: SignatureDescription[];
-	readonly prototype: string;
+}
+
+function IsImplements(classDesc: ClassDescription, interfaceDesc: InterfaceDescription): boolean {
+	// TODO fix
+	if (interfaceDesc.name.endsWith("Listener"))
+		return false;
+	return interfaceDesc.methods.
+		every(interfaceMethod => classDesc.methods.find(classMethod => FunctionsAreEquals(interfaceMethod, classMethod)))
+		&&
+		interfaceDesc.fields.every(interfaceField => classDesc.fields.find(classField => classField.name === interfaceField.name && classField.type === interfaceField.type))
+}
+
+function FunctionsAreEquals(desc1: FunctionDescription, desc2: FunctionDescription): boolean {
+	if (desc1.name !== desc2.name || desc1.returnType != desc2.returnType || desc1.parameters.length != desc2.parameters.length)
+		return false;
+	return desc1.parameters.every((param, i) => param.type === desc2.parameters[i].type);
 }
 
 export class TypeManager {
 	private inheritanceTree = new Map<string, string>();
 	private inheritanceLists = new Map<string, string[]>();
+	private implementationsLists: Map<string, string[]>;
 	constructor(
 		public readonly factories: Map<string, InterfaceDescription>,
 		public readonly classes: Map<string, ClassDescription>,
 		public readonly interfaces: Map<string, InterfaceDescription>
 	) {
-		classes.forEach(desc => {
-			if (desc.prototype) {
-				this.inheritanceTree.set(desc.name, desc.prototype);
-				for (let type: string | undefined = desc.prototype; type; type = this.inheritanceTree.get(type!)) {
-					this.addChild(type, desc);
+		[interfaces, classes].forEach(x => x.forEach(desc => {
+			desc.extends.forEach(
+				parent => {
+					this.inheritanceTree.set(desc.name, parent);
+					for (let type: string | undefined = parent; type; type = this.inheritanceTree.get(type!)) {
+						this.addChild(type, desc);
+					}
 				}
-			}
-		});
+			)
+		}));
+		this.implementationsLists = new Map<string, string[]>(
+			Iterators.Wrap(interfaces.values()).
+				map(desc => [
+					desc.name,
+					Iterators.Wrap(classes.values()).filter(classDesc => IsImplements(classDesc, desc)).map(d => d.name).toArray()] as [string, string[]]).toArray()
+		);
+		console.log(this.inheritanceLists)
+		console.log(this.implementationsLists)
 	}
 
-	private addChild(type: string, desc: ClassDescription) {
+	private addChild(type: string, desc: InterfaceDescription) {
 		let siblings = this.inheritanceLists.get(type);
 		if (siblings) {
 			siblings.push(desc.name);
 		} else {
-			this.inheritanceLists.set(desc.prototype, [desc.name]);
+			this.inheritanceLists.set(type, [desc.name]);
 		}
 	}
 
 	instanceOf(expected: string, actual: string): boolean {
 		return expected === actual || this.inheritanceLists.get(expected)?.find(x => x === actual) === actual
+	}
+
+	implementsOf(expected: string, actual: string): boolean {
+		return this.implementationsLists.get(expected)?.find(x => x === actual) === actual
 	}
 
 	*getDeadlies(deadlyName: string) {
@@ -144,11 +175,11 @@ export class TypeManager {
 				throw new Error(`${type} is not supported now, only nullable union supported!`);
 			return actions.nullable(mainType[0]);
 		}
+		if (this.instanceOf("Deadly", type))
+			return actions.deadly(this.classes.get(type)!);
 		if (this.interfaces.has(type)) {
 			return actions.interface(this.interfaces.get(type)!);
 		}
-		if (this.instanceOf("Deadly", type))
-			return actions.deadly(this.classes.get(type)!);
 		if (this.classes.has(type))
 			return actions.class(this.classes.get(type)!);
 		return actions.primitive(type);

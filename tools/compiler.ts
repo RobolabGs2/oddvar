@@ -65,17 +65,25 @@ class InterfaceDescription extends NamedSymbolDesctiption {
 		super(symbol, checker)
 		this.methods = []
 		this.fields = []
+		const type = checker.getDeclaredTypeOfSymbol(symbol);
+		if (!type.isClassOrInterface()) {
+			throw new Error(`${this.name} is not a interface!`);
+		}
+
+		const prototypeType = checker.getBaseTypes(type);
+		this.extends = prototypeType.map(x => x.symbol.name);
+
 		symbol.members?.forEach((value, name) => {
 			const flags = value.getFlags();
 			if (!(flags & ts.SymbolFlags.ClassMember)) {
 				return
 			}
 			const node = value.valueDeclaration;
-			if (node.modifiers?.find(x => x.kind == ts.SyntaxKind.ProtectedKeyword ||x.kind == ts.SyntaxKind.PrivateKeyword))
+			if (node.modifiers?.find(x => x.kind == ts.SyntaxKind.ProtectedKeyword || x.kind == ts.SyntaxKind.PrivateKeyword))
 				return;
 			if (flags & ts.SymbolFlags.Method) {
 				this.methods.push(...checker.getTypeOfSymbolAtLocation(value, node).getCallSignatures()
-				.map(signature => new FunctionDescription(value, signature, checker)))
+					.map(signature => new FunctionDescription(value, signature, checker)))
 				return;
 			}
 			this.fields.push(new FieldDescription(value, checker))
@@ -83,28 +91,21 @@ class InterfaceDescription extends NamedSymbolDesctiption {
 	}
 	fields: FieldDescription[];
 	methods: FunctionDescription[];
+	extends: string[];
 }
 
 class ClassDescription extends InterfaceDescription {
 	public constructor(symbol: ts.Symbol, checker: ts.TypeChecker) {
 		super(symbol, checker)
-		let constructorType = checker.getTypeOfSymbolAtLocation(
-			symbol,
-			symbol.valueDeclaration!
-		);
-		// if (!constructorType.isClassOrInterface()) {
-			// throw new Error(`${this.name} is not a class!`);
-		// }
-		this.consturctors = constructorType.getConstructSignatures().map(s => new SignatureDescription(s, checker));
-		
-		const prototypeType = checker.getBaseTypes(constructorType as ts.InterfaceType);
-		this.prototype = prototypeType.length ? prototypeType[0].symbol.name : "";
-		if(prototypeType.length > 1) {
-			throw new Error(`${this.name} has ${prototypeType.length} prototypes: ${prototypeType.map(p=>p.symbol.name).join(",")}!`)
+
+		const type = checker.getDeclaredTypeOfSymbol(symbol);
+		if (!type.isClass()) {
+			throw new Error(`${this.name} is not a class!`);
 		}
+		this.consturctors = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration)
+			.getConstructSignatures().map(s => new SignatureDescription(s, checker));
 	}
 	consturctors: SignatureDescription[];
-	prototype: string;
 }
 
 /** Generate documentation for all classes in a set of .ts files */
@@ -131,7 +132,7 @@ function generateDocumentation(
 		}
 	}
 
-	return {classes, interfaces};
+	return { classes, interfaces };
 
 	/** visit nodes finding exported classes */
 	function visit(node: ts.Node) {

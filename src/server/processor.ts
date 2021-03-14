@@ -20,6 +20,9 @@ class TestGamelogic implements GameLogic {
 	constructor(private oddvar: Oddvar) {
 		this.targetPoint = oddvar.Add("World").CreateEntity("targetPoint", new Point(0, 0))
 		oddvar.Add("Graphics").CreateEntityAvatar("targetEntityAvatar", this.targetPoint, new Size(10, 10), new RectangleTexture({ fill: "green" }));
+		const tail = oddvar.Add("World").CreateTailEntity("targetTail", this.targetPoint, new Point(10, 0), Math.PI/4);
+		oddvar.Add("Graphics").CreateEntityAvatar("targetTailAvatar", tail, new Size(5, 5), new RectangleTexture({stroke: "lime", fill: "purple"}))
+		oddvar.Add("Controller").CreateSpinRoundController("spinTarget", this.targetPoint);
 		this.RelocatePoint();
 	}
 

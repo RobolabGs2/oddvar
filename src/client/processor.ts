@@ -49,6 +49,17 @@ export class Processor {
 		socket.addEventListener("open", () => {
 			requestAnimationFrame(Tick);
 		})
+		socket.addEventListener("close", (ev) => {
+			console.error("Connection closed", ev)
+			// Reload page
+			setTimeout(()=>window.location = window.location, 2000)
+			
+		})
+		socket.addEventListener("error", (ev) => {
+			console.error("Error occured", ev)
+			// Reload page
+			setTimeout(()=>window.location = window.location, 2000)
+		})
 	}
 
 	private CreateGraphics() {
