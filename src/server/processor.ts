@@ -2,7 +2,7 @@ import { Point, Size } from '../oddvar/geometry';
 import * as WebSocket from 'ws';
 import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { Entity, World } from "../oddvar/world"
-import { ClientMessageTypeMap, CreateServerMessage } from "../oddvar/protocol"
+import { ClientMessageTypeMap, CreateServerMessage, HandleMessage } from "../oddvar/protocol"
 import { ReflectionJSON } from '../oddvar/reflection';
 import { Graphics, RectangleTexture } from '../oddvar/graphics';
 import { ServerPlayers } from './players';
@@ -20,8 +20,8 @@ class TestGamelogic implements GameLogic {
 	constructor(private oddvar: Oddvar) {
 		this.targetPoint = oddvar.Add("World").CreateEntity("targetPoint", new Point(0, 0))
 		oddvar.Add("Graphics").CreateEntityAvatar("targetEntityAvatar", this.targetPoint, new Size(10, 10), new RectangleTexture({ fill: "green" }));
-		const tail = oddvar.Add("World").CreateTailEntity("targetTail", this.targetPoint, new Point(10, 0), Math.PI/4);
-		oddvar.Add("Graphics").CreateEntityAvatar("targetTailAvatar", tail, new Size(5, 5), new RectangleTexture({stroke: "lime", fill: "purple"}))
+		const tail = oddvar.Add("World").CreateTailEntity("targetTail", this.targetPoint, new Point(10, 0), Math.PI / 4);
+		oddvar.Add("Graphics").CreateEntityAvatar("targetTailAvatar", tail, new Size(5, 5), new RectangleTexture({ stroke: "lime", fill: "purple" }))
 		oddvar.Add("Controller").CreateSpinRoundController("spinTarget", this.targetPoint);
 		this.RelocatePoint();
 	}
@@ -113,17 +113,12 @@ export class Processor {
 
 		this.manager.AddUser(id);
 		ws.on('message', (event) => {
-			const data = JSON.parse(event.toString());
-			switch (data.type as keyof ClientMessageTypeMap) {
-				case "input":
-					this.players.AddUserInput(id, data.data);
-					break;
-				case "sync":
-					this.players.SetSync(id, data.data)
-					break;
-				default:
-					console.error("unknown type", data)
-			}
+			HandleMessage<ClientMessageTypeMap>(event.toString(), {
+				input:
+					input => this.players.AddUserInput(id, input),
+				sync:
+					sync => this.players.SetSync(id, sync)
+			});
 		});
 
 		ws.on('close', (code, r) => {

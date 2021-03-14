@@ -1,6 +1,6 @@
 import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { World } from "../oddvar/world"
-import { CreateClientMessage, ServerMessageTypeMap } from '../oddvar/protocol';
+import { CreateClientMessage, HandleMessage, ServerMessageTypeMap } from '../oddvar/protocol';
 import { ReflectionJSON } from '../oddvar/reflection';
 import { ClientPlayers } from "./players";
 import { Graphics } from "../oddvar/graphics";
@@ -33,17 +33,12 @@ export class Processor {
 		};
 
 		socket.addEventListener("message", (event) => {
-			const data = JSON.parse(event.data);
-			switch (data.type as keyof ServerMessageTypeMap) {
-				case "snapshot":
-					this.manager.ApplySnapshot(data.data);
-					break;
-				case "id":
-					this.players.myId = data.data;
-					break;
-				default:
-					console.error("unknown type", data)
-			}
+			HandleMessage<ServerMessageTypeMap>(event.data, {
+				id:
+					id => this.players.myId = id,
+				snapshot:
+					snapshot => this.manager.ApplySnapshot(snapshot)
+			})
 		});
 
 		socket.addEventListener("open", () => {
@@ -52,13 +47,13 @@ export class Processor {
 		socket.addEventListener("close", (ev) => {
 			console.error("Connection closed", ev)
 			// Reload page
-			setTimeout(()=>window.location = window.location, 2000)
-			
+			setTimeout(() => window.location = window.location, 2000)
+
 		})
 		socket.addEventListener("error", (ev) => {
 			console.error("Error occured", ev)
 			// Reload page
-			setTimeout(()=>window.location = window.location, 2000)
+			setTimeout(() => window.location = window.location, 2000)
 		})
 	}
 

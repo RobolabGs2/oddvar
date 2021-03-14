@@ -53,7 +53,15 @@ function IsImplements(classDesc: ClassDescription, interfaceDesc: InterfaceDescr
 	return interfaceDesc.methods.
 		every(interfaceMethod => classDesc.methods.find(classMethod => FunctionsAreEquals(interfaceMethod, classMethod)))
 		&&
-		interfaceDesc.fields.every(interfaceField => classDesc.fields.find(classField => classField.name === interfaceField.name && classField.type === interfaceField.type))
+		interfaceDesc.fields
+			.every(
+				interfaceField =>
+					classDesc.fields.find(
+						classField =>
+							classField.name === interfaceField.name &&
+							interfaceField.type.includes(classField.type) // TODO replace includes to parse types
+					)
+			)
 }
 
 function FunctionsAreEquals(desc1: FunctionDescription, desc2: FunctionDescription): boolean {
