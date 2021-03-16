@@ -10,6 +10,7 @@ import { Player } from 'oddvar/players';
 import { ControlledWalker, Controller } from '../oddvar/controller';
 import { GameLogic, Manager } from '../oddvar/manager';
 import { ColoredTexture, TexturesManager } from '../oddvar/textures';
+import { Physics } from '../oddvar/physics/physics';
 
 class TestGamelogic implements GameLogic {
 	private usersThings = new Map<number, { entity: Entity, controller: ControlledWalker }>();
@@ -23,6 +24,31 @@ class TestGamelogic implements GameLogic {
 		oddvar.Add("Graphics").CreateCircleEntityAvatar("targetTailAvatar", tail, 7, this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke", ({ stroke: "lime" })))
 		oddvar.Add("Controller").CreateSpinRoundController("spinTarget", this.targetPoint);
 		this.RelocatePoint();
+		{
+			const e = oddvar.Add("World").CreateEntity("Physics test entity", new Point(100, 200));
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body", e, { density: 1}, new Size(10, 10)).lineVelocity.x = 10
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar", e, new Size(10, 10), this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke2", ({ stroke: "lime" })))
+			const e2 = oddvar.Add("World").CreateEntity("Physics test entity2", new Point(200, 200), 1);
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body2", e2, { density: 1}, new Size(10, 10))
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar2", e2, new Size(10, 10), this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke3", ({ stroke: "lime" })))
+		}
+		{
+			const border1 = oddvar.Add("World").CreateEntity("Physics test entity border1", new Point(100, 100), -Math.PI / 4);
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body border1", border1, { density: 1}, new Size(250, 20))
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border1", border1, new Size(250, 20), this.oddvar.Add("TexturesManager").CreateColoredTexture("border1 color", ({ stroke: "black" })))
+
+			const border2 = oddvar.Add("World").CreateEntity("Physics test entity border2", new Point(300, 100), Math.PI / 4);
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body border2", border2, { density: 1}, new Size(250, 20))
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border2", border2, new Size(250, 20), this.oddvar.Add("TexturesManager").CreateColoredTexture("border2 color", ({ stroke: "black" })))
+			
+			const border3 = oddvar.Add("World").CreateEntity("Physics test entity border3", new Point(100, 300), Math.PI / 4);
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body border3", border3, { density: 1}, new Size(250, 20))
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border3", border3, new Size(250, 20), this.oddvar.Add("TexturesManager").CreateColoredTexture("border3 color", ({ stroke: "black" })))
+			
+			const border4 = oddvar.Add("World").CreateEntity("Physics test entity border4", new Point(300, 300), -Math.PI / 4);
+			oddvar.Add("Physics").CreateRectangleBody("Physics test body border4", border4, { density: 1}, new Size(250, 20))
+			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border4", border4, new Size(250, 20), this.oddvar.Add("TexturesManager").CreateColoredTexture("border4 color", ({ stroke: "black" })))
+		}
 	}
 
 	private RelocatePoint() {
@@ -67,10 +93,11 @@ export class Processor {
 
 	constructor(reflectionJSON: ReflectionJSON) {
 		const world = new World();
+		const physics = new Physics();
 		const graphics = this.CreateEmptyGraphics();
 		const controller = new Controller(true);
 		this.players = new ServerPlayers();
-		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller, new TexturesManager()), reflectionJSON);
+		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager()), reflectionJSON);
 		this.manager = new Manager(oddvar, new TestGamelogic(oddvar));
 
 

@@ -7,6 +7,7 @@ import { Players } from "./players";
 import { Graphics } from "./graphics";
 import { Controller } from "./controller";
 import { TexturesManager } from "./textures";
+import { Physics } from "./physics/physics";
 
 
 class Soul {
@@ -31,6 +32,7 @@ export class Worlds {
 	constructor(
 		readonly World: World,
 		readonly Players: Players,
+		readonly Physics: Physics,
 		readonly Graphics: Graphics,
 		readonly Controller: Controller,
 		readonly TexturesManager: TexturesManager,
@@ -57,6 +59,7 @@ export class Oddvar {
 	public Tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;
+		this.worlds.Physics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
 		this.worlds.Players.Tick(dt);
 		this.worlds.Graphics.Tick(dt);
