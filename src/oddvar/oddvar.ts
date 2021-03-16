@@ -1,11 +1,12 @@
 import { World } from "./world";
-import { Deadly, DeadlyWorld, Factory, Serializable } from "./base";
+import { Deadly } from "./base";
 import { Iterators } from "./iterator";
 import { Point, Size } from "./geometry";
 import { ClassDescription, ConstructorArgument, DeadlyRecipe, InterfaceDescription, ReflectionJSON, TypeManager } from "./reflection";
-import { Player, Players } from "./players";
-import { Graphics, RectangleTexture } from "./graphics";
+import { Players } from "./players";
+import { Graphics } from "./graphics";
 import { Controller } from "./controller";
+import { TexturesManager } from "./textures";
 
 
 class Soul {
@@ -26,13 +27,14 @@ function isCreateMethod(propertyName: string | symbol | number, property: any): 
 	return typeof propertyName === "string" && propertyName.startsWith("Create") && property instanceof Function
 }
 
-export class Worlds
-{
+export class Worlds {
 	constructor(
-	readonly World: World,
-	readonly Players: Players,
-	readonly Graphics: Graphics,
-	readonly Controller: Controller) {
+		readonly World: World,
+		readonly Players: Players,
+		readonly Graphics: Graphics,
+		readonly Controller: Controller,
+		readonly TexturesManager: TexturesManager,
+	) {
 	}
 }
 
@@ -46,10 +48,10 @@ export class Oddvar {
 		reflectionJson: ReflectionJSON
 	) {
 		let map = new Map<string, any>();
-		for(let factory in worlds) {
+		for (let factory in worlds) {
 			map.set(factory, this.Add(factory as keyof Worlds));
 		}
-		this.parser = new Parser(map, [Point, Size, RectangleTexture], reflectionJson, this.underworld);
+		this.parser = new Parser(map, [Point, Size], reflectionJson, this.underworld);
 	}
 
 	public Tick(dt: number) {

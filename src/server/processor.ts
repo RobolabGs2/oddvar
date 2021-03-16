@@ -4,13 +4,12 @@ import { Oddvar, OddvarSnapshot, Worlds } from "../oddvar/oddvar"
 import { Entity, World } from "../oddvar/world"
 import { ClientMessageTypeMap, CreateServerMessage, HandleMessage } from "../oddvar/protocol"
 import { ReflectionJSON } from '../oddvar/reflection';
-import { Graphics, RectangleTexture } from '../oddvar/graphics';
+import { Graphics } from '../oddvar/graphics';
 import { ServerPlayers } from './players';
-import { Player, Players } from 'oddvar/players';
-import { stringify } from 'node:querystring';
+import { Player } from 'oddvar/players';
 import { ControlledWalker, Controller } from '../oddvar/controller';
 import { GameLogic, Manager } from '../oddvar/manager';
-import { Deadly } from '../oddvar/base';
+import { ColoredTexture, TexturesManager } from '../oddvar/textures';
 
 class TestGamelogic implements GameLogic {
 	private usersThings = new Map<number, { entity: Entity, controller: ControlledWalker }>();
@@ -19,9 +18,9 @@ class TestGamelogic implements GameLogic {
 
 	constructor(private oddvar: Oddvar) {
 		this.targetPoint = oddvar.Add("World").CreateEntity("targetPoint", new Point(0, 0))
-		oddvar.Add("Graphics").CreateEntityAvatar("targetEntityAvatar", this.targetPoint, new Size(10, 10), new RectangleTexture({ fill: "green" }));
+		oddvar.Add("Graphics").CreateRectangleEntityAvatar("targetEntityAvatar", this.targetPoint, new Size(10, 10), this.oddvar.Add("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
 		const tail = oddvar.Add("World").CreateTailEntity("targetTail", this.targetPoint, new Point(10, 0), Math.PI / 4);
-		oddvar.Add("Graphics").CreateEntityAvatar("targetTailAvatar", tail, new Size(5, 5), new RectangleTexture({ stroke: "lime", fill: "purple" }))
+		oddvar.Add("Graphics").CreateCircleEntityAvatar("targetTailAvatar", tail, 7, this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke", ({ stroke: "lime" })))
 		oddvar.Add("Controller").CreateSpinRoundController("spinTarget", this.targetPoint);
 		this.RelocatePoint();
 	}
@@ -43,7 +42,12 @@ class TestGamelogic implements GameLogic {
 	AddUser(player: Player): void {
 		const e = this.oddvar.Add("World").CreateEntity(`test entity ${player.id}`, new Point(Math.random() * 500, Math.random() * 500));
 		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-		this.oddvar.Add("Graphics").CreateEntityAvatar(`test avatar ${player.id}`, e, this.size, new RectangleTexture({ fill: currentColor }));
+		const texture = this.oddvar.Add("TexturesManager").CreateColoredTexture(currentColor, { fill: currentColor });
+		if ((Math.random()*10|0)%2)
+			this.oddvar.Add("Graphics").CreateRectangleEntityAvatar(`test avatar ${player.id}`, e, this.size, texture);
+		else
+			this.oddvar.Add("Graphics").CreateCircleEntityAvatar(`test avatar ${player.id}`, e, this.size.height/2, texture);
+
 		const c = this.oddvar.Add("Controller").CreateControlledWalker(`test controlled wolker ${player.id}`, e, player);
 		this.oddvar.Add("Graphics").CreateControlledWalkerAvatar(`test avatar ${player.id} scode`, c, currentColor)
 		this.usersThings.set(player.id, { entity: e, controller: c });
@@ -66,7 +70,7 @@ export class Processor {
 		const graphics = this.CreateEmptyGraphics();
 		const controller = new Controller(true);
 		this.players = new ServerPlayers();
-		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
+		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller, new TexturesManager()), reflectionJSON);
 		this.manager = new Manager(oddvar, new TestGamelogic(oddvar));
 
 

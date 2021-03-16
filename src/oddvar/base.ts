@@ -24,6 +24,12 @@ export abstract class Deadly implements Serializable {
 	abstract ToConstructor(): any[];
 }
 
+export abstract class StatelessDeadly extends Deadly {
+	FromDelta(delta: any): void {}
+	ToDelta(force: boolean) {}
+	abstract ToConstructor(): any[]
+}
+
 export abstract class DeadlyWorld<T extends Deadly> implements Factory {
 	protected mortals = new Set<T>();
 

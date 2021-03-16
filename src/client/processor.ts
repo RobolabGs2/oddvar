@@ -8,6 +8,7 @@ import * as HTML from "./html";
 import { Controller } from "../oddvar/controller";
 import { Manager } from "../oddvar/manager";
 import { EmptyGameLogic } from "../oddvar/empty_game_logic";
+import { TexturesManager } from "../oddvar/textures";
 
 
 export class Processor {
@@ -18,7 +19,7 @@ export class Processor {
 		const graphics = this.CreateGraphics();
 		this.players = new ClientPlayers(socket);
 		const controller = new Controller(true);
-		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller), reflectionJSON);
+		const oddvar = new Oddvar(new Worlds(world, this.players, graphics, controller, new TexturesManager()), reflectionJSON);
 		this.manager = new Manager(oddvar, new EmptyGameLogic());
 
 		let lastTime = 0;
