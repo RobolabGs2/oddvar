@@ -1,16 +1,8 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { IEntity } from "./world"
-import { Matrix, Point, Size } from "./geometry";
+import { Matrix, Size } from "./geometry";
 import { ControlledWalker } from "./controller";
-import { RectangleTexture, CircleTexture, ColoredTexture } from "./textures";
-
-
-function TransformContext(c: CanvasRenderingContext2D, m: Matrix) {
-	c.transform(
-		m.Get(0, 0), m.Get(0, 1),
-		m.Get(1, 0), m.Get(1, 1),
-		m.Get(2, 0), m.Get(2, 1));
-}
+import { RectangleTexture, CircleTexture, TransformContext } from "./textures";
 
 
 export abstract class DeadlyAvatar extends Deadly {
@@ -100,24 +92,6 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 	ToConstructor(): any[] {
 		return [this.controller.Name, this.playerColor];
 	}
-}
-
-function DrawVector(context: CanvasRenderingContext2D, vec: Point) {
-	context.beginPath();
-	context.moveTo(0, 0);
-	context.lineTo(vec.x, vec.y)
-	context.stroke();
-	const len = vec.Len()
-	const norm = vec.Div(len);
-	TransformContext(context, Matrix.RotationCosSin(norm.x, norm.y).Mult(Matrix.Translate(vec)))
-	context.beginPath()
-	const dy = context.lineWidth + 2;
-	const dx = dy + 4;
-	context.moveTo(-dx, -dy);
-	context.lineTo(0, 0);
-	context.lineTo(-dx, dy)
-	context.stroke();
-	context.fillText(len.toFixed(2), 0, 0);
 }
 
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
