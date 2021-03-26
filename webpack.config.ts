@@ -10,14 +10,19 @@ import webpack from 'webpack';
 
 class BuildEnvironment {
 	public readonly production: boolean;
+	public readonly dir: string;
 	public get mode(): webpack.Configuration["mode"] {
 		return this.production ? "production" : "development"
 	}
 	public get sourceMapNeeds(): boolean {
 		return !this.production;
 	}
-	constructor({ production }: Record<string, boolean | number | string>) {
+	constructor({ production, dir }: Record<string, boolean | number | string>) {
 		this.production = production ? true : false
+		if (typeof dir !== "string") {
+			throw new TypeError(`env.dir expected string with project, actual: "${dir}"`)
+		}
+		this.dir = dir;
 	}
 }
 
@@ -25,15 +30,15 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 	if (rawEnv !== undefined && typeof rawEnv !== "object") {
 		throw new TypeError(`ENV expected object, actual: ${typeof rawEnv}`)
 	}
-	const env = new BuildEnvironment(rawEnv ? rawEnv : { prodaction: false });
+	const env = new BuildEnvironment(rawEnv || {});
 	const config: webpack.Configuration = {
 		mode: env.mode,
-		entry: './src/client/index.ts',
+		entry: `./src/${env.dir}/index.ts`,
 		plugins: [
 			new CleanWebpackPlugin(),
 			new MiniCssExtractPlugin(),
 			new HtmlWebpackPlugin({
-				template: `./src/client/index.html`,
+				template: `./src/${env.dir}/index.html`,
 				chunks: ['main'],
 				filename: `index.html`,
 				meta: {
@@ -47,7 +52,7 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 			new CopyPlugin({
 				patterns: [{ from: './resources/*.json', to: './resources', flatten: true }]
 			}),
-			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: 'src/client/tsconfig.json' } }),
+			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: `src/${env.dir}/tsconfig.json` } }),
 		],
 		devtool: env.sourceMapNeeds ? 'source-map' : undefined,
 		module: {
@@ -85,9 +90,6 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 		resolve: {
 			extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
 			modules: [path.resolve(__dirname, 'src'), 'node_modules'],
-			alias: {
-				"./test.json": "./test2.json"
-			}
 		},
 		output: {
 			filename: '[name].bundle.js',

@@ -4,7 +4,7 @@ import { CreateClientMessage, HandleMessage, ServerMessageTypeMap } from '../odd
 import { ReflectionJSON } from '../oddvar/reflection';
 import { ClientPlayers } from "./players";
 import { Graphics } from "../oddvar/graphics";
-import * as HTML from "./html";
+import * as HTML from "../web/html";
 import { Controller } from "../oddvar/controller";
 import { Manager } from "../oddvar/manager";
 import { EmptyGameLogic } from "../oddvar/empty_game_logic";

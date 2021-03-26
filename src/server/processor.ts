@@ -9,7 +9,7 @@ import { Controller } from '../oddvar/controller';
 import { Manager } from '../oddvar/manager';
 import { TexturesManager } from '../oddvar/textures';
 import { Physics } from '../oddvar/physics/physics';
-import { TestGamelogic } from './test_game_logic';
+import { CollectingSquaresGame } from '../games/collecting_squares';
 
 
 export class Processor {
@@ -26,7 +26,7 @@ export class Processor {
 		const controller = new Controller(false);
 		this.players = new ServerPlayers();
 		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager()), reflectionJSON);
-		this.manager = new Manager(oddvar, new TestGamelogic(oddvar));
+		this.manager = new Manager(oddvar, new CollectingSquaresGame(oddvar));
 
 
 		let lastTime = 0;

@@ -2,12 +2,12 @@ import { Point, Size } from '../oddvar/geometry';
 import { Oddvar } from "../oddvar/oddvar"
 import { Entity } from "../oddvar/world"
 import { Player } from '../oddvar/players';
-import { ControlledWalker, PhysicControlled } from '../oddvar/controller';
+import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
-import { IBody } from 'oddvar/physics/body';
+import { IBody } from '../oddvar/physics/body';
 
 
-export class TestGamelogic implements GameLogic {
+export class CollectingSquaresGame implements GameLogic {
 	private usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
 	private targetPoint: Entity;
 	private readonly size = new Size(20, 20);
