@@ -40,7 +40,7 @@
   "scripts": {
     "reflection": "ts-node tools/compiler.ts src/client/index.ts src/tsconfig.json resources/reflection.json true",
     "build-client": "yarn reflection & webpack --env.production",
-    "dev-client": "webpack-dev-server --content-base=static -w --watch-content-base --host 0.0.0.0",
+    "dev-client": "webpack-dev-server --content-base=static -w --watch-content-base --host 0.0.0.0 --disable-host-check",
     "run-server": "ts-node -P src/server/tsconfig.json src/server/main.ts",
     "dev-server": "ts-node-dev -P src/server/tsconfig.json src/server/main.ts"
   }

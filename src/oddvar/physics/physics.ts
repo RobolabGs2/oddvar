@@ -40,7 +40,7 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
-		if (b1.isStatic && b2.isStatic)
+		if (b1.material.static && b2.material.static)
 			return false;
 		if (b1 instanceof(RectangleBody))
 			if (b2 instanceof(RectangleBody))
@@ -142,7 +142,7 @@ export class Physics extends DeadlyWorld<Essence>
 		return min;
 	}
 
-	public CreateRectangleBody(name: string, e: Entity, material: PhysicalMaterial, size: Size) {
+	public CreateRectangleBody(name: string, e: Entity, material: Partial<PhysicalMaterial>, size: Size) {
 		return this.AddBody(this.AddDeadly(new RectangleBody(name, e, material, size)));
 	}
 }

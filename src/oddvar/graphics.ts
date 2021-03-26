@@ -1,8 +1,9 @@
 import { Deadly, DeadlyWorld } from "./base"
 import { IEntity } from "./world"
 import { Matrix, Size } from "./geometry";
-import { ControlledWalker } from "./controller";
+import { ControlledWalker, PhysicControlled } from "./controller";
 import { RectangleTexture, CircleTexture, TransformContext } from "./textures";
+import { RectangleBody } from "./physics/body";
 
 
 export abstract class DeadlyAvatar extends Deadly {
@@ -46,6 +47,16 @@ export class RectangleEntityAvatar extends EntityAvatar {
 
 	ToConstructor(): any[] {
 		return [this.entity.Name, this.size, this.texture.Name];
+	}
+}
+
+export class RectangleBodyAvatar extends RectangleEntityAvatar {
+	public constructor(name: string, public readonly body: RectangleBody, public readonly texture: RectangleTexture) {
+		super(name, body.entity, body.size, texture);
+	}
+
+	ToConstructor(): any[] {
+		return [this.body.Name, this.texture.Name];
 	}
 }
 
@@ -94,6 +105,36 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 	}
 }
 
+export class PhysicControlledAvatar extends DeadlyAvatar {
+	public constructor(name: string, public readonly controller: PhysicControlled, public readonly playerColor: string) {
+		super(name, controller);
+	}
+
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		if (this.controller.player.isCurrent) {
+			context.strokeStyle = this.playerColor;
+			context.lineWidth = 10;
+			context.strokeRect(0, 0, 500, 500);
+		}
+		TransformContext(context, this.controller.body.entity.Transform());
+		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
+		context.textAlign = "center"
+		context.textBaseline = "bottom"
+		context.fillText(`${this.controller.score}`, 0, -10)
+	}
+
+	FromDelta(delta: any): void {
+	}
+
+	ToDelta(force: boolean): any {
+		return undefined;
+	}
+
+	ToConstructor(): any[] {
+		return [this.controller.Name, this.playerColor];
+	}
+}
+
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
 {
 	constructor(private readonly context: CanvasRenderingContext2D) {
@@ -119,5 +160,9 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 
 	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker, playerColor: string): ControlledWalkerAvatar {
 		return this.AddDeadly(new ControlledWalkerAvatar(name, controller, playerColor));
+	}
+
+	public CreatePhysicControlledAvatar(name: string, controller: PhysicControlled, playerColor: string): PhysicControlledAvatar {
+		return this.AddDeadly(new PhysicControlledAvatar(name, controller, playerColor));
 	}
 }

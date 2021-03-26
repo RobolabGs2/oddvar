@@ -46,24 +46,6 @@ export interface ClassDescription extends InterfaceDescription {
 	readonly consturctors: SignatureDescription[];
 }
 
-function IsImplements(classDesc: ClassDescription, interfaceDesc: InterfaceDescription): boolean {
-	// TODO fix
-	if (interfaceDesc.name.endsWith("Listener"))
-		return false;
-	return interfaceDesc.methods.
-		every(interfaceMethod => classDesc.methods.find(classMethod => FunctionsAreEquals(interfaceMethod, classMethod)))
-		&&
-		interfaceDesc.fields
-			.every(
-				interfaceField =>
-					classDesc.fields.find(
-						classField =>
-							classField.name === interfaceField.name &&
-							interfaceField.type.includes(classField.type) // TODO replace includes to parse types
-					)
-			)
-}
-
 function FunctionsAreEquals(desc1: FunctionDescription, desc2: FunctionDescription): boolean {
 	if (desc1.name !== desc2.name || desc1.returnType != desc2.returnType || desc1.parameters.length != desc2.parameters.length)
 		return false;
@@ -93,7 +75,7 @@ export class TypeManager {
 			Iterators.Wrap(interfaces.values()).
 				map(desc => [
 					desc.name,
-					Iterators.Wrap(classes.values()).filter(classDesc => IsImplements(classDesc, desc)).map(d => d.name).toArray()] as [string, string[]]).toArray()
+					Iterators.Wrap(classes.values()).filter(classDesc => this.IsImplements(classDesc, desc)).map(d => d.name).toArray()] as [string, string[]]).toArray()
 		);
 		console.log(this.inheritanceLists)
 		console.log(this.implementationsLists)
@@ -167,6 +149,28 @@ export class TypeManager {
 	private _json = new Map<string, Map<string, DeadlyRecipe>>();
 	public get json(): ReadonlyMap<string, ReadonlyMap<string, Readonly<DeadlyRecipe>>> {
 		return this._json
+	}
+
+	GetPrototypeChain(classDesc: ClassDescription): ClassDescription[] {
+		return classDesc.extends.map(name => this.classes.get(name)!).reduce((acc, proto) => [proto, ...this.GetPrototypeChain(proto), ...acc], new Array<ClassDescription>())
+	}
+
+	public IsImplements(classDesc: ClassDescription, interfaceDesc: InterfaceDescription): boolean {
+		// TODO fix
+		if (interfaceDesc.name.endsWith("Listener"))
+			return false;
+		return interfaceDesc.methods.
+			every(interfaceMethod => classDesc.methods.concat(...this.GetPrototypeChain(classDesc).map(proto => proto.methods)).find(classMethod => FunctionsAreEquals(interfaceMethod, classMethod)))
+			&&
+			interfaceDesc.fields
+				.every(
+					interfaceField =>
+						classDesc.fields.concat(...this.GetPrototypeChain(classDesc).map(proto => proto.fields)).find(
+							classField =>
+								classField.name === interfaceField.name &&
+								interfaceField.type.includes(classField.type) // TODO replace includes to parse types
+						)
+				)
 	}
 
 	switchByType<T>(type: string, actions: {

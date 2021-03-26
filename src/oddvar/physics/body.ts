@@ -6,22 +6,43 @@ import { Essence } from "./essence";
 export interface PhysicalMaterial
 {
 	density: number;
+	lineFriction: number;
+	angleFriction: number;
+	static: boolean;
 }
 
-export interface CollisionListener {(b1: Body, b2: Body): void}
+const defaultPhysicalMaterial: PhysicalMaterial = { density: 1, lineFriction: 0, angleFriction: 0, static: false }
 
-export abstract class Body extends Essence
+function MergeWithDefault<T>(defaultValue: Readonly<T>, value: Partial<T>): T {
+	for(let x in defaultValue) {
+		if(value[x] === undefined) {
+			value[x] = defaultValue[x];
+		}
+	}
+	return value as T;
+}
+
+export interface CollisionListener {(self: Body, another: Body): void}
+
+export interface IBody extends Deadly
 {
-	public isStatic = false;
+	readonly entity: Entity;
+	Kick(force: Point): void;
+}
+
+export abstract class Body extends Essence implements IBody
+{
 	public lineVelocity = new Point(0, 0);
 	public lineForce = new Point(0, 0);
 	public angleForce = 0;
 	public angleVelocity = 0;
+	public readonly material: PhysicalMaterial;
 
 	private CollisionEvents = new Set<CollisionListener>();
 
-	public constructor(name: string, entity: Entity, public readonly material: PhysicalMaterial) {
+	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>) {
 		super(name, entity);
+		this.material = MergeWithDefault(defaultPhysicalMaterial, material);
 	}
 
 	public abstract Map(p: Point): number;
@@ -49,7 +70,7 @@ export abstract class Body extends Essence
 	}
 
 	public Tick(dt: number) {
-		if (this.isStatic) {
+		if (this.material.static) {
 			this.angleForce = 0;
 			this.lineForce.x = 0;
 			this.lineForce.y = 0;
@@ -59,11 +80,11 @@ export abstract class Body extends Essence
 		let m = this.Mass();
 		let inertia = this.MomentOfInertia()/10;
 
-		this.angleVelocity += dt * this.angleForce / inertia;
+		this.angleVelocity = (this.angleVelocity + dt * this.angleForce / inertia) * (1 - this.material.angleFriction);
 		this.entity.rotation += dt * this.angleVelocity;
 		this.angleForce = 0;
 
-		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt / m))//.Mult(0.9);
+		this.lineVelocity = this.lineVelocity.Add(this.lineForce.Mult(dt / m)).Mult(1 - this.material.lineFriction);
 		this.entity.location = this.entity.location.Add(this.lineVelocity.Mult(dt));
 		this.lineForce.x = 0;
 		this.lineForce.y = 0;
@@ -86,6 +107,12 @@ export abstract class Body extends Essence
 
 		this.angleForce += angleForce.Len() * deltaLen * Math.sign(value);
 	}
+
+	public Kick(force: Point) {
+		if(force.Len() < 0.0000001)
+			return;
+		this.Hit(force, this.entity.location.Add(force));
+	};
 }
 
 export class RectangleBody extends Body
@@ -93,7 +120,7 @@ export class RectangleBody extends Body
 	private abba = {p1: new Point(0, 0), p2: new Point(0, 0)};
 	private rectanglePoints = { points: new Array<Point>(), m: Matrix.Ident(), size: new Size(0, 0), zero: new Point(0, 0)}
 
-	public constructor(name: string, entity: Entity, public readonly material: PhysicalMaterial, public size: Size) {
+	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public size: Size) {
 		super(name, entity, material);
 	}
 
@@ -161,12 +188,12 @@ export class RectangleBody extends Body
 	}
 
 	FromDelta(delta: any): void {
-		this.lineVelocity = delta.lineVelocity;
+		this.lineVelocity = new Point(delta.lineVelocity.x, delta.lineVelocity.y);
 		this.angleVelocity = delta.angleVelocity;
 	}
 
 	ToDelta(force: boolean): any {
-		if (!this.isStatic) {
+		if (this.material.static) {
 			return;
 		}
 		return {
