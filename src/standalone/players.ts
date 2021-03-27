@@ -1,15 +1,14 @@
-
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 import { KeyInput } from '../oddvar/protocol';
+import { Keyboard } from '../oddvar/input';
 
-export class LocalPlayer extends Deadly implements Player
-{
+export class LocalPlayer extends Deadly implements Player {
 	public input = new Array<KeyInput>();
 	private _sync = -1;
 	private _wasSnapshot = false;
 
-	public get sync() : number {
+	public get sync(): number {
 		return this._sync;
 	}
 
@@ -21,10 +20,10 @@ export class LocalPlayer extends Deadly implements Player
 		super(name);
 	}
 
-	public get isCurrent () : boolean {
+	public get isCurrent(): boolean {
 		return true
 	}
-	
+
 
 	public Tick(dt: number) {
 		this._wasSnapshot = false;
@@ -48,31 +47,21 @@ export class LocalPlayer extends Deadly implements Player
 	}
 }
 
-export class LocalPlayers extends DeadlyWorld<LocalPlayer> implements Players
-{
-	private player?: LocalPlayer;
+export class LocalPlayers extends DeadlyWorld<LocalPlayer> implements Players {
+	private players: LocalPlayer[] = [];
 
-	constructor() {
+	constructor(keyInputs: Keyboard[]) {
 		super();
-		document.addEventListener("keydown", ev => {
-			const input: KeyInput = { action: "down", key: ev.code, sync: Date.now() };
-			this.SetInput(input);
-		})
-		document.addEventListener("keyup", ev => {
-			const input: KeyInput = { action: "up", key: ev.code, sync: Date.now()};
-			this.SetInput(input);
-		})
+		keyInputs.forEach((keyInput, i) => keyInput.addEventListener("pressKey", (input) => this.SetInput(i, input)));
 	}
 
-	private SetInput(input: KeyInput) {
-		this.player?.input.push(input);
+	private SetInput(player: number, input: KeyInput) {
+		this.players[player]?.input.push(input);
 	}
 
 	private AddPlayer(player: LocalPlayer): LocalPlayer {
-		if (player.isCurrent) {
-			this.player = player;
-			player.DeathSubscribe(() => this.player = undefined);
-		}
+		this.players[player.id] = player;
+		player.DeathSubscribe(() => delete (this.players[player.id]));
 		return player;
 	}
 
@@ -81,9 +70,9 @@ export class LocalPlayers extends DeadlyWorld<LocalPlayer> implements Players
 	}
 
 	Tick(dt: number): void {
-		if (this.player) {
-			this.player.input.length = 0;
-		}
-		this.player?.Tick(dt);
+		this.players.forEach((player) => {
+			player.input.length = 0;
+			player.Tick(dt);
+		})
 	}
 }

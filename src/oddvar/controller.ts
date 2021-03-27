@@ -2,7 +2,8 @@ import { Deadly, DeadlyWorld } from "./base"
 import { Entity } from "./world"
 import { Point } from "./geometry";
 import { Player } from "./players";
-import { Body, IBody } from "./physics/body";
+import { IBody } from "./physics/body";
+import { KeyAction } from "./protocol";
 
 
 export abstract class Control extends Deadly {
@@ -109,10 +110,10 @@ export class ControlledWalker extends Control
 			const action = i.action == "down";
 			switch(i.key)
 			{
-				case "KeyA": this.KeyHandler("a", action, now); break;
-				case "KeyD": this.KeyHandler("d", action, now); break;
-				case "KeyW": this.KeyHandler("w", action, now); break;
-				case "KeyS": this.KeyHandler("s", action, now); break;
+				case KeyAction.LEFT: this.KeyHandler("a", action, now); break;
+				case KeyAction.RIGHT: this.KeyHandler("d", action, now); break;
+				case KeyAction.UP: this.KeyHandler("w", action, now); break;
+				case KeyAction.DOWN: this.KeyHandler("s", action, now); break;
 			}
 		});
 
@@ -196,10 +197,10 @@ export class PhysicControlled extends Control
 			const action = i.action == "down";
 			switch(i.key)
 			{
-				case "KeyA": this.KeyHandler("a", action); break;
-				case "KeyD": this.KeyHandler("d", action); break;
-				case "KeyW": this.KeyHandler("w", action); break;
-				case "KeyS": this.KeyHandler("s", action); break;
+				case KeyAction.LEFT: this.KeyHandler("a", action); break;
+				case KeyAction.RIGHT: this.KeyHandler("d", action); break;
+				case KeyAction.UP: this.KeyHandler("w", action); break;
+				case KeyAction.DOWN: this.KeyHandler("s", action); break;
 			}
 		});
 

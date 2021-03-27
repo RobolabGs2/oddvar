@@ -10,6 +10,7 @@ import { Manager } from "../oddvar/manager";
 import { EmptyGameLogic } from "../oddvar/empty_game_logic";
 import { TexturesManager } from "../oddvar/textures";
 import { Physics } from "../oddvar/physics/physics";
+import { Keyboard } from "../oddvar/input";
 
 
 export class Processor {
@@ -19,7 +20,7 @@ export class Processor {
 		const world = new World();
 		const graphics = this.CreateGraphics();
 		const physics = new Physics();
-		this.players = new ClientPlayers(socket);
+		this.players = new ClientPlayers(socket, new Keyboard());
 		const controller = new Controller(true);
 		const oddvar = new Oddvar(new Worlds(world, this.players,physics, graphics, controller, new TexturesManager()), reflectionJSON);
 		this.manager = new Manager(oddvar, new EmptyGameLogic());

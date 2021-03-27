@@ -30,7 +30,9 @@ export function CreateServerMessage<K extends keyof ServerMessageTypeMap>(type: 
 	return JSON.stringify({ type, data }, undefined, 2)
 }
 
-export type KeyInput = { action: "up" | "down", key: string, sync: number};
+export enum KeyAction { UP, DOWN, LEFT, RIGHT }
+
+export type KeyInput = { action: "up" | "down", key: KeyAction, sync: number};
 
 export interface ClientMessageTypeMap {
 	"input": KeyInput;

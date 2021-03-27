@@ -10,13 +10,23 @@ import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
 import { Manager } from "../oddvar/manager";
 import { CollectingSquaresGame } from '../games/collecting_squares';
+import { Keyboard } from "../oddvar/input";
+import { KeyAction } from "../oddvar/protocol";
 
 console.log("Hello ODDVAR");
 
 getJSON("resources/reflection.json").then(reflectionJSON => {
 	const worlds = new Worlds(
 		new World(),
-		new LocalPlayers(), 
+		new LocalPlayers([
+			new Keyboard(),
+			new Keyboard({
+				"ArrowLeft": KeyAction.LEFT,
+				"ArrowRight": KeyAction.RIGHT,
+				"ArrowUp": KeyAction.UP,
+				"ArrowDown": KeyAction.DOWN,
+			})
+		]),
 		new Physics(),
 		CreateGraphics(),
 		new Controller(false),

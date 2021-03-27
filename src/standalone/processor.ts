@@ -3,6 +3,7 @@ import { Manager } from "../oddvar/manager";
 export class Processor {
 	constructor(private readonly manager: Manager) {
 		manager.AddUser(0);
+		manager.AddUser(1);
 		let lastTime = 0;
 		let Tick = (t: number) => {
 			let dt = (t - lastTime) / 1000;

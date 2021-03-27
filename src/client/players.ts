@@ -1,7 +1,7 @@
-
 import { Deadly, DeadlyWorld } from '../oddvar/base';
 import { Players, Player } from '../oddvar/players';
 import { CreateClientMessage, KeyInput } from '../oddvar/protocol';
+import { Keyboard } from "../oddvar/input";
 
 export class ClientPlayer extends Deadly implements Player
 {
@@ -48,15 +48,9 @@ export class ClientPlayers extends DeadlyWorld<ClientPlayer> implements Players
 	private player?: ClientPlayer;
 	public myId = -1;
 
-	constructor(ws: WebSocket) {
+	constructor(ws: WebSocket, keyboard: Keyboard) {
 		super();
-		document.addEventListener("keydown", ev => {
-			const input: KeyInput = { action: "down", key: ev.code, sync: Date.now() };
-			ws.send(CreateClientMessage("input", input))
-			this.SetInput(input);
-		})
-		document.addEventListener("keyup", ev => {
-			const input: KeyInput = { action: "up", key: ev.code, sync: Date.now()};
+		keyboard.addEventListener("pressKey", (input) => {
 			ws.send(CreateClientMessage("input", input))
 			this.SetInput(input);
 		})
