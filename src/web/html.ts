@@ -73,3 +73,11 @@ export function AddEventListener<K extends keyof HTMLElementEventMap>(
 	return (el: HTMLElement) => el.addEventListener(type, listener, options)
 }
 
+export function CreateContext() {
+	return CreateElement("canvas", c => {
+		c.width = 500;
+		c.height = 500;
+		document.body.append(c);
+	}).getContext("2d")!;
+}
+

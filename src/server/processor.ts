@@ -7,10 +7,24 @@ import { Graphics } from '../oddvar/graphics';
 import { ServerPlayers } from './players';
 import { Controller } from '../oddvar/controller';
 import { Manager } from '../oddvar/manager';
-import { TexturesManager } from '../oddvar/textures';
+import { ImageSource, TexturesManager } from '../oddvar/textures';
 import { Physics } from '../oddvar/physics/physics';
 import { CollectingSquaresGame } from '../games/collecting_squares';
 
+
+function DeepProxy<T extends object>(): T {
+	const proxy: T =  new Proxy<T>(function () { } as T, {
+		get: (a1, a2, a3) => {
+			if (typeof a2 === "string" && !["inspect", "prototype", "consturctor"].some(x => x === a2))
+				return proxy;
+			return Reflect.get(a1, a2);
+		},
+		apply: (a1, a2, a3) => {
+			return proxy;
+		}
+	});
+	return proxy;
+}
 
 export class Processor {
 	private manager: Manager;
@@ -20,12 +34,13 @@ export class Processor {
 	private lastID = 0;
 
 	constructor(reflectionJSON: ReflectionJSON) {
+		const canvasContext = DeepProxy<CanvasRenderingContext2D>();
 		const world = new World();
 		const physics = new Physics();
-		const graphics = this.CreateEmptyGraphics();
+		const graphics = new Graphics(canvasContext);
 		const controller = new Controller(false);
 		this.players = new ServerPlayers();
-		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager()), reflectionJSON);
+		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager(DeepProxy<ImageSource>(), canvasContext)), reflectionJSON);
 		this.manager = new Manager(oddvar, new CollectingSquaresGame(oddvar));
 
 
@@ -50,12 +65,6 @@ export class Processor {
 				this.newConnectionSockets.length = 0;
 			}
 		}, 50);
-	}
-
-	private CreateEmptyGraphics() {
-		return new Graphics(new Proxy<CanvasRenderingContext2D>({} as CanvasRenderingContext2D, {
-			get: () => { return () => { } }
-		}));
 	}
 
 	private PushSocket(ws: WebSocket): number {

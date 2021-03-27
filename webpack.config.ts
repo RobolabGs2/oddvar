@@ -50,7 +50,10 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 				favicon: './favicon.png'
 			}),
 			new CopyPlugin({
-				patterns: [{ from: './resources/*.json', to: './resources', flatten: true }]
+				patterns: [
+					{ from: './resources/*.json', to: './resources', flatten: true },
+					{ from: './resources/img/*.*', to: './resources/img', flatten: true },
+				]
 			}),
 			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: `src/${env.dir}/tsconfig.json` } }),
 		],

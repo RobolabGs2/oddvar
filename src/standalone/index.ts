@@ -1,10 +1,9 @@
 import { Processor } from "./processor";
-import { getJSON } from "../web/http";
+import { DownloadResources } from "../web/http";
 import { World } from "../oddvar/world";
 import { LocalPlayers } from "./players";
 import { Physics } from "../oddvar/physics/physics";
 import { Graphics } from "../oddvar/graphics";
-import * as HTML from "../web/html";
 import { Controller } from "../oddvar/controller";
 import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
@@ -12,10 +11,12 @@ import { Manager } from "../oddvar/manager";
 import { CollectingSquaresGame } from '../games/collecting_squares';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
+import { CreateContext } from "../web/html";
 
 console.log("Hello ODDVAR");
 
-getJSON("resources/reflection.json").then(reflectionJSON => {
+DownloadResources().then(([reflectionJSON, resources]) => {
+	const canvasContext = CreateContext();
 	const worlds = new Worlds(
 		new World(),
 		new LocalPlayers([
@@ -28,17 +29,9 @@ getJSON("resources/reflection.json").then(reflectionJSON => {
 			})
 		]),
 		new Physics(),
-		CreateGraphics(),
+		new Graphics(canvasContext),
 		new Controller(false),
-		new TexturesManager())
+		new TexturesManager(resources, canvasContext))
 	const oddvar = new Oddvar(worlds, reflectionJSON);
 	let processor = new Processor(new Manager(oddvar, new CollectingSquaresGame(oddvar)));
 })
-
-function CreateGraphics() {
-	return new Graphics(HTML.CreateElement("canvas", c => {
-		c.width = 500;
-		c.height = 500;
-		document.body.append(c);
-	}).getContext("2d")!);
-}

@@ -33,7 +33,7 @@ export class CollectingSquaresGame implements GameLogic {
 		}
 		{
 			const borderSize = new Size(250, 25);
-			const borderTexture = this.oddvar.Add("TexturesManager").CreateColoredTexture("border color", ({ stroke: "black" }));
+			const borderTexture = this.oddvar.Add("TexturesManager").CreatePatternTexture("bricks", "bricks");
 			const border1 = oddvar.Add("World").CreateEntity("Physics test entity border1", new Point(100, 100), -Math.PI / 4);
 			oddvar.Add("Physics").CreateRectangleBody("Physics test body border1", border1, {static: true, lineFriction: 0.1, angleFriction: 0.1}, borderSize)
 			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border1", border1, borderSize, borderTexture)

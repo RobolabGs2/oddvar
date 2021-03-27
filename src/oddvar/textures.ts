@@ -25,10 +25,20 @@ export interface ColorSettings {
 	stroke?: Color
 }
 
+export interface ImageSource {
+	GetImage(name: string): CanvasImageSource;
+}
+
 export class TexturesManager extends DeadlyWorld<Deadly> {
+	constructor(private readonly imageSource: ImageSource , private readonly ctx: CanvasRenderingContext2D) {
+		super();
+	}
 	Tick(dt: number): void { }
 	CreateColoredTexture(name: string, colors: ColorSettings): ColoredTexture {
 		return new ColoredTexture(name, colors)
+	}
+	CreatePatternTexture(name: string, imgName: string): PatternTexture {
+		return new PatternTexture(name, imgName, this.ctx.createPattern(this.imageSource.GetImage(imgName), "repeat")!)
 	}
 }
 
@@ -38,8 +48,8 @@ interface ContextAction<T extends any[]> {
 	(this: CanvasRenderingContext2D, ...args: T): void;
 }
 
-export class ColoredTexture extends StatelessDeadly implements RectangleTexture, CircleTexture, VectorTexture {
-	public constructor(name: string, private settings: ColorSettings = { fill: "black" }) {
+abstract class StyledTexture extends StatelessDeadly implements RectangleTexture, CircleTexture, VectorTexture {
+	public constructor(name: string) {
 		super(name);
 	}
 
@@ -72,28 +82,73 @@ export class ColoredTexture extends StatelessDeadly implements RectangleTexture,
 		context.fillText(len.toFixed(2), 0, 0);
 	}
 
+	protected abstract setFillStyle(context: CanvasRenderingContext2D): boolean;
+	protected abstract setStrokeStyle(context: CanvasRenderingContext2D): boolean;
+
 	private draw<T extends any[]>(
 		context: CanvasRenderingContext2D,
 		fill: ContextAction<T>, stroke: ContextAction<T>,
 		// точный тип параметров функции автовыведется
 		...a: T
 	) {
-		if (this.settings.fill) {
-			context.fillStyle = this.settings.fill;
+		if (this.setFillStyle(context))
 			fill.apply(context, a)
-		}
-		if (this.settings.stroke) {
-			context.strokeStyle = this.settings.stroke;
-			context.lineWidth = 2;
+		if (this.setStrokeStyle(context))
 			stroke.apply(context, a);
-		}
 	}
 
 	private drawPath(context: CanvasRenderingContext2D): void {
 		this.draw<[]>(context, context.fill, context.stroke);
 	}
 
+	abstract ToConstructor(): any[];
+}
+
+export class ColoredTexture extends StyledTexture {
+	protected setFillStyle(context: CanvasRenderingContext2D): boolean {
+		if (this.settings.fill) {
+			context.fillStyle = this.settings.fill;
+			return true;
+		}
+		return false;
+	}
+
+	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
+		if (this.settings.stroke) {
+			context.strokeStyle = this.settings.stroke;
+			context.lineWidth = 2;
+			return true;
+		}
+		return false;
+	}
+
+	public constructor(name: string, private settings: ColorSettings = { fill: "black" }) {
+		super(name);
+	}
+
 	ToConstructor(): any[] {
 		return [this.settings];
+	}
+}
+
+export class PatternTexture extends StyledTexture {
+	protected setFillStyle(context: CanvasRenderingContext2D): boolean {
+		if (this.pattern) {
+			context.fillStyle = this.pattern;
+			return true;
+		}
+		return false;
+	}
+
+	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
+		return false;
+	}
+
+	public constructor(name: string, private url: string, private pattern: CanvasPattern) {
+		super(name);
+	}
+
+	ToConstructor(): any[] {
+		return [this.url];
 	}
 }

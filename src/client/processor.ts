@@ -11,18 +11,21 @@ import { EmptyGameLogic } from "../oddvar/empty_game_logic";
 import { TexturesManager } from "../oddvar/textures";
 import { Physics } from "../oddvar/physics/physics";
 import { Keyboard } from "../oddvar/input";
+import { ResourceManager } from "../web/http";
 
 
 export class Processor {
 	private manager: Manager;
 	players: ClientPlayers;
-	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON) {
+	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON, resourceManager: ResourceManager) {
+		const canvasContext = HTML.CreateContext();
 		const world = new World();
-		const graphics = this.CreateGraphics();
+		const graphics = new Graphics(canvasContext);
 		const physics = new Physics();
 		this.players = new ClientPlayers(socket, new Keyboard());
 		const controller = new Controller(true);
-		const oddvar = new Oddvar(new Worlds(world, this.players,physics, graphics, controller, new TexturesManager()), reflectionJSON);
+		const textures = new TexturesManager(resourceManager, canvasContext);
+		const oddvar = new Oddvar(new Worlds(world, this.players,physics, graphics, controller, textures), reflectionJSON);
 		this.manager = new Manager(oddvar, new EmptyGameLogic());
 
 		let lastTime = 0;
@@ -59,13 +62,5 @@ export class Processor {
 			// Reload page
 			setTimeout(() => window.location = window.location, 2000)
 		})
-	}
-
-	private CreateGraphics() {
-		return new Graphics(HTML.CreateElement("canvas", c => {
-			c.width = 500;
-			c.height = 500;
-			document.body.append(c);
-		}).getContext("2d")!);
 	}
 }
