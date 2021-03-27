@@ -4,7 +4,7 @@ import { Entity } from "../oddvar/world"
 import { Player } from '../oddvar/players';
 import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
-import { IBody } from '../oddvar/physics/body';
+import { IBody, PhysicalMaterial } from '../oddvar/physics/body';
 
 
 export class CollectingSquaresGame implements GameLogic {
@@ -14,9 +14,9 @@ export class CollectingSquaresGame implements GameLogic {
 
 	constructor(private oddvar: Oddvar) {
 		const targetSize = new Size(10, 10)
-		this.targetPoint = oddvar.Add("World").CreateEntity("targetPoint", new Point(0, 0))
-		oddvar.Add("Graphics").CreateRectangleEntityAvatar("targetEntityAvatar", this.targetPoint, targetSize, this.oddvar.Add("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
-		const targetBody = oddvar.Add("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0}, targetSize);
+		this.targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0))
+		const targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
+		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
 		targetBody.AddCollisionListener((self, b) => this.usersThings.forEach(v => {
 			if (v.body != b)
 				return;
@@ -24,33 +24,32 @@ export class CollectingSquaresGame implements GameLogic {
 			this.RelocatePoint();
 		}))
 		{
-			const e = oddvar.Add("World").CreateEntity("Physics test entity", new Point(100, 200));
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body", e, {lineFriction: 0, angleFriction: 0}, new Size(10, 10)).lineVelocity.x = 10
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar", e, new Size(10, 10), this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke2", ({ stroke: "lime" })))
-			const e2 = oddvar.Add("World").CreateEntity("Physics test entity2", new Point(200, 200), 1);
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body2", e2, {lineFriction: 0, angleFriction: 0}, new Size(10, 10))
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar2", e2, new Size(10, 10), this.oddvar.Add("TexturesManager").CreateColoredTexture("limestroke3", ({ stroke: "lime" })))
+			const testEntityTexture = this.oddvar.Get("TexturesManager").CreateColoredTexture("limestroke", ({ stroke: "lime" }));
+			const e1 = oddvar.Get("World").CreateEntity("Physics test entity", new Point(100, 200));
+			const b1 = oddvar.Get("Physics").CreateRectangleBody("Physics test body", e1, { lineFriction: 0, angleFriction: 0 }, new Size(10, 10))
+			b1.lineVelocity.x = 10;
+			oddvar.Get("Graphics").CreateRectangleBodyAvatar("Physics test avatar", b1, testEntityTexture)
+			const e2 = oddvar.Get("World").CreateEntity("Physics test entity2", new Point(200, 200), 1);
+			const b2 = oddvar.Get("Physics").CreateRectangleBody("Physics test body2", e2, { lineFriction: 0, angleFriction: 0 }, new Size(10, 10))
+			oddvar.Get("Graphics").CreateRectangleBodyAvatar("Physics test avatar2", b2, testEntityTexture)
 		}
 		{
 			const borderSize = new Size(250, 25);
-			const borderTexture = this.oddvar.Add("TexturesManager").CreatePatternTexture("bricks", "bricks");
-			const border1 = oddvar.Add("World").CreateEntity("Physics test entity border1", new Point(100, 100), -Math.PI / 4);
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body border1", border1, {static: true, lineFriction: 0.1, angleFriction: 0.1}, borderSize)
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border1", border1, borderSize, borderTexture)
-
-			const border2 = oddvar.Add("World").CreateEntity("Physics test entity border2", new Point(300, 100), Math.PI / 4);
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body border2", border2, {static: true, lineFriction: 0.1, angleFriction: 0.1}, borderSize)
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border2", border2, borderSize, borderTexture)
-			
-			const border3 = oddvar.Add("World").CreateEntity("Physics test entity border3", new Point(100, 300), Math.PI / 4);
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body border3", border3, {static: true, lineFriction: 0.1, angleFriction: 0.1}, borderSize)
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border3", border3, borderSize, borderTexture)
-			
-			const border4 = oddvar.Add("World").CreateEntity("Physics test entity border4", new Point(300, 300), -Math.PI / 4);
-			oddvar.Add("Physics").CreateRectangleBody("Physics test body border4", border4, {lineFriction: 0.1, angleFriction: 0.1}, borderSize)
-			oddvar.Add("Graphics").CreateRectangleEntityAvatar("Physics test avatar border4", border4, borderSize, borderTexture)
+			this.createWall(new Point(100, 100), -Math.PI / 4, borderSize);
+			this.createWall(new Point(300, 100), Math.PI / 4, borderSize);
+			this.createWall(new Point(100, 300), Math.PI / 4, borderSize);
+			this.createWall(new Point(300, 300), -Math.PI / 4, borderSize, { lineFriction: 0.1, angleFriction: 0.1 });
 		}
 		this.RelocatePoint();
+	}
+
+	private wallCounter = 0;
+	private borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("bricks", "bricks");
+	private createWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 0.1, angleFriction: 0.1 }) {
+		const id = this.wallCounter++;
+		const border = this.oddvar.Get("World").CreateEntity(`wall ${id}`, center, rotation);
+		const body = this.oddvar.Get("Physics").CreateRectangleBody(`wall ${id} body`, border, material, size)
+		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
 	}
 
 	private RelocatePoint() {
@@ -62,21 +61,21 @@ export class CollectingSquaresGame implements GameLogic {
 
 	private GenerateInconflictPoint(distance: number): Point {
 		let p = new Point(Math.random() * 500, Math.random() * 500);
-		if (this.oddvar.Add("Physics").Map(p) < distance)
+		if (this.oddvar.Get("Physics").Map(p) < distance)
 			return this.GenerateInconflictPoint(distance);
 		return p;
 	}
 
 	AddUser(player: Player): void {
-		const e = this.oddvar.Add("World").CreateEntity(`test entity ${player.id}`, this.GenerateInconflictPoint(20));
+		const e = this.oddvar.Get("World").CreateEntity(`test entity ${player.id}`, this.GenerateInconflictPoint(20));
 		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-		const texture = this.oddvar.Add("TexturesManager").CreateColoredTexture(currentColor, { fill: currentColor });
+		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { fill: currentColor });
 
-		this.oddvar.Add("Graphics").CreateRectangleEntityAvatar(`test avatar ${player.id}`, e, this.size, texture);
-		const b = this.oddvar.Add("Physics").CreateRectangleBody(`test body ${player.id}`, e, {lineFriction: 0.1, angleFriction: 0.1}, this.size)
+		const b = this.oddvar.Get("Physics").CreateRectangleBody(`test body ${player.id}`, e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
+		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`test avatar ${player.id}`, b, texture);
 
-		const c = this.oddvar.Add("Controller").CreatePhysicControlled(`test physic controlled ${player.id}`, b, player);
-		this.oddvar.Add("Graphics").CreatePhysicControlledAvatar(`test avatar ${player.id} scode`, c, currentColor)
+		const c = this.oddvar.Get("Controller").CreatePhysicControlled(`test physic controlled ${player.id}`, b, player);
+		this.oddvar.Get("Graphics").CreatePhysicControlledAvatar(`test avatar ${player.id} scode`, c, currentColor)
 		this.usersThings.set(player.id, { entity: e, controller: c, body: b });
 		player.DeathSubscribe(p => {
 			e.Die();

@@ -51,7 +51,7 @@ export class Oddvar {
 	) {
 		let map = new Map<string, any>();
 		for (let factory in worlds) {
-			map.set(factory, this.Add(factory as keyof Worlds));
+			map.set(factory, this.Get(factory as keyof Worlds));
 		}
 		this.parser = new Parser(map, [Point, Size], reflectionJson, this.underworld);
 	}
@@ -91,7 +91,7 @@ export class Oddvar {
 		})
 	}
 
-	public Add<T extends keyof Worlds>(factory: T): Worlds[T] {
+	public Get<T extends keyof Worlds>(factory: T): Worlds[T] {
 		return new Proxy<Worlds[T]>(this.worlds[factory], {
 			get: (target, propertyName, recevier) => {
 				const property = Reflect.get(target, propertyName, recevier)

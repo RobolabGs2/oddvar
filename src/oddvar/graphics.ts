@@ -3,7 +3,8 @@ import { IEntity } from "./world"
 import { Matrix, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
 import { RectangleTexture, CircleTexture, TransformContext } from "./textures";
-import { RectangleBody } from "./physics/body";
+import { IBody, RectangleBody } from "./physics/body";
+import { Essence } from "./physics/essence";
 
 
 export abstract class DeadlyAvatar extends Deadly {
@@ -36,6 +37,28 @@ abstract class EntityAvatar extends DeadlyAvatar {
 	abstract ToConstructor(): any[];
 }
 
+abstract class EssenceAvatar extends DeadlyAvatar {
+	public constructor(name: string, public readonly essense: Essence) {
+		super(name, essense);
+	}
+
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		TransformContext(context, this.essense.entity.Transform());
+		this.drawEssense(dt, context);
+	}
+
+	protected abstract drawEssense(dt: number, context: CanvasRenderingContext2D): void;
+
+	FromDelta(delta: any): void {
+	}
+
+	ToDelta(force: boolean): any {
+		return undefined;
+	}
+
+	abstract ToConstructor(): any[];
+}
+
 
 export class RectangleEntityAvatar extends EntityAvatar {
 	protected drawEntity(dt: number, context: CanvasRenderingContext2D): void {
@@ -50,9 +73,12 @@ export class RectangleEntityAvatar extends EntityAvatar {
 	}
 }
 
-export class RectangleBodyAvatar extends RectangleEntityAvatar {
+export class RectangleBodyAvatar extends EssenceAvatar {
+	protected drawEssense(dt: number, context: CanvasRenderingContext2D): void {
+		this.texture.DrawRectangle(context, this.body.size);
+	}
 	public constructor(name: string, public readonly body: RectangleBody, public readonly texture: RectangleTexture) {
-		super(name, body.entity, body.size, texture);
+		super(name, body);
 	}
 
 	ToConstructor(): any[] {
@@ -152,6 +178,10 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 
 	public CreateRectangleEntityAvatar(name: string, entity: IEntity, size: Size, texture: RectangleTexture): RectangleEntityAvatar {
 		return this.AddDeadly(new RectangleEntityAvatar(name, entity, size, texture));
+	}
+
+	public CreateRectangleBodyAvatar(name: string, body: RectangleBody, texture: RectangleTexture): RectangleBodyAvatar {
+		return this.AddDeadly(new RectangleBodyAvatar(name, body, texture));
 	}
 
 	public CreateCircleEntityAvatar(name: string, entity: IEntity, r: number, texture: CircleTexture): CircleEntityAvatar {

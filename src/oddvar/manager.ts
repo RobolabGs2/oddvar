@@ -32,7 +32,7 @@ export class Manager
 	}
 
 	public AddUser(id: number) {
-		const user = this.oddvar.Add("Players").CreatePlayer(`origin user name ${id}#kljdsfghdfklsghdhfj`, id);
+		const user = this.oddvar.Get("Players").CreatePlayer(`origin user name ${id}#kljdsfghdfklsghdhfj`, id);
 		this.users.set(id, user);
 		user.DeathSubscribe(() => this.users.delete(id));
 		this.gameLogic.AddUser(user);
