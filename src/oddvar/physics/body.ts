@@ -96,7 +96,7 @@ export abstract class Body extends Essence implements IBody
 		const deltaNorm = delta.Div(deltaLen);
 		const lineForce = deltaNorm.Mult(deltaNorm.Dot(force));
 		const angleForce = force.Sub(lineForce);
-		this.lineForce = this.lineForce.Add(lineForce);
+		this.lineForce = this.lineForce.Add(force);
 
 		const p = point.Add(angleForce);
 		const p1 = point;

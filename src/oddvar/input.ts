@@ -1,4 +1,5 @@
 import { KeyAction, KeyInput, MessageHandler } from './protocol';
+import * as HTML from '../web/html'
 
 export interface KeyboardEvents {
 	"pressKey": KeyInput
@@ -25,6 +26,38 @@ export class Keyboard {
 		document.addEventListener("keyup", ev => {
 			this.dispatchKeyInput(ev.code, "up");
 		});
+		document.body.append(
+			HTML.CreateElement("footer",
+				HTML.SetStyles(style => {
+					style.display = "flex";
+					style.width = "500px";
+				}),
+				HTML.Append(...Object.values(keyMapping).map(a => {
+				const action = KeyAction[a] as string;
+				return HTML.CreateElement(
+					"button",
+					HTML.SetStyles(style => {
+						style.flex= "1";
+						style.height= "2em";
+					}),
+					HTML.SetText(action),
+					HTML.AddEventListener('mousedown', (ev) => {
+						ev.preventDefault();
+						this.dispatchKeyCode(a, "down");
+					}),
+					HTML.AddEventListener('touchstart', (ev) => {
+						ev.preventDefault();
+						this.dispatchKeyCode(a, "down");
+					}),
+					HTML.AddEventListener('mouseup', (ev) => {
+						ev.preventDefault();
+						this.dispatchKeyCode(a, "up");
+					}),
+					HTML.AddEventListener('touchend', (ev) => {
+						ev.preventDefault();
+						this.dispatchKeyCode(a, "up");
+					}))}
+				))))
 	}
 	public addEventListener<E extends keyof KeyboardEvents>(eventType: E, listener: (ev: KeyboardEvents[E]) => void) {
 		this.listeners[eventType].push(listener);
@@ -33,6 +66,9 @@ export class Keyboard {
 		const key = this.keyMapping[keyCode];
 		if (key === undefined)
 			return;
-		this.listeners.pressKey.forEach(l => l({ action, key, sync: Date.now() }));
+		this.dispatchKeyCode(key, action);
+	}
+	private dispatchKeyCode(key: KeyAction, action: KeyInput["action"]) {
+		this.listeners.pressKey.forEach(l => l({ action, key: key, sync: Date.now() }));
 	}
 }

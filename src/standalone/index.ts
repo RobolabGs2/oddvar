@@ -12,6 +12,7 @@ import { CollectingSquaresGame } from '../games/collecting_squares';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { CreateContext } from "../web/html";
+import { LabirintGame } from '../games/labirint_logic';
 
 console.log("Hello ODDVAR");
 
@@ -33,5 +34,5 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 		new Controller(false),
 		new TexturesManager(resources, canvasContext))
 	const oddvar = new Oddvar(worlds, reflectionJSON);
-	let processor = new Processor(new Manager(oddvar, new CollectingSquaresGame(oddvar)));
+	let processor = new Processor(new Manager(oddvar, new LabirintGame(oddvar)));
 })

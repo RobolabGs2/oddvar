@@ -60,7 +60,7 @@ export class Physics extends DeadlyWorld<Essence>
 				const dv = b2.GetVelocity(p).Sub(b1.GetVelocity(p));
 				if (intersect.nearNorm.Dot(dv) < 0)
 					continue;
-				const k = 10000;
+				const k = 5000;
 				const power = k * Math.min(b1.Mass(), b2.Mass()) * Math.pow(intersect.nearDist, 0.5);
 				b1.Hit(intersect.nearNorm.Mult(power), p);
 				b2.Hit(intersect.nearNorm.Mult(-power), p);

@@ -78,6 +78,7 @@ export function CreateContext() {
 		c.width = 500;
 		c.height = 500;
 		document.body.append(c);
+		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 	}).getContext("2d")!;
 }
 

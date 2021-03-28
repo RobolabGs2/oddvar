@@ -40,6 +40,9 @@ export class TexturesManager extends DeadlyWorld<Deadly> {
 	CreatePatternTexture(name: string, imgName: string): PatternTexture {
 		return new PatternTexture(name, imgName, this.ctx.createPattern(this.imageSource.GetImage(imgName), "repeat")!)
 	}
+	CreateImageTexture(name: string, imgName: string): ImageTexture {
+		return new ImageTexture(name, imgName, this.imageSource.GetImage(imgName))
+	}
 }
 
 type Color = string
@@ -144,9 +147,24 @@ export class PatternTexture extends StyledTexture {
 		return false;
 	}
 
-	public constructor(name: string, private url: string, private pattern: CanvasPattern) {
+	public constructor(name: string, private url: string, private readonly pattern: CanvasPattern) {
 		super(name);
 	}
+
+	ToConstructor(): any[] {
+		return [this.url];
+	}
+}
+
+export class ImageTexture extends StatelessDeadly implements RectangleTexture {
+	public constructor(name: string, private url: string, private readonly img: CanvasImageSource) {
+		super(name);
+	}
+
+    DrawRectangle(context: CanvasRenderingContext2D, size: Size): void {
+		// TODO: вписывать вместо растягивания
+        context.drawImage(this.img, -size.width / 2, -size.height / 2, size.width, size.height);
+    }
 
 	ToConstructor(): any[] {
 		return [this.url];

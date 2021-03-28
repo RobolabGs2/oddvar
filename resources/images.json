@@ -1,3 +1,6 @@
 {
-    "bricks": "resources/img/gray-bricks.png"
+    "bricks": "resources/img/gray-bricks.png",
+    "skull": "https://raw.githubusercontent.com/Tetrergeru/ruby-dungeon/develop/app/assets/images/monster2.png",
+    "duck_32": "https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/yana_duck.png",
+    "duck_16": "https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/duck16x16.png"
 }
