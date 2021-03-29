@@ -49,8 +49,9 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody): boolean {
-		let base1 = b1.RectanglePoints();
-		let base2 = b2.RectanglePoints();
+		const base1 = b1.RectanglePoints();
+		const base2 = b2.RectanglePoints();
+		const b1b2 = b2.entity.location.Sub(b1.entity.location);
 		let result = false;
 		for (let i = 0; i < 4; ++i) {
 			let p = base1.points[i];
@@ -60,8 +61,8 @@ export class Physics extends DeadlyWorld<Essence>
 				const dv = b2.GetVelocity(p).Sub(b1.GetVelocity(p));
 				if (intersect.nearNorm.Dot(dv) < 0)
 					continue;
-				const k = 5000;
-				const power = k * Math.min(b1.Mass(), b2.Mass()) * Math.pow(intersect.nearDist, 0.5);
+				const k = 4000;
+				const power = k * Math.min(b1.Mass(), b2.Mass()) * Math.pow(intersect.nearDist, 0.5) * (intersect.nearNorm.Dot(b1b2) > 0 ? -1 : 1);
 				b1.Hit(intersect.nearNorm.Mult(power), p);
 				b2.Hit(intersect.nearNorm.Mult(-power), p);
 			}
