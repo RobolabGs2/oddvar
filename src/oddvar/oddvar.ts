@@ -56,6 +56,10 @@ export class Oddvar {
 		this.parser = new Parser(map, [Point, Size], reflectionJson, this.underworld);
 	}
 
+	public Die() {
+		this.underworld.forEach(soul => { soul.target.Die(); })
+	}
+
 	public Tick(dt: number) {
 		if (dt > 0.03)
 			dt = 0.03;

@@ -1,5 +1,5 @@
 import { KeyAction, KeyInput, MessageHandler } from './protocol';
-import * as HTML from '../web/html'
+import { HTML } from '../web/html'
 
 export interface KeyboardEvents {
 	"pressKey": KeyInput

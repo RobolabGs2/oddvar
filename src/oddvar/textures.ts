@@ -30,7 +30,7 @@ export interface ImageSource {
 }
 
 export class TexturesManager extends DeadlyWorld<Deadly> {
-	constructor(private readonly imageSource: ImageSource , private readonly ctx: CanvasRenderingContext2D) {
+	constructor(private readonly imageSource: ImageSource, private readonly ctx: CanvasRenderingContext2D) {
 		super();
 	}
 	Tick(dt: number): void { }
@@ -57,8 +57,8 @@ abstract class StyledTexture extends StatelessDeadly implements RectangleTexture
 	}
 
 	DrawRectangle(context: CanvasRenderingContext2D, size: Size): void {
-		this.draw(context, context.fillRect, context.strokeRect,
-			-size.width / 2, -size.height / 2, size.width, size.height)
+		context.translate(-size.width / 2, -size.height / 2)
+		this.draw(context, context.fillRect, context.strokeRect, 0, 0, size.width, size.height)
 	}
 
 	DrawCircle(context: CanvasRenderingContext2D, r: number): void {
@@ -161,10 +161,10 @@ export class ImageTexture extends StatelessDeadly implements RectangleTexture {
 		super(name);
 	}
 
-    DrawRectangle(context: CanvasRenderingContext2D, size: Size): void {
+	DrawRectangle(context: CanvasRenderingContext2D, size: Size): void {
 		// TODO: вписывать вместо растягивания
-        context.drawImage(this.img, -size.width / 2, -size.height / 2, size.width, size.height);
-    }
+		context.drawImage(this.img, -size.width / 2, -size.height / 2, size.width, size.height);
+	}
 
 	ToConstructor(): any[] {
 		return [this.url];
