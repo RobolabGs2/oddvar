@@ -1,5 +1,6 @@
 import { KeyAction, KeyInput, MessageHandler } from './protocol';
 import { HTML } from '../web/html'
+import { Point } from './geometry';
 
 export interface KeyboardEvents {
 	"pressKey": KeyInput
@@ -8,7 +9,6 @@ export interface KeyboardEvents {
 export type MapOfArrays<T> = {
 	[K in keyof T]: T[K][]
 }
-
 
 export class Keyboard {
 	private listeners: MapOfArrays<MessageHandler<KeyboardEvents>> = {
@@ -26,39 +26,12 @@ export class Keyboard {
 		document.addEventListener("keyup", ev => {
 			this.dispatchKeyInput(ev.code, "up");
 		});
-		document.body.append(
-			HTML.CreateElement("footer",
-				HTML.SetStyles(style => {
-					style.display = "flex";
-					style.width = "500px";
-				}),
-				HTML.Append(...Object.values(keyMapping).map(a => {
-				const action = KeyAction[a] as string;
-				return HTML.CreateElement(
-					"button",
-					HTML.SetStyles(style => {
-						style.flex= "1";
-						style.height= "2em";
-					}),
-					HTML.SetText(action),
-					HTML.AddEventListener('mousedown', (ev) => {
-						ev.preventDefault();
-						this.dispatchKeyCode(a, "down");
-					}),
-					HTML.AddEventListener('touchstart', (ev) => {
-						ev.preventDefault();
-						this.dispatchKeyCode(a, "down");
-					}),
-					HTML.AddEventListener('mouseup', (ev) => {
-						ev.preventDefault();
-						this.dispatchKeyCode(a, "up");
-					}),
-					HTML.AddEventListener('touchend', (ev) => {
-						ev.preventDefault();
-						this.dispatchKeyCode(a, "up");
-					}))}
-				))))
 	}
+
+	public joystick(): HTMLElement {
+		return joystick(this.dispatchKeyCode.bind(this));
+	}
+
 	public addEventListener<E extends keyof KeyboardEvents>(eventType: E, listener: (ev: KeyboardEvents[E]) => void) {
 		this.listeners[eventType].push(listener);
 	}
@@ -70,5 +43,95 @@ export class Keyboard {
 	}
 	private dispatchKeyCode(key: KeyAction, action: KeyInput["action"]) {
 		this.listeners.pressKey.forEach(l => l({ action, key: key, sync: Date.now() }));
+	}
+}
+
+
+function joystick(listener: (key: KeyAction, state: "up" | "down") => void) {
+	let pos: Point | null = null;
+	let pressedKeys: Set<KeyAction> = new Set();
+	const unpressKey = (...keys: KeyAction[]) => {
+		keys.forEach(key => {
+			if (pressedKeys.delete(key)) {
+				listener(key, "up")
+			}
+		})
+	}
+	const pressKey = (key: KeyAction, antagonist: KeyAction) => {
+		if (!pressedKeys.has(key)) {
+			listener(key, "down");
+			pressedKeys.add(key);
+			unpressKey(antagonist);
+		}
+	}
+	const centerSize = 50;
+	const backSize = 128;
+	const borderWidth = 6;
+	const offset = (backSize - centerSize) / 2 - borderWidth;
+	const joystickView = HTML.CreateElement("div",
+		HTML.SetStyles(joystickStyle(centerSize)),
+		HTML.SetStyles(style => {
+			style.position = "relative";
+			style.left = style.top = `${offset}px`;
+		})
+	);
+	const deathZone = 5;
+	const onMove = (next: Point) => {
+		if (pos == null)
+			return
+		const delta = next.Sub(pos);
+
+		delta.x = Math.max(Math.min(delta.x, offset), -offset)
+		joystickView.style.left = `${offset + delta.x}px`;
+		checkDirection(delta.x, KeyAction.LEFT, KeyAction.RIGHT);
+
+		delta.y = Math.max(Math.min(delta.y, offset), -offset)
+		joystickView.style.top = `${offset + delta.y}px`;
+		checkDirection(delta.y, KeyAction.UP, KeyAction.DOWN);
+	}
+	const freeKeys = () => {
+		pressedKeys.forEach(key => listener(key, "up"))
+		pressedKeys.clear();
+		pos = null;
+		joystickView.style.left = joystickView.style.top = `${offset}px`;
+	}
+	return HTML.CreateElement("div",
+		HTML.SetStyles(joystickStyle(backSize)),
+		HTML.AddEventListener("mousedown", function (ev) {
+			ev.preventDefault();
+			const rect = this.getBoundingClientRect();
+			pos = new Point(rect.x + this.clientWidth / 2, rect.y + this.clientHeight / 2);
+			onMove(new Point(ev.pageX, ev.pageY));
+		}),
+		HTML.AddEventListener("mousemove", function (ev) {
+			ev.preventDefault();
+			onMove(new Point(ev.pageX, ev.pageY));
+		}),
+		HTML.AddEventListener("mouseup", (ev) => {
+			ev.preventDefault();
+			freeKeys();
+		}),
+		HTML.Append(joystickView)
+	);
+
+	function checkDirection(delta: number, up: KeyAction, down: KeyAction) {
+		if (delta > deathZone) {
+			pressKey(down, up);
+		} else if (delta < -deathZone) {
+			pressKey(up, down);
+		} else {
+			unpressKey(up, down);
+		}
+	}
+
+	function joystickStyle(diameter: number): (styles: CSSStyleDeclaration) => void {
+		return style => {
+			style.backgroundImage = `url("resources/img/joystick.png")`;
+			style.backgroundSize = "cover";
+			style.width = `${diameter}px`;
+			style.height = `${diameter}px`;
+			style.borderRadius = "50%";
+			style.border = `${borderWidth}px double silver`;
+		};
 	}
 }

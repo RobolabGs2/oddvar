@@ -4,7 +4,6 @@ import { CreateClientMessage, HandleMessage, ServerMessageTypeMap } from '../odd
 import { ReflectionJSON } from '../oddvar/reflection';
 import { ClientPlayers } from "./players";
 import { Graphics } from "../oddvar/graphics";
-import * as HTML from "../web/html";
 import { Controller } from "../oddvar/controller";
 import { Manager } from "../oddvar/manager";
 import { EmptyGameLogic } from "../oddvar/empty_game_logic";
@@ -17,15 +16,20 @@ import { ResourceManager } from "../web/http";
 export class Processor {
 	private manager: Manager;
 	players: ClientPlayers;
-	constructor(private socket: WebSocket, reflectionJSON: ReflectionJSON, resourceManager: ResourceManager) {
-		const canvasContext = HTML.CreateContext();
+	constructor(
+		private socket: WebSocket,
+		reflectionJSON: ReflectionJSON,
+		resourceManager: ResourceManager,
+		canvasContext: CanvasRenderingContext2D,
+		keyboard: Keyboard
+	) {
 		const world = new World();
 		const graphics = new Graphics(canvasContext);
 		const physics = new Physics();
-		this.players = new ClientPlayers(socket, new Keyboard());
+		this.players = new ClientPlayers(socket, keyboard);
 		const controller = new Controller(true);
 		const textures = new TexturesManager(resourceManager, canvasContext);
-		const oddvar = new Oddvar(new Worlds(world, this.players,physics, graphics, controller, textures), reflectionJSON);
+		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, textures), reflectionJSON);
 		this.manager = new Manager(oddvar, new EmptyGameLogic());
 
 		let lastTime = 0;

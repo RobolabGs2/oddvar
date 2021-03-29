@@ -70,15 +70,42 @@ export namespace HTML {
 		type: K,
 		listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions
 	) {
-		return (el: HTMLElement) => el.addEventListener(type, listener, options)
+		return (el: HTMLElement) => {
+			el.addEventListener(type, listener, options)
+			switch (type) {
+				case "mousedown":
+					el.addEventListener("touchstart", function (ev) {
+						ev.preventDefault();
+						const touch = ev.touches.item(0)!;
+						(<((this: HTMLElement, ev: HTMLElementEventMap["mousedown"]) => any)>listener).
+							call(this, new MouseEvent("mousedown", {
+								clientX: touch.clientX,
+								clientY: touch.clientY,
+								button: 0,
+							}));
+					});
+					break;
+				case "mousemove":
+					el.addEventListener("touchmove", function (ev) {
+						ev.preventDefault();
+						const touch = ev.touches.item(0)!;
+						(<((this: HTMLElement, ev: HTMLElementEventMap["mousemove"]) => any)>listener).
+							call(this, new MouseEvent("mousemove", {
+								clientX: touch.clientX,
+								clientY: touch.clientY,
+								button: 0,
+							}));
+					});
+					break;
+				case "mouseup":
+					el.addEventListener("touchend", function (ev) {
+						ev.preventDefault();
+						(<((this: HTMLElement, ev: HTMLElementEventMap["mouseup"]) => any)>listener).
+							call(this, new MouseEvent("mouseup"));
+					});
+					break;
+			}
+		}
 	}
-}
-export function CreateContext() {
-	return HTML.CreateElement("canvas", c => {
-		c.width = 500;
-		c.height = 500;
-		document.body.append(c);
-		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
-	}).getContext("2d")!;
-}
 
+}

@@ -11,12 +11,19 @@ import { Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, MapCreator, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
-import { CreateContext, HTML } from "../web/html";
+import { HTML } from "../web/html";
 
 console.log("Hello ODDVAR");
 
 DownloadResources().then(([reflectionJSON, resources]) => {
-	const canvasContext = CreateContext();
+	const canvas = HTML.CreateElement("canvas", c => {
+		c.width = 500;
+		c.height = 500;
+		document.body.append(c);
+		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
+	});
+	const canvasContext = canvas.getContext("2d")!;
+
 	const keyboards = [
 		new Keyboard(),
 		new Keyboard({
@@ -28,9 +35,9 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	];
 
 	const maps: Record<string, MapCreator> = {
+		"symmetric": PacManLikeLabirint,
 		"test": TestMap,
 		"random maze": RandomLabirint,
-		"symmetric": PacManLikeLabirint,
 	}
 
 	const newManager = (map: MapCreator) => {
@@ -46,15 +53,39 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	}
 	const processor = new Processor(newManager(PacManLikeLabirint));
 	document.body.appendChild(
-		HTML.CreateElement("footer",
-			HTML.Append(...Object.entries(maps).map(([name, creator]) => HTML.CreateElement("button",
-				HTML.SetText(name),
-				HTML.AddEventListener("click", () => {
-					processor.manager = newManager(creator);
-				})
-			)))
+		HTML.CreateElement("article",
+			HTML.Append(
+				HTML.CreateElement("header",
+					HTML.SetStyles(style => {
+						style.width = "500px";
+						style.display = "flex"
+						style.flexDirection = "row"
+						style.justifyContent = "flex-end"
+					}),
+					HTML.Append(
+						HTML.CreateElement("header", HTML.SetText("Choose map:"), HTML.SetStyles(s => s.marginRight = "16px")),
+						HTML.CreateElement("select",
+							HTML.AddEventListener("change", function (ev) {
+								const select = this as HTMLSelectElement;
+								processor.manager = newManager(maps[select.value]);
+							}),
+							HTML.Append(...Object.keys(maps).map((name) => HTML.CreateElement("option",
+								HTML.SetText(name),
+								(el) => el.value = name,
+							)))
+						)
+					)
+				),
+				canvas,
+				HTML.CreateElement("section",
+					HTML.SetStyles(style => {
+						style.width = "500px";
+						style.display = "flex"
+						style.justifyContent = "space-between"
+					}),
+					HTML.Append(keyboards.map(x => x.joystick()))
+				),
+			)
 		)
 	)
-
-	// setTimeout(()=>oddvar.Die(), 1000)
 })
