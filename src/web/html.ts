@@ -88,13 +88,24 @@ export namespace HTML {
 				case "mousemove":
 					el.addEventListener("touchmove", function (ev) {
 						ev.preventDefault();
-						const touch = ev.touches.item(0)!;
-						(<((this: HTMLElement, ev: HTMLElementEventMap["mousemove"]) => any)>listener).
-							call(this, new MouseEvent("mousemove", {
-								clientX: touch.clientX,
-								clientY: touch.clientY,
-								button: 0,
-							}));
+						const touches = ev.touches;
+						const rect = this.getBoundingClientRect();
+						const centerX = rect.left + rect.width / 2
+						const centerY = rect.top + rect.height / 2;
+						const distanceFromCenter = distanceSquare.bind(undefined, centerX, centerY);
+						const r_2 = sqr(Math.max(rect.height, rect.width));
+						for (let i = 0; i < touches.length; i++) {
+							const touch = ev.touches.item(i)!;
+							if (distanceFromCenter(touch.clientX, touch.clientY) < r_2) {
+								(<((this: HTMLElement, ev: HTMLElementEventMap["mousemove"]) => any)>listener).
+									call(this, new MouseEvent("mousemove", {
+										clientX: touch.clientX,
+										clientY: touch.clientY,
+										button: 0,
+									}));
+								return
+							}
+						}
 					});
 					break;
 				case "mouseup":
@@ -108,4 +119,9 @@ export namespace HTML {
 		}
 	}
 
+}
+
+function sqr(x: number) { return x * x }
+function distanceSquare(x1: number, y1: number, x2: number, y2: number) {
+	return sqr(x1-x2)+sqr(y1-y2);
 }
