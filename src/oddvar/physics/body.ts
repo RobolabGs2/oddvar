@@ -92,12 +92,16 @@ export abstract class Body extends Essence implements IBody
 	}
 
 	public Hit(force: Point, point: Point) {
+		this.lineForce = this.lineForce.Add(force);
+
 		const delta = this.entity.location.Sub(point);
 		const deltaLen = delta.Len();
+		if (deltaLen < 1e-10) {
+			return;
+		}
 		const deltaNorm = delta.Div(deltaLen);
 		const lineForce = deltaNorm.Mult(deltaNorm.Dot(force));
 		const angleForce = force.Sub(lineForce);
-		this.lineForce = this.lineForce.Add(force);
 
 		const p = point.Add(angleForce);
 		const p1 = point;
@@ -112,7 +116,7 @@ export abstract class Body extends Essence implements IBody
 	public Kick(force: Point) {
 		if(force.Len() < 0.0000001)
 			return;
-		this.Hit(force, this.entity.location.Add(force));
+		this.Hit(force, this.entity.location);
 	};
 }
 
