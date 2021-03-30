@@ -40,8 +40,9 @@ export abstract class Body extends Essence implements IBody
 
 	private CollisionEvents = new Set<CollisionListener>();
 
-	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>) {
-		super(name, entity);
+	public constructor(name: string, public readonly entity: Entity, material: Partial<PhysicalMaterial>) {
+		super(name);
+		entity.DeathSubscribe(() => this.Die());
 		this.material = MergeWithDefault(defaultPhysicalMaterial, material);
 	}
 

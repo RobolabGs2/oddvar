@@ -3,7 +3,7 @@ import { IEntity } from "./world"
 import { Matrix, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
 import { RectangleTexture, CircleTexture, TransformContext } from "./textures";
-import { IBody, RectangleBody } from "./physics/body";
+import { Body, RectangleBody } from "./physics/body";
 import { Essence } from "./physics/essence";
 
 
@@ -37,13 +37,13 @@ abstract class EntityAvatar extends DeadlyAvatar {
 	abstract ToConstructor(): any[];
 }
 
-abstract class EssenceAvatar extends DeadlyAvatar {
-	public constructor(name: string, public readonly essense: Essence) {
-		super(name, essense);
+abstract class BodyAvatar extends DeadlyAvatar {
+	public constructor(name: string, public readonly body: Body) {
+		super(name, body);
 	}
 
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
-		TransformContext(context, this.essense.entity.Transform());
+		TransformContext(context, this.body.entity.Transform());
 		this.drawEssense(dt, context);
 	}
 
@@ -73,7 +73,7 @@ export class RectangleEntityAvatar extends EntityAvatar {
 	}
 }
 
-export class RectangleBodyAvatar extends EssenceAvatar {
+export class RectangleBodyAvatar extends BodyAvatar {
 	protected drawEssense(dt: number, context: CanvasRenderingContext2D): void {
 		this.texture.DrawRectangle(context, this.body.size);
 	}

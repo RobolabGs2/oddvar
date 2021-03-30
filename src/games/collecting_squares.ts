@@ -82,7 +82,6 @@ export class CollectingSquaresGame implements GameLogic {
 		const body = this.oddvar.Get("Physics").CreateRectangleBody(`wall ${id} body`, border, material, size)
 		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
 		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar2`, body, this.borderTextureDebug)
-
 	}
 
 	private RelocatePoint() {
@@ -110,6 +109,8 @@ export class CollectingSquaresGame implements GameLogic {
 		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor });
 
+		const sensor = this.oddvar.Get("World").CreateTailEntity(`test sensor entity ${player.id}`, e, new Point(12, 0));
+		this.oddvar.Get("Physics").CreateRaySensor(`test ray sensor ${player.id}`, sensor);
 		const b = this.oddvar.Get("Physics").CreateRectangleBody(`test body ${player.id}`, e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
 		if(this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`test avatar ${player.id}_back`, b, texture);
 		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`test avatar ${player.id}`, b, this.textures[((Math.random()*7)|0)%3]);

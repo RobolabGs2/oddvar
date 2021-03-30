@@ -1,11 +1,10 @@
-import { Entity } from "../world";
+import { Entity, IEntity } from "../world";
 import { Deadly } from "../base";
 
 export abstract class Essence extends Deadly
 {
-	constructor(name: string, public readonly entity: Entity) {
+	constructor(name: string) {
 		super(name);
-		entity.DeathSubscribe(() => this.Die());
 	}
 
 	public abstract Tick(dt: number): void;

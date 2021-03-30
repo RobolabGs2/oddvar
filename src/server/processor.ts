@@ -9,7 +9,7 @@ import { Controller } from '../oddvar/controller';
 import { Manager } from '../oddvar/manager';
 import { ImageSource, TexturesManager } from '../oddvar/textures';
 import { Physics } from '../oddvar/physics/physics';
-import { CollectingSquaresGame } from '../games/collecting_squares';
+import { CollectingSquaresGame, PacManLikeLabirint } from '../games/collecting_squares';
 
 
 function DeepProxy<T extends object>(): T {
@@ -41,7 +41,7 @@ export class Processor {
 		const controller = new Controller(false);
 		this.players = new ServerPlayers();
 		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager(DeepProxy<ImageSource>(), canvasContext)), reflectionJSON);
-		this.manager = new Manager(oddvar, new CollectingSquaresGame(oddvar));
+		this.manager = new Manager(oddvar, new CollectingSquaresGame(oddvar, PacManLikeLabirint));
 
 
 		let lastTime = 0;

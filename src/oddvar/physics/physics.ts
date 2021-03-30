@@ -1,13 +1,15 @@
 import { Deadly, DeadlyWorld } from "../base"
-import { Entity} from "../world"
+import { Entity, IEntity} from "../world"
 import { Point, Size } from "../geometry";
-import { Body, RectangleBody, PhysicalMaterial } from "./body";
+import { RectangleBody, Body, PhysicalMaterial } from "./body";
 import { Essence } from "./essence";
+import { RaySensor, Sensor } from "./sensor";
 
 
 export class Physics extends DeadlyWorld<Essence>
 {
 	private bodies = new Array<Body>();
+	public sensors = new Set<Sensor>();
 
 	public Tick(dt: number) {
 		this.Clear();
@@ -16,6 +18,8 @@ export class Physics extends DeadlyWorld<Essence>
 		for (let i = 0; i < this.bodies.length; ++i) {
 			let b1 = this.bodies[i];
 			let abba1 = b1.Abba();
+
+			this.sensors.forEach(s => s.Take(b1));
 
 			for (let j  = i + 1; j < this.bodies.length; ++j) {
 				let b2 = this.bodies[j];
@@ -143,7 +147,19 @@ export class Physics extends DeadlyWorld<Essence>
 		return min;
 	}
 
+	private AddSensor<T extends Sensor>(sensor: T) {
+		this.sensors.add(sensor);
+		sensor.DeathSubscribe(s => {
+			this.sensors.delete(sensor);
+		});
+		return sensor
+	}
+
 	public CreateRectangleBody(name: string, e: Entity, material: Partial<PhysicalMaterial>, size: Size) {
 		return this.AddBody(this.AddDeadly(new RectangleBody(name, e, material, size)));
+	}
+
+	public CreateRaySensor(name: string, e: IEntity) {
+		return this.AddSensor(this.AddDeadly(new RaySensor(name, e)));
 	}
 }
