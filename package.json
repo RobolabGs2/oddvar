@@ -38,14 +38,14 @@
     "ws": "^7.4.4"
   },
   "scripts": {
-    "reflection-client": "ts-node tools/compiler.ts src/client/index.ts src/tsconfig.json resources/reflection.json true",
+    "reflection-client": "ts-node tools/compiler.ts src/client/index.ts resources/reflection.json true",
     "dev-client": "webpack-dev-server  --env.dir client --content-base=static -w --watch-content-base --host 0.0.0.0 --disable-host-check",
     "build-client": "yarn reflection-client & webpack --env.production --env.dir client",
     
     "dev-server": "ts-node-dev -P src/server/tsconfig.json src/server/main.ts",
     "run-server": "ts-node -P src/server/tsconfig.json src/server/main.ts",
 
-    "reflection-standalone": "ts-node tools/compiler.ts src/standalone/index.ts src/tsconfig.json resources/reflection.json true",
+    "reflection-standalone": "ts-node tools/compiler.ts src/standalone/index.ts resources/reflection.json true",
     "dev-standalone": "webpack-dev-server --env.dir standalone --content-base=static -w --watch-content-base --host 0.0.0.0 --disable-host-check",
     "build-standalone": "yarn reflection-standalone & webpack --env.production --env.dir standalone"
   }

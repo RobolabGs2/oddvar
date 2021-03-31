@@ -7,6 +7,7 @@ import CopyPlugin from 'copy-webpack-plugin';
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import json5 from 'json5';
 import webpack from 'webpack';
+import {readTypesFrom} from './tools/compiler'
 
 class BuildEnvironment {
 	public readonly production: boolean;
@@ -27,7 +28,7 @@ class BuildEnvironment {
 }
 
 const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
-	if (rawEnv !== undefined && typeof rawEnv !== "object") {
+	if (rawEnv !== undefined && typeof rawEnv !== "object" || typeof rawEnv === "string") {
 		throw new TypeError(`ENV expected object, actual: ${typeof rawEnv}`)
 	}
 	const env = new BuildEnvironment(rawEnv || {});
@@ -35,6 +36,19 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 		mode: env.mode,
 		entry: `./src/${env.dir}/index.ts`,
 		plugins: [
+			{
+				apply(compiler) {
+					const index = compiler.options.entry! as string;
+					const types = readTypesFrom(index);
+					compiler.hooks.afterCompile("reflection", )
+					compiler.outputPath
+					console.group()
+					console.log(compiler.name)
+					console.log(compiler.options)
+					console.log(compiler.outputPath)
+					console.groupEnd()
+				}
+			},
 			new CleanWebpackPlugin(),
 			new MiniCssExtractPlugin(),
 			new HtmlWebpackPlugin({
@@ -49,9 +63,9 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 				base: './',
 				favicon: './favicon.png'
 			}),
-			new CopyPlugin({
-				patterns: [{ from: './resources/*.json', to: './resources', flatten: true }]
-			}),
+			// new CopyPlugin({
+				// patterns: [{ from: './resources/*.json', to: './resources', flatten: true }]
+			// }),
 			new ForkTsCheckerWebpackPlugin({ typescript: { configFile: `src/${env.dir}/tsconfig.json` } }),
 		],
 		devtool: env.sourceMapNeeds ? 'source-map' : undefined,

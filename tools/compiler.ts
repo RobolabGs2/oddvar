@@ -108,14 +108,16 @@ class ClassDescription extends InterfaceDescription {
 	consturctors: SignatureDescription[];
 }
 
+type TypesDescriptions = {
+	classes: ClassDescription[];
+	interfaces: InterfaceDescription[];
+};
+
 /** Generate documentation for all classes in a set of .ts files */
 function generateDocumentation(
 	fileNames: string[],
 	options: ts.CompilerOptions
-): {
-	classes: ClassDescription[],
-	interfaces: InterfaceDescription[],
-} {
+): TypesDescriptions {
 	// Build a program using the set of root file names in fileNames
 	let program = ts.createProgram(fileNames, options);
 
@@ -171,21 +173,9 @@ function generateDocumentation(
 	}
 }
 
-const startTime = new Date().getTime();
-const args = process.argv.slice(2);
-const inputFile = args[0];
-const inputTSConfig = args[1]
-const outputFile = args[2];
-const minify = args[3];
-const config = ts.readConfigFile(inputTSConfig, ts.sys.readFile);
-if (config.error) {
-	console.error(config.error);
-} else {
-	const c = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, cutLast(inputTSConfig))
-	if (c.errors.length) {
-		console.error(c.errors);
-	}
-	const res = generateDocumentation([inputFile], c.options)
+export function readTypesFromTo(inputFile: string, outputFile: string, minify: boolean) {
+	const startTime = new Date().getTime();
+	const res = readTypesFrom(inputFile);
 	fs.writeFileSync(outputFile, JSON.stringify(res, undefined, minify ? undefined : "\t"));
 	console.log(`Time: ${new Date().getTime() - startTime}ms`);
 	console.log(`Classes: ${res.classes.length}`)
@@ -193,6 +183,40 @@ if (config.error) {
 	console.log(`Reflection json written in ${outputFile}!`);
 	console.log();
 }
+
+const formatHost: ts.FormatDiagnosticsHost = {
+	getCanonicalFileName: (path) => path,
+	getCurrentDirectory: ts.sys.getCurrentDirectory,
+	getNewLine: () => ts.sys.newLine,
+}
+
+class BadTSConfig extends Error {
+	constructor(readonly tsconfig: string, diagnostics: ts.Diagnostic[]) {
+		super(`Can't read config file ${tsconfig}: ${ts.formatDiagnostics(diagnostics, formatHost)}`)
+	}
+}
+
+export function readTypesFrom(inputFile: string): TypesDescriptions {
+	const workdir = cutLast(inputFile);
+	const configFile = ts.findConfigFile(workdir, ts.sys.fileExists)
+	if (!configFile)
+		throw Error("tsconfig not found!");
+	const config = ts.readConfigFile(configFile, ts.sys.readFile);
+	if (config.error) {
+		throw new BadTSConfig(configFile, [config.error])
+	}
+	const c = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, workdir)
+	if (c.errors.length)
+		throw new BadTSConfig(configFile, c.errors)
+	return generateDocumentation([inputFile], c.options)
+}
+
+
+const args = process.argv.slice(2);
+const inputFile = args[0];
+const outputFile = args[1];
+const minify = args[2];
+readTypesFromTo(inputFile, outputFile, minify === "true")
 
 function cutLast(path: string): string {
 	let p = path.split("/");
