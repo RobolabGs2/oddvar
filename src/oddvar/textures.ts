@@ -136,15 +136,13 @@ export class ColoredTexture extends StyledTexture {
 
 export class PatternTexture extends StyledTexture {
 	protected setFillStyle(context: CanvasRenderingContext2D): boolean {
-		if (this.pattern) {
-			context.fillStyle = this.pattern;
-			return true;
-		}
-		return false;
+		context.fillStyle = this.pattern;
+		return true;
 	}
 
 	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
-		return false;
+		context.strokeStyle = this.pattern;	
+		return true;
 	}
 
 	public constructor(name: string, private url: string, private readonly pattern: CanvasPattern) {

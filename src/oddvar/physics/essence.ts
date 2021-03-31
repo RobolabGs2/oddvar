@@ -1,4 +1,3 @@
-import { Entity, IEntity } from "../world";
 import { Deadly } from "../base";
 
 export abstract class Essence extends Deadly

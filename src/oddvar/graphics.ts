@@ -1,13 +1,14 @@
-import { Deadly, DeadlyWorld } from "./base"
+import { Deadly, DeadlyWorld, StatelessDeadly } from "./base"
 import { IEntity } from "./world"
-import { Matrix, Size } from "./geometry";
+import { Matrix, Point, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
-import { RectangleTexture, CircleTexture, TransformContext } from "./textures";
+import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, ColoredTexture } from "./textures";
 import { Body, RectangleBody } from "./physics/body";
 import { Essence } from "./physics/essence";
+import { RaySensor } from "./physics/sensor";
 
 
-export abstract class DeadlyAvatar extends Deadly {
+export abstract class DeadlyAvatar extends StatelessDeadly {
 	public constructor(name: string, deadly: Deadly) {
 		super(name);
 		deadly.DeathSubscribe(() => this.Die())
@@ -27,13 +28,6 @@ abstract class EntityAvatar extends DeadlyAvatar {
 
 	protected abstract drawEntity(dt: number, context: CanvasRenderingContext2D): void;
 
-	FromDelta(delta: any): void {
-	}
-
-	ToDelta(force: boolean): any {
-		return undefined;
-	}
-
 	abstract ToConstructor(): any[];
 }
 
@@ -48,13 +42,6 @@ abstract class BodyAvatar extends DeadlyAvatar {
 	}
 
 	protected abstract drawEssense(dt: number, context: CanvasRenderingContext2D): void;
-
-	FromDelta(delta: any): void {
-	}
-
-	ToDelta(force: boolean): any {
-		return undefined;
-	}
 
 	abstract ToConstructor(): any[];
 }
@@ -119,13 +106,6 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 		context.fillText(`${this.controller.score}`, 0, -10)
 	}
 
-	FromDelta(delta: any): void {
-	}
-
-	ToDelta(force: boolean): any {
-		return undefined;
-	}
-
 	ToConstructor(): any[] {
 		return [this.controller.Name, this.playerColor];
 	}
@@ -137,28 +117,32 @@ export class PhysicControlledAvatar extends DeadlyAvatar {
 	}
 
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
-		if (this.controller.player.isCurrent) {
-			context.strokeStyle = this.playerColor;
-			context.lineWidth = 10;
-			context.strokeRect(0, 0, 500, 500);
-		}
 		TransformContext(context, this.controller.body.entity.Transform());
-		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
+		context.fillStyle = this.playerColor;
 		context.textAlign = "center"
 		context.textBaseline = "bottom"
+		context.font = "italic 14px sans-serif";
 		context.fillText(`${this.controller.score}`, 0, -10)
-	}
-
-	FromDelta(delta: any): void {
-	}
-
-	ToDelta(force: boolean): any {
-		return undefined;
 	}
 
 	ToConstructor(): any[] {
 		return [this.controller.Name, this.playerColor];
 	}
+}
+
+export class RaySensorAvatar extends DeadlyAvatar {
+	constructor(name: string, readonly ray: RaySensor, readonly texture: VectorTexture) {
+		super(name, ray)
+	}
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		TransformContext(context, this.ray.entity.Transform());
+		if(this.ray.observable)
+			this.texture.DrawVector(context, new Point(this.ray.distance, 0));
+	}
+	ToConstructor(): any[] {
+		throw new Error("Method not implemented.");
+	}
+
 }
 
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
@@ -182,6 +166,10 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 
 	public CreateRectangleBodyAvatar(name: string, body: RectangleBody, texture: RectangleTexture): RectangleBodyAvatar {
 		return this.AddDeadly(new RectangleBodyAvatar(name, body, texture));
+	}
+
+	public CreateRaySensorAvatar(name: string, ray: RaySensor, texture: VectorTexture): RaySensorAvatar {
+		return this.AddDeadly(new RaySensorAvatar(name, ray, texture));
 	}
 
 	public CreateCircleEntityAvatar(name: string, entity: IEntity, r: number, texture: CircleTexture): CircleEntityAvatar {

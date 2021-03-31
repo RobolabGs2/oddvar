@@ -182,7 +182,7 @@ export class World extends DeadlyWorld<IEntity>
 		return this.AddDeadly(new Entity(name, location, rotation));
 	}
 
-	public CreateTailEntity(name: string, target: Entity, location: Point, rotation: number = 0): TailEntity {
+	public CreateTailEntity(name: string, target: IEntity, location: Point, rotation: number = 0): TailEntity {
 		return this.AddDeadly(new TailEntity(name, target, location, rotation));
 	}
 }

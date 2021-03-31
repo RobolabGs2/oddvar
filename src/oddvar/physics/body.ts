@@ -118,6 +118,10 @@ export abstract class Body extends Essence implements IBody
 			return;
 		this.Hit(force, this.entity.location);
 	};
+
+	public TurnKick(force: number) {
+		this.angleForce += force;
+	};
 }
 
 export class RectangleBody extends Body
