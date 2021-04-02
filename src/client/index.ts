@@ -6,7 +6,7 @@ import { HTML } from "../web/html";
 
 console.log("Hello ODDVAR");
 let swprotocol = window.location.protocol == "https:" ? "wss" : "ws";
-const url = `${swprotocol}://${window.location.hostname}:8999/`;
+const url = `${swprotocol}://${window.location.host}/api/`;
 
 DownloadResources().then(([reflectionJSON, images]) => {
 

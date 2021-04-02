@@ -31,6 +31,7 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 		throw new TypeError(`ENV expected object, actual: ${typeof rawEnv}`)
 	}
 	const env = new BuildEnvironment(rawEnv || {});
+	const output = path.resolve(__dirname, './static');
 	const config: webpack.Configuration = {
 		mode: env.mode,
 		entry: `./src/${env.dir}/index.ts`,
@@ -96,7 +97,7 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 		},
 		output: {
 			filename: '[name].bundle.js',
-			path: path.resolve(__dirname, './static'),
+			path: output,
 		},
 		optimization: {
 			splitChunks: {
@@ -112,6 +113,19 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 				}),
 			],
 		},
+		devServer: {
+			contentBase: output,
+			watchContentBase: true,
+			host: "0.0.0.0",
+			disableHostCheck: true,
+			port: 8080,
+			proxy: {
+				"/api": {
+					target: "http://localhost:8999",
+					ws: true,
+				}
+			}
+		}
 	}
 	return config;
 };

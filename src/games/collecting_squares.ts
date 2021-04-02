@@ -6,9 +6,8 @@ import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
 import { IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
 import { Labirint } from './labirint';
-import { ColoredTexture, RectangleTexture } from 'src/oddvar/textures';
-import { RaySensor } from 'src/oddvar/physics/sensor';
-import { pid } from 'node:process';
+import { ColoredTexture, RectangleTexture } from '../oddvar/textures';
+import { RaySensor } from '../oddvar/physics/sensor';
 
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
@@ -58,6 +57,16 @@ export const RandomLabirint: MapCreator = (oddvar, createWall) => LabirintMap(La
 
 function RandomElem<T>(elems: T[]): T {
 	return elems[(Math.random() * elems.length) | 0];
+}
+
+if (Object.fromEntries === undefined) {
+	Object.fromEntries = function <T = any>(entries: Iterable<readonly [PropertyKey, T]>): { [k: string]: T }{
+		const res: {[k:string]: T} = {};
+		for (let pair of entries) {
+			res[pair[0] as string] = pair[1]
+		}
+		return res;
+	}
 }
 
 export class CollectingSquaresGame implements GameLogic {
