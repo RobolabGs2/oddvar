@@ -1,6 +1,7 @@
 {
     "bricks": "resources/img/gray-bricks.png",
-    "skull": "https://raw.githubusercontent.com/Tetrergeru/ruby-dungeon/develop/app/assets/images/monster2.png",
-    "duck_32": "https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/yana_duck.png",
-    "duck_16": "https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/duck16x16.png"
+    "monster_1": "resources/img/skull.png",
+    "player_1": "resources/img/yana_duck.png",
+    "player_2": "resources/img/duck16x16.png",
+    "player_3": "resources/img/skull.png"
 }

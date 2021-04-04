@@ -1,13 +1,11 @@
-import { Matrix, Point, Size } from '../oddvar/geometry';
+import { Point, Size } from '../oddvar/geometry';
 import { Oddvar } from "../oddvar/oddvar"
-import { Entity, TailEntity } from "../oddvar/world"
+import { Entity } from "../oddvar/world"
 import { Player } from '../oddvar/players';
 import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
-import { IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
+import { IBody, PhysicalMaterial } from '../oddvar/physics/body';
 import { Labirint } from './labirint';
-import { ColoredTexture, RectangleTexture } from '../oddvar/textures';
-import { RaySensor } from '../oddvar/physics/sensor';
 
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
@@ -34,48 +32,20 @@ export const TestMap: MapCreator = (oddvar, createWall) => {
 	}
 }
 
-export const LabirintMap = (labirint: Labirint, size: Size, shift: Point, oddvar: Oddvar, createWall: WallCreator) => {
-	for (let i = 0; i < labirint.width; ++i) {
-		let last = 0;
-		for (let j = 0; j < labirint.height; ++j) {
-			if (!labirint.get(i, j)) {
-				if (last < j) {
-					createWall(new Point((i + 0.5) * size.width + shift.x, ((j + last - 1) / 2 + 0.5) * size.height + shift.y), 0,
-						new Size(size.width, (j - last) * size.height));
-				}
-				last = j + 1;
-			}
-		}
-		if (last < labirint.height) {
-			createWall(new Point((i + 0.5) * size.width + shift.x, ((labirint.height + last - 1) / 2 + 0.5) * size.height + shift.y), 0,
-				new Size(size.width, (labirint.height - last) * size.height));
-		}
-	}
-}
+export const RandomLabirint: MapCreator = (oddvar, createWall) => Labirint.Generate(50, 50).Or(Labirint.Frame(50, 50, 3)).Draw(new Size(10, 10), new Point(0, 0), createWall)
 
-export const RandomLabirint: MapCreator = (oddvar, createWall) => LabirintMap(Labirint.Generate(50, 50).Or(Labirint.Frame(50, 50, 3)), new Size(10, 10), new Point(0, 0), oddvar, createWall)
 
 function RandomElem<T>(elems: T[]): T {
 	return elems[(Math.random() * elems.length) | 0];
 }
 
-if (Object.fromEntries === undefined) {
-	Object.fromEntries = function <T = any>(entries: Iterable<readonly [PropertyKey, T]>): { [k: string]: T }{
-		const res: {[k:string]: T} = {};
-		for (let pair of entries) {
-			res[pair[0] as string] = pair[1]
-		}
-		return res;
-	}
-}
 
 export class CollectingSquaresGame implements GameLogic {
-	private usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
-	private targetPoint: Entity;
-	private readonly size = new Size(20, 20);
-	private readonly bot: Bot;
+	protected usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
+	protected targetPoint: Entity;
+	protected readonly size = new Size(20, 20);
 
-	constructor(private oddvar: Oddvar, mapCreator: MapCreator = RandomLabirint, readonly debug = false) {
+	constructor(protected oddvar: Oddvar, mapCreator: MapCreator = RandomLabirint, readonly debug = false) {
 		const targetSize = new Size(10, 10)
 		this.targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0))
 		const targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
@@ -87,7 +57,6 @@ export class CollectingSquaresGame implements GameLogic {
 			this.RelocatePoint();
 		}))
 		mapCreator(oddvar, this.createWall.bind(this));
-		this.bot = new Bot(this.oddvar, this.GenerateInconflictPoint(14), this.size, this.botTexture);
 		this.RelocatePoint();
 	}
 
@@ -107,21 +76,19 @@ export class CollectingSquaresGame implements GameLogic {
 	}
 
 	Tick(dt: number): void {
-		this.bot.Tick(dt);
 	}
 
-	private GenerateInconflictPoint(distance: number): Point {
+	protected GenerateInconflictPoint(distance: number): Point {
 		let p = new Point(Math.random() * 500, Math.random() * 500);
 		if (this.oddvar.Get("Physics").Map(p) < distance)
 			return this.GenerateInconflictPoint(distance);
 		return p;
 	}
 
-
-	private botTexture = this.oddvar.Get("TexturesManager").CreateImageTexture("skull", "skull");
 	private textures = [
-		this.oddvar.Get("TexturesManager").CreateImageTexture("duck_32", "duck_32"),
-		this.oddvar.Get("TexturesManager").CreateImageTexture("duck_16", "duck_16")
+		this.oddvar.Get("TexturesManager").CreateImageTexture("player_1", "player_1"),
+		this.oddvar.Get("TexturesManager").CreateImageTexture("player_2", "player_2"),
+		this.oddvar.Get("TexturesManager").CreateImageTexture("player_3", "player_3")
 	]
 
 	AddUser(player: Player): void {
@@ -150,195 +117,19 @@ export class CollectingSquaresGame implements GameLogic {
 	}
 }
 
-const PacManQ = [
+const PacManQ: (0 | 1)[][] = [
 	[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-	[1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-	[1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+	[1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+	[1, 1, 1, 0, 1, 1, 1, 1, 1, 0],
 	[1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-	[1, 1, 0, 0, 1, 1, 0, 1, 1, 0],
+	[1, 0, 1, 1, 1, 1, 0, 1, 1, 0],
 	[1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-	[1, 1, 0, 1, 0, 1, 1, 1, 0, 0],
-	[1, 0, 0, 1, 0, 0, 1, 1, 0, 1],
-	[1, 0, 1, 1, 0, 1, 1, 1, 0, 0],
-	[1, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+	[1, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+	[1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+	[1, 0, 1, 1, 0, 1, 0, 0, 0, 1],
+	[1, 0, 0, 1, 1, 1, 0, 1, 1, 1],
 ]
 
-const PacMan: Labirint = (() => {
-	const map = new Labirint(PacManQ.length * 2, PacManQ.length * 2)
-	const a = PacManQ.length;
-	for (let i = 0; i < 2; i++) {
-		for (let j = 0; j < 2; j++) {
-			PacManQ.forEach((l, _i) => {
-				l.forEach((cell, _j) => {
-					const y = (i % 2) ? 2 * a - _i - 1 : a * i + _i
-					const x = (j % 2) ? 2 * a - _j - 1 : a * j + _j
-					map.set(x, y, cell == 1);
-				})
-			})
-		}
-	}
-	return map;
-})()
+const PacMan = Labirint.Symmetry(PacManQ, "XY");
 
-export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => LabirintMap(PacMan, new Size(25, 25), new Point(0, 0), oddvar, createWall)
-
-type BotSensor = {
-	entity: TailEntity,
-	ray: RaySensor
-}
-
-type BotSensors = {
-	Center: BotSensor
-	Left: BotSensor
-	Right: BotSensor
-}
-
-type Settings<T> = { [K in keyof T]: number }
-type SensorsSettings = Settings<BotSensors>
-
-
-class Bot {
-	body: RectangleBody
-	sensors: BotSensors
-	sensorsBinding: TailEntity
-	constructor(readonly oddvar: Oddvar, place: Point, readonly size: Size, botTexture: RectangleTexture, debug = false) {
-		const name = (type: string) => `bot: ${type}`;
-		const sensorsSettings: SensorsSettings = {
-			Center: 0,
-			Left: -Math.PI / 3,
-			Right: Math.PI / 3,
-		}
-
-		const e = this.oddvar.Get("World").CreateEntity(name("entity"), place);
-		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture("bot", { stroke: "red", fill: "red" });
-		this.sensorsBinding = this.oddvar.Get("World").CreateTailEntity(name("ray entity"), e, new Point(this.size.width / 2 - 1, 0));
-		this.body = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size);
-		this.sensors = Object.fromEntries(Object.entries(sensorsSettings).map(([key, rotation]) => [key, this.makeSensor((x) => name(`${key} ray ${x}`), texture, rotation, debug)])) as BotSensors;
-		if (debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body debug avatar"), this.body, texture);
-		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body avatar"), this.body, botTexture);
-
-		this.prevState = {
-			location: place.Clone(),
-			rotation: 0
-		}
-	}
-
-	private makeSensor(name: (type: string) => string, texture: ColoredTexture, rotation: number, debug: boolean): BotSensor {
-		const entity = this.oddvar.Get("World").CreateTailEntity(name(`entity`), this.sensorsBinding, new Point(0, 0), rotation)
-		const ray = this.oddvar.Get("Physics").CreateRaySensor(name(`sensor`), entity);
-		ray.AddToIgnore(this.body);
-		if (debug) this.oddvar.Get("Graphics").CreateRaySensorAvatar(name(`avatar`), ray, texture);
-		return { entity, ray };
-	}
-
-	Move(direction: "forward" | "backward") {
-		this.body.Kick(new Point(90000, 0).Transform(Matrix.Rotation(this.body.entity.rotation - (direction == "backward" ? Math.PI : 0))))
-	}
-
-
-	Turn(direction: "right" | "left") {
-		this.body.TurnKick((direction == "left" ? -1 : 1) * 300000)
-	}
-
-	time: number = 0
-	program = BotProgram();
-	lastCommand = this.program.next()
-	prevState: { location: Point, rotation: number }
-	updateState() {
-		this.prevState.location = this.body.entity.location.Clone();
-		this.prevState.rotation = this.body.entity.rotation;
-		this.time = 0;
-	}
-	Tick(dt: number) {
-		this.time += dt;
-		const command = this.lastCommand.value;
-		if (command == undefined)
-			throw new TypeError(`Command is undefined!`)
-		if (this.time > command.timeout) {
-			this.updateState();
-			this.lastCommand = this.program.next(false);
-			this.Tick(0);
-		}
-		switch (command.command) {
-			case "move":
-				if (command.arguments.distance <= this.prevState.location.Dist(this.body.entity.location)) {
-					this.updateState();
-					this.lastCommand = this.program.next(true);
-					break;
-				}
-				this.Move(command.arguments.direction);
-				break;
-			case "turn":
-				if (command.arguments.angle <= this.prevState.rotation - this.body.entity.rotation) {
-					this.updateState();
-					this.lastCommand = this.program.next(true);
-					break;
-				}
-				this.Turn(command.arguments.direction);
-				break;
-		}
-	}
-}
-
-interface BotCommandsMap {
-	move: {
-		direction: "forward" | "backward"
-		distance: number
-	}
-	turn: {
-		direction: "left" | "right"
-		angle: number
-	}
-}
-
-type BotCommand<T extends keyof BotCommandsMap> = {
-	command: T
-	arguments: BotCommandsMap[T]
-	timeout: number
-}
-
-function* BotProgram(): Generator<BotCommand<"move"> | BotCommand<"turn">, void, boolean> {
-	while (true) {
-		let forward = yield {
-			command: "move",
-			timeout: 1.5,
-			arguments: {
-				direction: "forward",
-				distance: 20,
-			}
-		};
-		if (forward)
-			continue;
-		do {
-			let rotateLeft = yield {
-				command: "turn",
-				timeout: 3,
-				arguments: {
-					direction: "left",
-					angle: Math.PI / 2,
-				}
-			}
-			if (rotateLeft)
-				break;
-			let rotateRight = yield {
-				command: "turn",
-				timeout: 3,
-				arguments: {
-					direction: "right",
-					angle: Math.PI / 2,
-				}
-			}
-			if (rotateRight)
-				break;
-			yield {
-				command: "move",
-				timeout: 2,
-				arguments: {
-					direction: "backward",
-					distance: 40,
-				}
-			}
-		}
-		while (true)
-	}
-}
+export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => PacMan.Draw(new Size(25, 25), new Point(0, 0), createWall)

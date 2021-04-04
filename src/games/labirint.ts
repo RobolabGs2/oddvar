@@ -1,5 +1,6 @@
-import { Point } from "../oddvar/geometry";
+import { Point, Size } from "../oddvar/geometry";
 
+export type WallCreator = (center: Point, rotation: number, size: Size) => void;
 
 export class Labirint {
 	private matrix = new Array<Array<boolean>>();
@@ -64,6 +65,27 @@ export class Labirint {
 		if (Math.random() < n) this.Step(x, y - 1, n * 0.9);
 	}
 
+	Draw(size: Size, shift: Point, createWall: WallCreator) {
+		function drawWall(i: number, j: number, last: number) {
+			createWall(new Point((i + 0.5) * size.width + shift.x, ((j + last - 1) / 2 + 0.5) * size.height + shift.y), 0,
+				new Size(size.width, (j - last) * size.height));
+		}
+		for (let i = 0; i < this.width; ++i) {
+			let last = 0;
+			for (let j = 0; j < this.height; ++j) {
+				if (!this.get(i, j)) {
+					if (last < j) {
+						drawWall(i, j, last);
+					}
+					last = j + 1;
+				}
+			}
+			if (last < this.height) {
+				drawWall(i, this.height, last);
+			}
+		}
+	}
+
 	public static Generate(width: number, height: number): Labirint{
 		const result = new Labirint(width, height);
 		result.Step((width / 2)|0, (height / 2)|0);
@@ -78,6 +100,28 @@ export class Labirint {
 		for (let i = border; i < width - border; ++i) {
 			for (let j = border; j < height - border; ++j) {
 				result.set(i, j, false);
+			}
+		}
+		return result;
+	}
+
+	public static Symmetry(origin: (boolean|number)[][]|Labirint, axis: "X" | "Y" | "XY" = "XY"): Labirint {
+		if(origin instanceof Labirint)
+			origin = origin.matrix;
+		const originWidth = origin[0].length;
+		const originHeight = origin.length;
+		const yRepeat = (axis.includes("Y") ? 2 : 1);
+		const xRepeat = (axis.includes("X") ? 2 : 1);
+		const result = new Labirint(originWidth*xRepeat, originHeight*yRepeat);
+		for (let i = 0; i < yRepeat; i++) {
+			for (let j = 0; j < xRepeat; j++) {
+				origin.forEach((l, _i) => {
+					l.forEach((cell, _j) => {
+						const y = (i % 2) ? 2 * originHeight - _i - 1 : originHeight * i + _i
+						const x = (j % 2) ? 2 * originWidth - _j - 1 : originWidth * j + _j
+						result.set(x, y, cell == true);
+					})
+				})
 			}
 		}
 		return result;

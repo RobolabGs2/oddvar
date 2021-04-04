@@ -7,8 +7,9 @@ import { Graphics } from "../oddvar/graphics";
 import { Controller } from "../oddvar/controller";
 import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
-import { Manager } from "../oddvar/manager";
+import { GameLogic, Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, MapCreator, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
+import { MultiagentSimulation } from '../games/multuagent_sumulation';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
@@ -35,12 +36,19 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	];
 
 	const maps: Record<string, MapCreator> = {
-		"symmetric": PacManLikeLabirint,
-		"test": TestMap,
+		symmetric: PacManLikeLabirint,
+		test: TestMap,
 		"random maze": RandomLabirint,
 	}
+	type gameCreator = (o: Oddvar, m: MapCreator) => GameLogic;
+	const games: Record<string, gameCreator> = {
+		"Собери квадраты": (o: Oddvar, m: MapCreator) => new CollectingSquaresGame(o, m),
+		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator) => new MultiagentSimulation(o, m),
+	}
+	let lastMap = PacManLikeLabirint;
+	let lastGame = games["Собери квадраты"];
 
-	const newManager = (map: MapCreator) => {
+	const newManager = (game: gameCreator = lastGame, map: MapCreator = lastMap) => {
 		const worlds = new Worlds(
 			new World(),
 			new LocalPlayers(keyboards),
@@ -49,9 +57,10 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 			new Controller(false),
 			new TexturesManager(resources, canvasContext))
 		const oddvar = new Oddvar(worlds, reflectionJSON);
-		return new Manager(oddvar, new CollectingSquaresGame(oddvar, map));
+		lastGame = game;
+		return new Manager(oddvar, game(oddvar, lastMap = map));
 	}
-	const processor = new Processor(newManager(PacManLikeLabirint));
+	const processor = new Processor(newManager());
 	document.body.appendChild(
 		HTML.CreateElement("article",
 			HTML.Append(
@@ -60,21 +69,33 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 						style.width = "500px";
 						style.display = "flex"
 						style.flexDirection = "row"
-						style.justifyContent = "flex-end"
+						style.justifyContent = "space-between"
 					}),
 					HTML.Append(
-						HTML.CreateElement("header", HTML.SetText("Choose map:"), HTML.SetStyles(s => s.marginRight = "16px")),
-						HTML.CreateElement("select",
-							HTML.AddEventListener("change", function (ev) {
-								const select = this as HTMLSelectElement;
-								processor.manager = newManager(maps[select.value]);
-							}),
-							HTML.Append(...Object.keys(maps).map((name) => HTML.CreateElement("option",
-								HTML.SetText(name),
-								(el) => el.value = name,
-							)))
-						)
-					)
+						HTML.CreateElement("section", HTML.Append(
+							HTML.CreateElement("header", HTML.SetText("Choose game:"), HTML.SetStyles(s => s.marginRight = "16px")),
+							HTML.CreateElement("select",
+								HTML.AddEventListener("change", function (ev) {
+									const select = this as HTMLSelectElement;
+									processor.manager = newManager(games[select.value], lastMap);
+								}),
+								HTML.Append(...Object.keys(games).map((name) => HTML.CreateElement("option",
+									HTML.SetText(name),
+									(el) => el.value = name,
+								)))
+							))),
+						HTML.CreateElement("section", HTML.Append(
+							HTML.CreateElement("header", HTML.SetText("Choose map:"), HTML.SetStyles(s => s.marginRight = "16px")),
+							HTML.CreateElement("select",
+								HTML.AddEventListener("change", function (ev) {
+									const select = this as HTMLSelectElement;
+									processor.manager = newManager(lastGame, maps[select.value]);
+								}),
+								HTML.Append(...Object.keys(maps).map((name) => HTML.CreateElement("option",
+									HTML.SetText(name),
+									(el) => el.value = name,
+								)))
+							))))
 				),
 				canvas,
 				HTML.CreateElement("section",

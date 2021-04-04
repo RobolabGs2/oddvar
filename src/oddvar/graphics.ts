@@ -97,7 +97,6 @@ export class ControlledWalkerAvatar extends DeadlyAvatar {
 		if (this.controller.player.isCurrent) {
 			context.strokeStyle = this.playerColor;
 			context.lineWidth = 10;
-			context.strokeRect(0, 0, 500, 500);
 		}
 		TransformContext(context, this.controller.entity.Transform());
 		context.fillStyle = this.controller.player.isCurrent ? "black" : "red";
@@ -147,12 +146,12 @@ export class RaySensorAvatar extends DeadlyAvatar {
 
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
 {
-	constructor(private readonly context: CanvasRenderingContext2D) {
+	constructor(public readonly context: CanvasRenderingContext2D) {
 		super();
 	}
 
 	public Tick(dt: number) {
-		this.context.clearRect(0, 0, 500, 500);
+		this.context.clearRect(0, 0, this.context.canvas.width, this.context.canvas.height);
 		this.mortals.forEach(e => {
 			this.context.save();
 			e.Tick(dt, this.context);
