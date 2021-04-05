@@ -2,7 +2,7 @@ import path from 'path';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { CleanWebpackPlugin } from 'clean-webpack-plugin';
-import UglifyJsPlugin from 'uglifyjs-webpack-plugin';
+import TerserPlugin from 'terser-webpack-plugin';
 import CopyPlugin from 'copy-webpack-plugin';
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import json5 from 'json5';
@@ -105,13 +105,11 @@ const configFactory: webpack.ConfigurationFactory = (rawEnv) => {
 			},
 			minimize: env.production,
 			minimizer: [
-				new UglifyJsPlugin({
-					uglifyOptions: {
+				new TerserPlugin({
+					terserOptions: {
 						mangle: false,
-					},
-					sourceMap: env.sourceMapNeeds
-				}),
-			],
+						sourceMap: env.sourceMapNeeds,
+					}})],
 		},
 		devServer: {
 			contentBase: output,
