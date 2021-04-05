@@ -1,25 +1,20 @@
-import { KeyAction, KeyInput, MessageHandler } from './protocol';
+import { KeyAction, KeyInput } from './protocol';
 import { HTML } from '../web/html'
 import { Point } from './geometry';
+import { Observable } from './utils';
 
 export interface KeyboardEvents {
 	"pressKey": KeyInput
 }
 
-export type MapOfArrays<T> = {
-	[K in keyof T]: T[K][]
-}
-
-export class Keyboard {
-	private listeners: MapOfArrays<MessageHandler<KeyboardEvents>> = {
-		pressKey: [],
-	};
+export class Keyboard extends Observable<KeyboardEvents>{
 	constructor(private readonly keyMapping: Record<string, KeyAction> = {
 		"KeyA": KeyAction.LEFT,
 		"KeyD": KeyAction.RIGHT,
 		"KeyW": KeyAction.UP,
 		"KeyS": KeyAction.DOWN,
 	}) {
+		super();
 		document.addEventListener("keydown", ev => {
 			this.dispatchKeyInput(ev.code, "down");
 		});
@@ -32,9 +27,6 @@ export class Keyboard {
 		return joystick(this.dispatchKeyCode.bind(this));
 	}
 
-	public addEventListener<E extends keyof KeyboardEvents>(eventType: E, listener: (ev: KeyboardEvents[E]) => void) {
-		this.listeners[eventType].push(listener);
-	}
 	private dispatchKeyInput(keyCode: string, action: KeyInput["action"]) {
 		const key = this.keyMapping[keyCode];
 		if (key === undefined)
@@ -42,7 +34,7 @@ export class Keyboard {
 		this.dispatchKeyCode(key, action);
 	}
 	private dispatchKeyCode(key: KeyAction, action: KeyInput["action"]) {
-		this.listeners.pressKey.forEach(l => l({ action, key: key, sync: Date.now() }));
+		this.dispatchEvent("pressKey", { action, key: key, sync: Date.now() });
 	}
 }
 

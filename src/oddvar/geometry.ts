@@ -1,6 +1,5 @@
 
-export class Point
-{
+export class Point {
 	public constructor(public x: number, public y: number) {
 	}
 
@@ -50,20 +49,24 @@ export class Point
 	public Invert(): Point {
 		return new Point(-this.x, -this.y);
 	}
+
+	public static readonly Zero: Readonly<Point> = new Point(0, 0);
 }
 
-export class Size
-{
+export class Size {
 	public constructor(public width: number, public height: number) {
 	}
 
 	public Area(): number {
 		return this.width * this.height;
 	}
+
+	public Scale(w: number, h = w) {
+		return new Size(w*this.width, h*this.width);
+	}
 }
 
-export class Matrix
-{
+export class Matrix {
 	private data = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
 	public static Zero(): Matrix {
@@ -83,7 +86,7 @@ export class Matrix
 		let cos = Math.cos(angle);
 		return this.RotationCosSin(cos, sin);
 	}
-	
+
 	public static RotationCosSin(cos: number, sin: number): Matrix {
 		let result = Matrix.Ident();
 		result.data[0][0] = cos;
@@ -95,7 +98,7 @@ export class Matrix
 
 	public static Translate(p: Point): Matrix;
 	public static Translate(x: number, y: number): Matrix;
-	public static Translate(x: Point|number, y?: number): Matrix {
+	public static Translate(x: Point | number, y?: number): Matrix {
 		let result = Matrix.Ident();
 		if (y) {
 			result.data[2][0] = x as number;

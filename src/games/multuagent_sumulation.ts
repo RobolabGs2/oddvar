@@ -4,10 +4,10 @@ import { TailEntity } from "../oddvar/world"
 import { RectangleBody } from '../oddvar/physics/body';
 import { ColoredTexture, RectangleTexture } from '../oddvar/textures';
 import { RaySensor } from '../oddvar/physics/sensor';
-import { CollectingSquaresGame, MapCreator, PacMan, PacManLikeLabirint, RandomLabirint } from './collecting_squares';
-import { Labirint } from './labirint';
+import { GameMap, Target, WallManager } from './collecting_squares';
+import { inRange, Labirint } from './labirint';
 import { Iterators } from '../oddvar/iterator';
-import { PrettyPrint } from '../oddvar/debug';
+import { GameLogic } from '../oddvar/manager';
 
 
 function toLabirintCoords(cellSize: Size, p: Point): Point {
@@ -18,19 +18,43 @@ function fromCoords(cellSize: Size, p: Point): Point {
 	return new Point((p.x + 0.5) * cellSize.width, (p.y + 0.5) * cellSize.height);
 }
 
-export class MultiagentSimulation extends CollectingSquaresGame {
-	map: Labirint = PacMan;
+export class MultiagentSimulation implements GameLogic {
 	bots: Bot[]
-	constructor(oddvar: Oddvar, mapCreator: MapCreator = RandomLabirint, readonly debug = false) {
-		super(oddvar, PacManLikeLabirint, debug)
-		this.bots = Iterators.Range(10).map(i => new Bot(this.oddvar, this.GenerateInconflictPoint(14), new Size(this.size.width, this.size.height), this.botTextures[i % this.botTextures.length], PacMan, new Size(25, 25))).toArray();
-		this.onRelocate = () => this.bots.forEach(bot => bot.setTarget(this.targetPoint.location));
-		this.onRelocate();
-		this.targetBody.AddCollisionListener((self, b) => { if (this.bots.find(bot => bot.body == b)) this.RelocatePoint() })
+	wallManager = new WallManager(this.oddvar);
+	constructor(readonly oddvar: Oddvar, private map: GameMap, readonly debug = false) {
+		console.log(this.map.maze.toString())
+		map.Draw(this.wallManager.creator)
+		const botsCount = 10;
+		this.bots = Iterators.Range(botsCount).
+			map(i => new Bot(this.oddvar, this.GenerateInconflictPoint(14), this.map.cellSize.Scale(2 / 6),
+				this.getTexture(i), this.map.maze, this.map.cellSize)).toArray();
+		const targetSize = this.map.cellSize.Scale(1 / 5);
+		const targetName = (i: number, name: string) => `target_${i} ${name}`
+		this.bots.forEach((bot, i) => {
+			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width));
+			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
+			oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "avatar"), targetBody, this.getTexture(i));
+			const target = new Target<number>(targetBody);
+			target.addEventListener("relocate", (p) => bot.setTarget(p));
+			target.addEventListener("collision", () => target.relocate(this.GenerateInconflictPoint(targetSize.width)));
+			target.players.set(bot.body, i);
+			target.relocate(this.GenerateInconflictPoint(targetSize.width));
+		})
+	}
+
+	private getTexture(i: number): RectangleTexture {
+		return this.botTextures[i % this.botTextures.length];
 	}
 
 	Tick(dt: number): void {
 		this.bots.forEach(bot => bot.Tick(dt));
+	}
+
+	protected GenerateInconflictPoint(distance: number): Point {
+		let p = new Point(Math.random() * this.map.size.width, Math.random() * this.map.size.height);
+		if (this.oddvar.Get("Physics").Map(p) < distance)
+			return this.GenerateInconflictPoint(distance);
+		return p;
 	}
 
 	AddUser() { }
@@ -62,10 +86,9 @@ class Bot {
 	sensorsBinding: TailEntity
 	program?: Generator<Dir, void, boolean>;
 	lastCommand?: { dir: Dir, dest: Point };
+	target?: Point;
 	constructor(readonly oddvar: Oddvar, place: Point, readonly size: Size, botTexture: RectangleTexture, readonly map: Labirint, readonly cellSize: Size, debug = false) {
 		const name = (type: string) => `bot: ${type}`;
-		this.size.width = size.width / 5 * 4;
-		this.size.height = size.height / 5 * 4;
 		const sensorsSettings: SensorsSettings = {
 			Center: 0,
 			Left: -Math.PI / 3,
@@ -91,7 +114,7 @@ class Bot {
 	nextPoint() {
 		const next = this.program?.next();
 		if (next === undefined || next.done) {
-			this.lastCommand = undefined;
+			this.lastCommand = this.target ? { dir: Dir.DOWN, dest: this.target } : undefined;
 			return;
 		}
 		const current = toLabirintCoords(this.cellSize, this.location);
@@ -102,7 +125,10 @@ class Bot {
 	}
 
 	setTarget(point: Point) {
-		this.program = MoveToProgram(this.map, toLabirintCoords(this.cellSize, this.body.entity.location), toLabirintCoords(this.cellSize, point));
+		this.program = MoveToProgram(
+			this.map,
+			toLabirintCoords(this.cellSize, this.body.entity.location),
+			toLabirintCoords(this.cellSize, this.target = point));
 		this.nextPoint();
 	}
 
@@ -137,11 +163,12 @@ class Bot {
 	}
 	Tick(dt: number) {
 		this.time += dt;
-		if (this.lastCommand === undefined)
+		if (this.lastCommand === undefined) {
 			return;
+		}
 		const delta = this.lastCommand.dest.Sub(this.location);
-		if (delta.Len() > 10) {
-			this.body.Kick(delta.Mult(20000))
+		if (delta.Len() > this.body.size.width / 2) {
+			this.body.Kick(delta.Norm().Mult(this.body.size.Area() * 500))
 			return;
 		}
 		this.nextPoint();
@@ -250,27 +277,29 @@ function* MoveToProgram(map: Labirint, start: Point, end: Point): Generator<Dir,
 				if (dir === startPoint)
 					break;
 				answer.push(dir);
+				from[to.y][to.x] = startPoint;
 				movePoint(ReverseDir(dir), to)
 			}
-			console.log(PrettyPrint.matrix(from, (d) => {
-				switch (d) {
-					case startPoint:
-						return "S";
-					case -1:
-						return "_";
-					default:
-						return Dir[d].substr(0, 1);
-				}
-			}));
+			// console.log(PrettyPrint.matrix(from, (d) => {
+			// 	switch (d) {
+			// 		case startPoint:
+			// 			return "S";
+			// 		case -1:
+			// 			return "_";
+			// 		default:
+			// 			return Dir[d].substr(0, 1);
+			// 	}
+			// }));
+			// console.log(answer)
 			for (let d of answer.reverse()) {
 				yield d;
-			}	
+			}
 			return;
 		}
 
 		[Dir.UP, Dir.DOWN, Dir.LEFT, Dir.RIGHT].forEach((dir) => {
 			const next = movePoint(dir, v.Clone());
-			if (from[next.y][next.x] !== -1 || map.get(next.x, next.y) !== false)
+			if (!inRange(next.y, map.height) || !inRange(next.x, map.width) || from[next.y][next.x] !== -1 || map.get(next.x, next.y) !== false)
 				return;
 			from[next.y][next.x] = dir;
 			queue.push(next);
@@ -280,16 +309,16 @@ function* MoveToProgram(map: Labirint, start: Point, end: Point): Generator<Dir,
 	function isFinish(v: Point) {
 		return v.x === end.x && v.y === end.y;
 	}
+	return;
 	throw new Error(`Can't find path from ${JSON.stringify(start)} to ${JSON.stringify(end)}`)
 }
 
-function movePoint(p: Dir, s: Point): Point {
+function movePoint(p: Dir, s: Point, count: number = 1): Point {
 	switch (p) {
-		case Dir.UP: s.y--; break;
-		case Dir.DOWN: s.y++; break;
-		case Dir.LEFT: s.x--; break;
-		case Dir.RIGHT: s.x++; break;
+		case Dir.UP: s.y -= count; break;
+		case Dir.DOWN: s.y += count; break;
+		case Dir.LEFT: s.x -= count; break;
+		case Dir.RIGHT: s.x += count; break;
 	}
 	return s;
 }
-

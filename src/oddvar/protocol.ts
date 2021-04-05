@@ -1,10 +1,7 @@
 import { OddvarSnapshot } from "./oddvar";
+import { EventHandler } from "./utils";
 
-export type MessageHandler<T> = {
-	[K in keyof T]: (data: T[K]) => void
-}
-
-export function HandleMessage<T>(message: string, handler: MessageHandler<T>) {
+export function HandleMessage<T>(message: string, handler: EventHandler<T>) {
 	const json = JSON.parse(message);
 	const h = handler[json.type as keyof T];
 	if(!h){

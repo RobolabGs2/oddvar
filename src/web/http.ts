@@ -1,4 +1,4 @@
-import { ReflectionJSON } from "src/oddvar/reflection";
+import { ReflectionJSON } from "../oddvar/reflection";
 import { ImageSource } from "../oddvar/textures";
 
 export function getJSON<T = any>(url: string): Promise<T> {

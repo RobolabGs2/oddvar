@@ -4,8 +4,10 @@ import { Entity } from "../oddvar/world"
 import { Player } from '../oddvar/players';
 import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
-import { IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
+import { Body, IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
 import { Labirint } from './labirint';
+import { Observable } from '../oddvar/utils';
+import { RectangleTexture } from '../oddvar/textures';
 
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
@@ -40,43 +42,72 @@ function RandomElem<T>(elems: T[]): T {
 }
 
 
-export class CollectingSquaresGame implements GameLogic {
-	protected usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
-	protected targetPoint: Entity;
-	protected targetBody: RectangleBody;
-	protected readonly size = new Size(20, 20);
-	// TODO
-	protected onRelocate = ()=>{};
-	constructor(protected oddvar: Oddvar, mapCreator: MapCreator = RandomLabirint, readonly debug = false) {
-		const targetSize = new Size(10, 10);
-		this.targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0));
-		this.targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
-		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", this.targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
-		this.targetBody.AddCollisionListener((self, b) => this.usersThings.forEach(v => {
-			if (v.body != b)
-				return;
-			++v.controller.score;
-			this.RelocatePoint();
-		}))
-		mapCreator(oddvar, this.createWall.bind(this));
-		this.RelocatePoint();
+export interface TargetEvents<Player> {
+	relocate: Point;
+	collision: Player;
+}
+
+export class Target<Player> extends Observable<TargetEvents<Player>> {
+	readonly players = new Map<Body, Player>();
+	constructor(readonly body: Body) {
+		super();
+		body.AddCollisionListener((self, another) => {
+			const player = this.players.get(another);
+			if (player !== undefined)
+				this.dispatchEvent("collision", player)
+		})
 	}
 
+	relocate(to: Point) {
+		this.dispatchEvent("relocate", this.body.entity.location = to);
+	}
+}
+
+export class WallManager {
+	constructor(readonly oddvar: Oddvar, textureName = "bricks", readonly debug = false) {
+		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
+	}
 	private wallCounter = 0;
-	private borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("bricks", "bricks");
+	private borderTexture: RectangleTexture;
 	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red" });
-	private createWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 0.1, angleFriction: 0.1 }) {
+	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 0.1, angleFriction: 0.1 }) {
 		const id = this.wallCounter++;
 		const border = this.oddvar.Get("World").CreateEntity(`wall ${id}`, center, rotation);
 		const body = this.oddvar.Get("Physics").CreateRectangleBody(`wall ${id} body`, border, material, size)
 		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
-		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar2`, body, this.borderTextureDebug)
+		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar debug`, body, this.borderTextureDebug)
+	}
+	
+	public get creator() : WallCreator {
+		return this.newWall.bind(this);
+	}
+	
+}
+
+export class CollectingSquaresGame implements GameLogic {
+	protected usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
+	protected target: Target<number>;
+	protected readonly size = new Size(20, 20);
+	protected wallManager = new WallManager(this.oddvar);
+	constructor(protected oddvar: Oddvar, mapCreator: MapCreator | GameMap, readonly debug = false) {
+		if (mapCreator instanceof GameMap) {
+			mapCreator.Draw(this.wallManager.creator);
+		} else {
+			mapCreator(oddvar, this.wallManager.creator);
+		}
+		const targetSize = new Size(10, 10);
+		const targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0));
+		const targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
+		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
+		this.target = new Target<number>(targetBody);
+		const game = this;
+		this.target.addEventListener("collision", function (playerID) {
+			game.usersThings.get(playerID)!.controller.score++;
+			this.relocate(game.GenerateInconflictPoint(targetSize.width));
+		})
+		this.target.relocate(game.GenerateInconflictPoint(targetSize.width));
 	}
 
-	protected RelocatePoint() {
-		this.targetPoint.location = this.GenerateInconflictPoint(10);
-		this.onRelocate();
-	}
 
 	Tick(dt: number): void {
 	}
@@ -113,26 +144,48 @@ export class CollectingSquaresGame implements GameLogic {
 		const c = this.oddvar.Get("Controller").CreatePhysicControlled(name("controller"), b, player);
 		this.oddvar.Get("Graphics").CreatePhysicControlledAvatar(name("controller avatar"), c, currentColor)
 		this.usersThings.set(player.id, { entity: e, controller: c, body: b });
+
+		this.target.players.set(b, player.id);
 		player.DeathSubscribe(p => {
 			e.Die();
 			this.usersThings.delete(player.id);
+			this.target.players.delete(b);
 		})
 	}
 }
 
 const PacManQ: (0 | 1)[][] = [
-	[1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-	[1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-	[1, 1, 1, 0, 1, 1, 1, 1, 1, 0],
-	[1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+	[0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+	[1, 1, 1, 0, 1, 1, 1, 0, 1, 1],
+	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 	[1, 0, 1, 1, 1, 1, 0, 1, 1, 0],
-	[1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-	[1, 1, 0, 1, 1, 1, 1, 1, 1, 0],
-	[1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
-	[1, 0, 1, 1, 0, 1, 0, 0, 0, 1],
-	[1, 0, 0, 1, 1, 1, 0, 1, 1, 1],
+	[0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+	[0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+	[0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+	[1, 0, 1, 1, 0, 1, 0, 0, 0, 0],
+	[0, 0, 0, 1, 1, 1, 0, 1, 1, 1],
 ]
 
-export const PacMan = Labirint.Symmetry(PacManQ, "XY");
+export class GameMap {
+	constructor(
+		readonly maze: Labirint,
+		readonly size: Size = new Size(500, 500)
+	) {
+		this.cellSize = new Size(size.width / maze.width, size.height / maze.height)
+	}
+	readonly cellSize: Readonly<Size>;
 
-export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => PacMan.Draw(new Size(25, 25), new Point(0, 0), createWall)
+	Draw(createWall: WallCreator) {
+		this.maze.Draw(this.cellSize, Point.Zero, createWall);
+	}
+}
+
+export const PacManBig = Labirint.SymmetryOdd(Labirint.SymmetryOdd(PacManQ)).Frame();
+export const PacMan = Labirint.SymmetryOdd(PacManQ).Frame();
+
+function drawMaze(maze: Labirint, canvasWidth: number, canvasHeight: number, createWall: WallCreator) {
+	maze.Draw(new Size(canvasWidth / maze.width, canvasHeight / maze.height), new Point(0, 0), createWall)
+}
+
+export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => drawMaze(PacMan, 500, 500, createWall);

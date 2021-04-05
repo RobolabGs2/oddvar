@@ -8,11 +8,12 @@ import { Controller } from "../oddvar/controller";
 import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
 import { GameLogic, Manager } from "../oddvar/manager";
-import { CollectingSquaresGame, MapCreator, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
+import { CollectingSquaresGame, GameMap, MapCreator, PacMan, PacManBig, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
 import { MultiagentSimulation } from '../games/multuagent_sumulation';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
+import { Size } from "../oddvar/geometry";
 
 console.log("Hello ODDVAR");
 
@@ -25,7 +26,7 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 	});
 	const canvasContext = canvas.getContext("2d")!;
-	canvasContext.scale(canvasSize/gameSize, canvasSize/gameSize)
+	canvasContext.scale(canvasSize / gameSize, canvasSize / gameSize)
 	const keyboards = [
 		new Keyboard(),
 		new Keyboard({
@@ -36,20 +37,21 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 		})
 	];
 
-	const maps: Record<string, MapCreator> = {
-		symmetric: PacManLikeLabirint,
+	const maps: Record<string, MapCreator | GameMap> = {
+		symmetric: new GameMap(PacMan, new Size(gameSize, gameSize)),
+		symmetric_big: new GameMap(PacManBig, new Size(gameSize, gameSize)),
 		test: TestMap,
 		"random maze": RandomLabirint,
 	}
-	type gameCreator = (o: Oddvar, m: MapCreator) => GameLogic;
+	type gameCreator = (o: Oddvar, m: MapCreator | GameMap) => GameLogic | undefined;
 	const games: Record<string, gameCreator> = {
-		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator) => new MultiagentSimulation(o, m),
-		"Собери квадраты": (o: Oddvar, m: MapCreator) => new CollectingSquaresGame(o, m),
+		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MultiagentSimulation(o, m) : undefined,
+		"Собери квадраты": (o: Oddvar, m: MapCreator | GameMap) => new CollectingSquaresGame(o, m),
 	}
-	let lastMap = PacManLikeLabirint;
+	let lastMap = maps["symmetric"];
 	let lastGame = games["Симуляция с кучей агентов"];
 
-	const newManager = (game: gameCreator = lastGame, map: MapCreator = lastMap) => {
+	const newManager = (game: gameCreator = lastGame, map: MapCreator | GameMap = lastMap) => {
 		const worlds = new Worlds(
 			new World(),
 			new LocalPlayers(keyboards),
@@ -59,7 +61,11 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 			new TexturesManager(resources, canvasContext))
 		const oddvar = new Oddvar(worlds, reflectionJSON);
 		lastGame = game;
-		return new Manager(oddvar, game(oddvar, lastMap = map));
+		const newGame = game(oddvar, lastMap = map);
+		if (newGame === undefined) {
+			throw new Error(`Карта и игра несовместимы`);
+		}
+		return new Manager(oddvar, newGame);
 	}
 	const processor = new Processor(newManager());
 	document.body.appendChild(
@@ -81,7 +87,11 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 							HTML.CreateElement("select",
 								HTML.AddEventListener("change", function (ev) {
 									const select = this as HTMLSelectElement;
-									processor.manager = newManager(games[select.value], lastMap);
+									try {
+										processor.manager = newManager(games[select.value], lastMap);
+									} catch (e) {
+										alert(`${e}`)
+									}
 								}),
 								HTML.Append(...Object.keys(games).map((name) => HTML.CreateElement("option",
 									HTML.SetText(name),
@@ -92,8 +102,12 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 							HTML.CreateElement("header", HTML.SetText("Choose map:"), HTML.SetStyles(s => s.marginRight = "16px")),
 							HTML.CreateElement("select",
 								HTML.AddEventListener("change", function (ev) {
-									const select = this as HTMLSelectElement;
-									processor.manager = newManager(lastGame, maps[select.value]);
+									try {
+										const select = this as HTMLSelectElement;
+										processor.manager = newManager(lastGame, maps[select.value]);
+									} catch (e) {
+										alert(`${e}`)
+									}
 								}),
 								HTML.Append(...Object.keys(maps).map((name) => HTML.CreateElement("option",
 									HTML.SetText(name),
