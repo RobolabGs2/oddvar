@@ -17,14 +17,15 @@ import { HTML } from "../web/html";
 console.log("Hello ODDVAR");
 
 DownloadResources().then(([reflectionJSON, resources]) => {
+	const gameSize = 500;
+	const canvasSize = 900;
 	const canvas = HTML.CreateElement("canvas", c => {
-		c.width = 500;
-		c.height = 500;
+		c.height = c.width = canvasSize;
 		document.body.append(c);
 		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 	});
 	const canvasContext = canvas.getContext("2d")!;
-
+	canvasContext.scale(canvasSize/gameSize, canvasSize/gameSize)
 	const keyboards = [
 		new Keyboard(),
 		new Keyboard({
@@ -42,11 +43,11 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	}
 	type gameCreator = (o: Oddvar, m: MapCreator) => GameLogic;
 	const games: Record<string, gameCreator> = {
-		"Собери квадраты": (o: Oddvar, m: MapCreator) => new CollectingSquaresGame(o, m),
 		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator) => new MultiagentSimulation(o, m),
+		"Собери квадраты": (o: Oddvar, m: MapCreator) => new CollectingSquaresGame(o, m),
 	}
 	let lastMap = PacManLikeLabirint;
-	let lastGame = games["Собери квадраты"];
+	let lastGame = games["Симуляция с кучей агентов"];
 
 	const newManager = (game: gameCreator = lastGame, map: MapCreator = lastMap) => {
 		const worlds = new Worlds(
@@ -63,13 +64,16 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	const processor = new Processor(newManager());
 	document.body.appendChild(
 		HTML.CreateElement("article",
+			HTML.SetStyles(style => {
+				style.display = "flex"
+				style.flexDirection = "row"
+				style.justifyContent = "space-between"
+			}),
 			HTML.Append(
 				HTML.CreateElement("header",
 					HTML.SetStyles(style => {
-						style.width = "500px";
 						style.display = "flex"
-						style.flexDirection = "row"
-						style.justifyContent = "space-between"
+						style.flexDirection = "column"
 					}),
 					HTML.Append(
 						HTML.CreateElement("section", HTML.Append(
@@ -100,8 +104,8 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 				canvas,
 				HTML.CreateElement("section",
 					HTML.SetStyles(style => {
-						style.width = "500px";
 						style.display = "flex"
+						style.flexDirection = "column"
 						style.justifyContent = "space-between"
 					}),
 					HTML.Append(keyboards.map(x => x.joystick()))

@@ -1,5 +1,6 @@
 export namespace Iterators {
 	export interface Wrapper<T> {
+		join(delim: string): string;
 		map<U>(mapper: (x: T)=>U): Wrapper<U>
 		filter(predicat: (x: T) => boolean): Wrapper<T>
 		toArray(): T[]
@@ -20,6 +21,9 @@ export namespace Iterators {
 		forEach(action: (value: T, index: number) => void) {
 			forEach(this.iterator, action);
 		}
+		join(delim: string): string {
+			return join(this.iterator, delim);
+		}
 	}
 
 	class NullWrapper<T> implements Wrapper<T> {
@@ -33,6 +37,9 @@ export namespace Iterators {
 			return [];
 		}
 		forEach(action: (value: T, index: number) => void): void{}
+		join(delim: string): string {
+			return "";
+		}
 	}
 
 	export function Wrap<T>(iterator: IterableIterator<T>): Wrapper<T> {
@@ -47,7 +54,12 @@ export namespace Iterators {
 		for (let i of iter)
 			yield map(i);
 	}
-
+	export function join<V, T>(iter: IterableIterator<V>, delim: string): string {
+		let res = ""
+		for (let i of iter)
+			res+=`${i}${delim}`;
+		return res.substr(0, res.length-delim.length);
+	}
 	export function* filter<V>(iter: IterableIterator<V>, filter: (value: V) => boolean) {
 		for (let i of iter)
 			if (filter(i)) 
@@ -58,4 +70,14 @@ export namespace Iterators {
 		for (let value of iter)
 			action(value, i++);
 	}
+
+	export function* RangeGenerator(n: number) {
+		for (let i = 0; i < n; i++)
+			yield i;
+	}
+	
+	export function Range(n: number): Wrapper<number> {
+		return Iterators.Wrap(RangeGenerator(n));
+	}
+	
 }

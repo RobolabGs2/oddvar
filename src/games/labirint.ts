@@ -1,3 +1,4 @@
+import { PrettyPrint } from "../oddvar/debug";
 import { Point, Size } from "../oddvar/geometry";
 
 export type WallCreator = (center: Point, rotation: number, size: Size) => void;
@@ -125,5 +126,9 @@ export class Labirint {
 			}
 		}
 		return result;
+	}
+
+	toString(): string {
+		return PrettyPrint.matrix(this.matrix, (wall) => wall ? "#" : " ")
 	}
 }

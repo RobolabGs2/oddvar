@@ -15,6 +15,5 @@
             "es2015.collection",
             "es2019"
         ],
-        "baseUrl": "..",
     }
 }

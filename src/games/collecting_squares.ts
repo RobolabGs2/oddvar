@@ -4,7 +4,7 @@ import { Entity } from "../oddvar/world"
 import { Player } from '../oddvar/players';
 import { PhysicControlled } from '../oddvar/controller';
 import { GameLogic } from '../oddvar/manager';
-import { IBody, PhysicalMaterial } from '../oddvar/physics/body';
+import { IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
 import { Labirint } from './labirint';
 
 
@@ -43,14 +43,16 @@ function RandomElem<T>(elems: T[]): T {
 export class CollectingSquaresGame implements GameLogic {
 	protected usersThings = new Map<number, { entity: Entity, controller: PhysicControlled, body: IBody }>();
 	protected targetPoint: Entity;
+	protected targetBody: RectangleBody;
 	protected readonly size = new Size(20, 20);
-
+	// TODO
+	protected onRelocate = ()=>{};
 	constructor(protected oddvar: Oddvar, mapCreator: MapCreator = RandomLabirint, readonly debug = false) {
-		const targetSize = new Size(10, 10)
-		this.targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0))
-		const targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
-		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
-		targetBody.AddCollisionListener((self, b) => this.usersThings.forEach(v => {
+		const targetSize = new Size(10, 10);
+		this.targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0));
+		this.targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", this.targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
+		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", this.targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
+		this.targetBody.AddCollisionListener((self, b) => this.usersThings.forEach(v => {
 			if (v.body != b)
 				return;
 			++v.controller.score;
@@ -71,8 +73,9 @@ export class CollectingSquaresGame implements GameLogic {
 		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar2`, body, this.borderTextureDebug)
 	}
 
-	private RelocatePoint() {
+	protected RelocatePoint() {
 		this.targetPoint.location = this.GenerateInconflictPoint(10);
+		this.onRelocate();
 	}
 
 	Tick(dt: number): void {
@@ -130,6 +133,6 @@ const PacManQ: (0 | 1)[][] = [
 	[1, 0, 0, 1, 1, 1, 0, 1, 1, 1],
 ]
 
-const PacMan = Labirint.Symmetry(PacManQ, "XY");
+export const PacMan = Labirint.Symmetry(PacManQ, "XY");
 
 export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => PacMan.Draw(new Size(25, 25), new Point(0, 0), createWall)
