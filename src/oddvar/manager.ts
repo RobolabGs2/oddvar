@@ -17,6 +17,10 @@ export class Manager
 		public readonly gameLogic: GameLogic) {
 	}
 
+	public DrawTick(dt: number) {
+		this.oddvar.DrawTick(dt);
+	}
+
 	public Tick(dt: number) {
 		this.gameLogic.Tick(dt);
 		this.oddvar.Tick(dt);

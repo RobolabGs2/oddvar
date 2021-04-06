@@ -9,9 +9,10 @@ export interface PhysicalMaterial
 	lineFriction: number;
 	angleFriction: number;
 	static: boolean;
+	layers : number;
 }
 
-const defaultPhysicalMaterial: PhysicalMaterial = { density: 1, lineFriction: 0, angleFriction: 0, static: false }
+const defaultPhysicalMaterial: PhysicalMaterial = { density: 1, lineFriction: 0, angleFriction: 0, static: false, layers: -1 }
 
 function MergeWithDefault<T>(defaultValue: Readonly<T>, value: Partial<T>): T {
 	for(let x in defaultValue) {

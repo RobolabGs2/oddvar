@@ -26,7 +26,10 @@ export class Physics extends DeadlyWorld<Essence>
 				let abba2 = b2.Abba();
 				if (abba1.p2.x < abba2.p1.x)
 					break;
-				if (abba1.p1.y > abba2.p2.y || abba1.p2.y < abba2.p1.y)
+				if (abba1.p1.y > abba2.p2.y
+					|| abba1.p2.y < abba2.p1.y
+					|| b1.material.static && b2.material.static
+					|| (b1.material.layers & b2.material.layers) === 0)
 					continue;
 				let isCollision = false;
 				isCollision = this.Intersect(b1, b2) || isCollision;
@@ -44,8 +47,6 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
-		if (b1.material.static && b2.material.static)
-			return false;
 		if (b1 instanceof(RectangleBody))
 			if (b2 instanceof(RectangleBody))
 				return this.IntersectRectangleRectangle(b1, b2);
@@ -141,9 +142,9 @@ export class Physics extends DeadlyWorld<Essence>
 		return body;
 	}
 
-	public Map(p: Point): number {
+	public Map(p: Point, layers: number = -1): number {
 		let min = Infinity;
-		this.bodies.forEach(b => min = Math.min(b.Map(p), min));
+		this.bodies.filter(b => (b.material.layers & layers) != 0).forEach(b => min = Math.min(b.Map(p), min));
 		return min;
 	}
 

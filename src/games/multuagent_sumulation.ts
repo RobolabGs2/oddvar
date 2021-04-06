@@ -26,19 +26,20 @@ export class MultiagentSimulation implements GameLogic {
 		map.Draw(this.wallManager.creator)
 		const botsCount = 10;
 		this.bots = Iterators.Range(botsCount).
-			map(i => new Bot(this.oddvar, this.GenerateInconflictPoint(14), this.map.cellSize.Scale(2 / 6),
-				this.getTexture(i), this.map.maze, this.map.cellSize)).toArray();
+			map(i => new Bot(this.oddvar, this.GenerateInconflictPoint(10, 1 << i), this.map.cellSize.Scale(2 / 6),
+				this.getTexture(i), this.map.maze, this.map.cellSize, i)).toArray();
 		const targetSize = this.map.cellSize.Scale(1 / 5);
 		const targetName = (i: number, name: string) => `target_${i} ${name}`
 		this.bots.forEach((bot, i) => {
-			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width));
-			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
+			console.log(1 << i);
+			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width, 1 << i));
+			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0, layers: 1 << i }, targetSize);
 			oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "avatar"), targetBody, this.getTexture(i));
 			const target = new Target<number>(targetBody);
 			target.addEventListener("relocate", (p) => bot.setTarget(p));
-			target.addEventListener("collision", () => target.relocate(this.GenerateInconflictPoint(targetSize.width)));
+			target.addEventListener("collision", () => target.relocate(this.GenerateInconflictPoint(targetSize.width, 1 << i)));
 			target.players.set(bot.body, i);
-			target.relocate(this.GenerateInconflictPoint(targetSize.width));
+			target.relocate(this.GenerateInconflictPoint(targetSize.width, 1 << i));
 		})
 	}
 
@@ -50,10 +51,10 @@ export class MultiagentSimulation implements GameLogic {
 		this.bots.forEach(bot => bot.Tick(dt));
 	}
 
-	protected GenerateInconflictPoint(distance: number): Point {
+	protected GenerateInconflictPoint(distance: number, layers: number = -1): Point {
 		let p = new Point(Math.random() * this.map.size.width, Math.random() * this.map.size.height);
-		if (this.oddvar.Get("Physics").Map(p) < distance)
-			return this.GenerateInconflictPoint(distance);
+		if (this.oddvar.Get("Physics").Map(p, layers) < distance)
+			return this.GenerateInconflictPoint(distance, layers);
 		return p;
 	}
 
@@ -87,7 +88,7 @@ class Bot {
 	program?: Generator<Dir, void, boolean>;
 	lastCommand?: { dir: Dir, dest: Point };
 	target?: Point;
-	constructor(readonly oddvar: Oddvar, place: Point, readonly size: Size, botTexture: RectangleTexture, readonly map: Labirint, readonly cellSize: Size, debug = false) {
+	constructor(readonly oddvar: Oddvar, place: Point, readonly size: Size, botTexture: RectangleTexture, readonly map: Labirint, readonly cellSize: Size, layer: number, debug = false) {
 		const name = (type: string) => `bot: ${type}`;
 		const sensorsSettings: SensorsSettings = {
 			Center: 0,
@@ -98,7 +99,7 @@ class Bot {
 		const e = this.oddvar.Get("World").CreateEntity(name("entity"), place);
 		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture("bot", { stroke: "red", fill: "red" });
 		this.sensorsBinding = this.oddvar.Get("World").CreateTailEntity(name("ray entity"), e, new Point(this.size.width / 2 - 1, 0));
-		this.body = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size);
+		this.body = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
 		this.sensors = ConvertRecord(sensorsSettings,
 			(key, rotation) => this.makeSensor((x) => name(`${key} ray ${x}`), texture, rotation, debug)) as BotSensors;
 		if (debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body debug avatar"), this.body, texture);

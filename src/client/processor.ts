@@ -38,10 +38,18 @@ export class Processor {
 			lastTime = t;
 			if (dt > 0.03)
 				dt = 0.03;
-			this.manager.Tick(dt);
-			socket.send(CreateClientMessage("sync", Date.now()));
+			this.manager.DrawTick(dt);
 			requestAnimationFrame(Tick);
 		};
+
+		let lastTime2 = 0;
+		setInterval(() => {
+			const t = new Date().getTime();
+			let dt = (t - lastTime2) / 1000;
+			lastTime2 = t;
+			this.manager.Tick(dt);
+			socket.send(CreateClientMessage("sync", Date.now()));
+		}, 15);
 
 		socket.addEventListener("message", (event) => {
 			HandleMessage<ServerMessageTypeMap>(event.data, {

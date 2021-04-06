@@ -60,13 +60,18 @@ export class Oddvar {
 		this.underworld.forEach(soul => { soul.target.Die(); })
 	}
 
+	public DrawTick(dt: number) {
+		this.worlds.Graphics.Tick(dt);
+	}
+
 	public Tick(dt: number) {
-		if (dt > 0.03)
-			dt = 0.03;
+		if (dt > 0.02) {
+			console.warn(`time oveflow dt = ${dt}`);
+			dt = 0.02;
+		}
 		this.worlds.Physics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
 		this.worlds.Players.Tick(dt);
-		this.worlds.Graphics.Tick(dt);
 	}
 
 	private GetDelta(force: boolean = false): Record<string, any> {
