@@ -28,6 +28,11 @@ DownloadResources().then(([reflectionJSON, images]) => {
 		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 	});
 
+	const hiddenCanvas = HTML.CreateElement("canvas", c => {
+		c.width = 500;
+		c.height = 500;
+	}).getContext("2d")!;
+
 	document.body.appendChild(
 		HTML.CreateElement("article",
 			HTML.Append(
@@ -44,5 +49,5 @@ DownloadResources().then(([reflectionJSON, images]) => {
 		)
 	)
 
-	let processor = new Processor(new WebSocket(url), reflectionJSON, images, canvas.getContext("2d")!, keyboard);
+	let processor = new Processor(new WebSocket(url), reflectionJSON, images, canvas.getContext("2d")!, hiddenCanvas, keyboard);
 })

@@ -37,7 +37,7 @@ export class Processor {
 		const canvasContext = DeepProxy<CanvasRenderingContext2D>();
 		const world = new World();
 		const physics = new Physics();
-		const graphics = new Graphics(canvasContext);
+		const graphics = new Graphics(canvasContext, canvasContext);
 		const controller = new Controller(false);
 		this.players = new ServerPlayers();
 		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, new TexturesManager(DeepProxy<ImageSource>(), canvasContext)), reflectionJSON);

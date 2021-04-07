@@ -32,7 +32,7 @@ export class MultiagentSimulation implements GameLogic {
 		const targetName = (i: number, name: string) => `target_${i} ${name}`
 		this.bots.forEach((bot, i) => {
 			console.log(1 << i);
-			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width, 1 << i));
+			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), Point.Zero);
 			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0, layers: 1 << i }, targetSize);
 			oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "avatar"), targetBody, this.getTexture(i));
 			const target = new Target<number>(targetBody);

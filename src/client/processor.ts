@@ -21,10 +21,11 @@ export class Processor {
 		reflectionJSON: ReflectionJSON,
 		resourceManager: ResourceManager,
 		canvasContext: CanvasRenderingContext2D,
+		hiddenCanvasContext: CanvasRenderingContext2D,
 		keyboard: Keyboard
 	) {
 		const world = new World();
-		const graphics = new Graphics(canvasContext);
+		const graphics = new Graphics(canvasContext, hiddenCanvasContext);
 		const physics = new Physics();
 		this.players = new ClientPlayers(socket, keyboard);
 		const controller = new Controller(true);

@@ -24,6 +24,7 @@ abstract class EntityAvatar extends DeadlyAvatar {
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
 		TransformContext(context, this.entity.Transform());
 		this.drawEntity(dt, context);
+
 	}
 
 	protected abstract drawEntity(dt: number, context: CanvasRenderingContext2D): void;
@@ -134,9 +135,10 @@ export class RaySensorAvatar extends DeadlyAvatar {
 		super(name, ray)
 	}
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
-		TransformContext(context, this.ray.entity.Transform());
-		if(this.ray.observable)
+		if (this.ray.observable) {
+			TransformContext(context, this.ray.entity.Transform());
 			this.texture.DrawVector(context, new Point(this.ray.distance, 0));
+		}
 	}
 	ToConstructor(): any[] {
 		throw new Error("Method not implemented.");
@@ -144,42 +146,82 @@ export class RaySensorAvatar extends DeadlyAvatar {
 
 }
 
+function drawAvatar(context: CanvasRenderingContext2D, dt: number, avatar: DeadlyAvatar) {
+	context.save();
+	avatar.Tick(dt, context);
+	context.restore();
+}
+
+function drawAll(avatars: Set<DeadlyAvatar>, context: CanvasRenderingContext2D, dt: number) {
+	avatars.forEach(drawAvatar.bind(undefined, context, dt));
+}
+
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
 {
-	constructor(public readonly context: CanvasRenderingContext2D) {
-		super();
+	private _backgound?: ImageData;
+	private get backgound(): ImageData {
+		if (this._backgound === undefined)
+			this._backgound = this.hiddenContext.getImageData(0, 0, this.hiddenContext.canvas.width, this.hiddenContext.canvas.height);
+		return this._backgound;
 	}
 
+	constructor(public readonly context: CanvasRenderingContext2D, public readonly hiddenContext: CanvasRenderingContext2D) {
+		super();
+		this.redrawBackground();
+	}
+	dynamic = new Set<DeadlyAvatar>();
+	static = new Set<DeadlyAvatar>();
 	public Tick(dt: number) {
-		this.context.clearRect(0, 0, this.context.canvas.width, this.context.canvas.height);
-		this.mortals.forEach(e => {
-			this.context.save();
-			e.Tick(dt, this.context);
-			this.context.restore();
-		})
+		if (this.backgound)
+			this.context.putImageData(this.backgound, 0, 0)
+		drawAll(this.dynamic, this.context, dt);
+	}
+
+	protected redrawBackground() {
+		this.hiddenContext.clearRect(0, 0, this.hiddenContext.canvas.width, this.hiddenContext.canvas.height);
+		drawAll(this.static, this.hiddenContext, 0.01);
+	}
+
+	protected AddAvatar<T extends DeadlyAvatar>(avatar: T, dynamic = true): T {
+		if (dynamic) {
+			this.dynamic.add(avatar);
+			avatar.DeathSubscribe(_=>this.dynamic.delete(avatar));
+		} else {
+			this.static.add(avatar);
+			drawAvatar(this.hiddenContext, 0.01, avatar);
+			avatar.DeathSubscribe(_=>{
+				this.static.delete(avatar);
+				this.redrawBackground();
+			});
+		}
+		return this.AddDeadly(avatar);
+	}
+
+	protected AddBodyAvatar<T extends BodyAvatar>(avatar: T, dynamic = true): T {
+		return this.AddAvatar(avatar, !avatar.body.material.static);
 	}
 
 	public CreateRectangleEntityAvatar(name: string, entity: IEntity, size: Size, texture: RectangleTexture): RectangleEntityAvatar {
-		return this.AddDeadly(new RectangleEntityAvatar(name, entity, size, texture));
+		return this.AddAvatar(new RectangleEntityAvatar(name, entity, size, texture));
 	}
 
 	public CreateRectangleBodyAvatar(name: string, body: RectangleBody, texture: RectangleTexture): RectangleBodyAvatar {
-		return this.AddDeadly(new RectangleBodyAvatar(name, body, texture));
+		return this.AddBodyAvatar(new RectangleBodyAvatar(name, body, texture));
 	}
 
 	public CreateRaySensorAvatar(name: string, ray: RaySensor, texture: VectorTexture): RaySensorAvatar {
-		return this.AddDeadly(new RaySensorAvatar(name, ray, texture));
+		return this.AddAvatar(new RaySensorAvatar(name, ray, texture));
 	}
 
 	public CreateCircleEntityAvatar(name: string, entity: IEntity, r: number, texture: CircleTexture): CircleEntityAvatar {
-		return this.AddDeadly(new CircleEntityAvatar(name, entity, r, texture));
+		return this.AddAvatar(new CircleEntityAvatar(name, entity, r, texture));
 	}
 
 	public CreateControlledWalkerAvatar(name: string, controller: ControlledWalker, playerColor: string): ControlledWalkerAvatar {
-		return this.AddDeadly(new ControlledWalkerAvatar(name, controller, playerColor));
+		return this.AddAvatar(new ControlledWalkerAvatar(name, controller, playerColor));
 	}
 
 	public CreatePhysicControlledAvatar(name: string, controller: PhysicControlled, playerColor: string): PhysicControlledAvatar {
-		return this.AddDeadly(new PhysicControlledAvatar(name, controller, playerColor));
+		return this.AddAvatar(new PhysicControlledAvatar(name, controller, playerColor));
 	}
 }

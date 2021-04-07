@@ -26,7 +26,9 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 	});
 	const canvasContext = canvas.getContext("2d")!;
+	const hiddenContext = HTML.CreateElement("canvas", c => {c.height = c.width = canvasSize}).getContext("2d")!;
 	canvasContext.scale(canvasSize / gameSize, canvasSize / gameSize)
+	hiddenContext.scale(canvasSize / gameSize, canvasSize / gameSize)
 	const keyboards = [
 		new Keyboard(),
 		new Keyboard({
@@ -56,7 +58,7 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 			new World(),
 			new LocalPlayers(keyboards),
 			new Physics(),
-			new Graphics(canvasContext),
+			new Graphics(canvasContext, hiddenContext),
 			new Controller(false),
 			new TexturesManager(resources, canvasContext))
 		const oddvar = new Oddvar(worlds, reflectionJSON);
