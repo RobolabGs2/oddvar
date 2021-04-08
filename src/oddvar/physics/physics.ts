@@ -1,7 +1,7 @@
 import { Deadly, DeadlyWorld } from "../base"
 import { Entity, IEntity} from "../world"
 import { Point, Size } from "../geometry";
-import { RectangleBody, Body, PhysicalMaterial } from "./body";
+import { RectangleBody, Body, PhysicalMaterial, PolygonBody, RegularPolygonBody } from "./body";
 import { Essence } from "./essence";
 import { RaySensor, Sensor } from "./sensor";
 
@@ -47,20 +47,20 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
-		if (b1 instanceof(RectangleBody))
-			if (b2 instanceof(RectangleBody))
-				return this.IntersectRectangleRectangle(b1, b2);
+		if (b1 instanceof(PolygonBody))
+			if (b2 instanceof(PolygonBody))
+				return this.IntersectPolygonPolygon(b1, b2);
 		throw new Error("unknown body");
 	}
 
-	private IntersectRectangleRectangle(b1: RectangleBody, b2: RectangleBody): boolean {
-		const base1 = b1.RectanglePoints();
-		const base2 = b2.RectanglePoints();
+	private IntersectPolygonPolygon(b1: PolygonBody, b2: PolygonBody): boolean {
+		const base1 = b1.PolygonPoints();
+		const base2 = b2.PolygonPoints();
 		const b1b2 = b2.entity.location.Sub(b1.entity.location);
 		let result = false;
-		for (let i = 0; i < 4; ++i) {
-			let p = base1.points[i];
-			let intersect = this.IntersectPointPoly(p, base2.points);
+		for (let i = 0; i < base1.length; ++i) {
+			let p = base1[i];
+			let intersect = this.IntersectPointPoly(p, base2);
 			if (intersect.intersect) {
 				result = true;
 				const dv = b2.GetVelocity(p).Sub(b1.GetVelocity(p));
@@ -158,6 +158,10 @@ export class Physics extends DeadlyWorld<Essence>
 
 	public CreateRectangleBody(name: string, e: Entity, material: Partial<PhysicalMaterial>, size: Size) {
 		return this.AddBody(this.AddDeadly(new RectangleBody(name, e, material, size)));
+	}
+
+	public CreateRegularPolygonBody(name: string, e: Entity, material: Partial<PhysicalMaterial>, radius: number, vertexes: number) {
+		return this.AddBody(this.AddDeadly(new RegularPolygonBody(name, e, material, radius, vertexes)));
 	}
 
 	public CreateRaySensor(name: string, e: IEntity) {

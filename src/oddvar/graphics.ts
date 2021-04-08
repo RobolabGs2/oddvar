@@ -3,7 +3,7 @@ import { IEntity } from "./world"
 import { Matrix, Point, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
 import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, ColoredTexture } from "./textures";
-import { Body, RectangleBody } from "./physics/body";
+import { Body, RectangleBody, RegularPolygonBody } from "./physics/body";
 import { Essence } from "./physics/essence";
 import { RaySensor } from "./physics/sensor";
 
@@ -65,6 +65,31 @@ export class RectangleBodyAvatar extends BodyAvatar {
 		this.texture.DrawRectangle(context, this.body.size);
 	}
 	public constructor(name: string, public readonly body: RectangleBody, public readonly texture: RectangleTexture) {
+		super(name, body);
+	}
+
+	ToConstructor(): any[] {
+		return [this.body.Name, this.texture.Name];
+	}
+}
+
+export class RegularPolygonBodyAvatar extends BodyAvatar {
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		this.drawEssense(dt, context);
+	}
+	protected drawEssense(dt: number, context: CanvasRenderingContext2D): void {
+		const poly = this.body.PolygonPoints();
+		if (poly.length == 0 ) {
+			return;
+		}
+		context.beginPath();
+		context.moveTo(poly[poly.length - 1].x, poly[poly.length - 1].y);
+		for (let i = 0; i < poly.length; ++i) {
+			context.lineTo(poly[i].x, poly[i].y);
+		}
+		context.stroke();
+	}
+	public constructor(name: string, public readonly body: RegularPolygonBody, public readonly texture: RectangleTexture) {
 		super(name, body);
 	}
 
@@ -165,6 +190,10 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 
 	public CreateRectangleBodyAvatar(name: string, body: RectangleBody, texture: RectangleTexture): RectangleBodyAvatar {
 		return this.AddDeadly(new RectangleBodyAvatar(name, body, texture));
+	}
+
+	public CreateRegularPolygonBodyAvatar(name: string, body: RegularPolygonBody, texture: RectangleTexture): RegularPolygonBodyAvatar {
+		return this.AddDeadly(new RegularPolygonBodyAvatar(name, body, texture));
 	}
 
 	public CreateRaySensorAvatar(name: string, ray: RaySensor, texture: VectorTexture): RaySensorAvatar {
