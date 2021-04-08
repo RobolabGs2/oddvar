@@ -1,5 +1,5 @@
 import { Point } from "../geometry";
-import { RectangleBody, Body } from "../physics/body";
+import { RectangleBody, Body, PolygonBody } from "../physics/body";
 import { Essence } from "../physics/essence";
 import { IEntity } from "../world";
 
@@ -51,11 +51,11 @@ export class RaySensor extends Sensor
 	private start = new Point(0, 0);
 	private direction = new Point(1, 0);
 
-	private TakeRectangleBody(body: RectangleBody) {
-		const points = body.RectanglePoints();
-		const len = points.points.length;
+	private TakePolygonBody(body: PolygonBody) {
+		const points = body.PolygonPoints();
+		const len = points.length;
 		for(let i = 0; i < len; ++i) {
-			if (this.TakeLineSegment(points.points[i], points.points[(i + 1) % len]))
+			if (this.TakeLineSegment(points[i], points[(i + 1) % len]))
 				this.observable = body;
 		}
 	}
@@ -94,8 +94,8 @@ export class RaySensor extends Sensor
 	public Take(body: Body) {
 		if (this.blacklist.get(body))
 			return;
-		if (body instanceof(RectangleBody))
-			return this.TakeRectangleBody(body);
+		if (body instanceof(PolygonBody))
+			return this.TakePolygonBody(body);
 		throw new Error("unknown body");
 	}
 }

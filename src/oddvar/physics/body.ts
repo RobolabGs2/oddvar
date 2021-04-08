@@ -31,6 +31,7 @@ export interface IBody extends Deadly
 	Kick(force: Point): void;
 }
 
+
 export abstract class Body extends Essence implements IBody
 {
 	public lineVelocity = new Point(0, 0);
@@ -80,7 +81,7 @@ export abstract class Body extends Essence implements IBody
 		}
 
 		let m = this.Mass();
-		let inertia = this.MomentOfInertia()/10;
+		let inertia = this.MomentOfInertia();
 
 		this.angleVelocity = (this.angleVelocity + dt * this.angleForce / inertia) * (1 - this.material.angleFriction);
 		this.entity.rotation += dt * this.angleVelocity;
@@ -123,79 +124,6 @@ export abstract class Body extends Essence implements IBody
 	public TurnKick(force: number) {
 		this.angleForce += force;
 	};
-}
-
-export class RectangleBody extends Body
-{
-	private abba = {p1: new Point(0, 0), p2: new Point(0, 0)};
-	private rectanglePoints = { points: new Array<Point>(), m: Matrix.Ident(), size: new Size(0, 0), zero: new Point(0, 0)}
-
-	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public size: Size) {
-		super(name, entity, material);
-	}
-
-	private RecalculateAbba() {
-		let m = this.entity.Transform();
-		let zero = new Point(0, 0).Transform(m);
-		let p1 = new Point(this.size.width / 2, this.size.height / 2).Transform(m).Sub(zero);
-		let p2 = new Point(this.size.width / 2, -this.size.height / 2).Transform(m).Sub(zero);
-		let x = Math.max(Math.abs(p1.x), Math.abs(p2.x));
-		let y = Math.max(Math.abs(p1.y), Math.abs(p2.y));
-		this.abba = {p1: new Point(zero.x - x, zero.y - y), p2: new Point(zero.x + x, zero.y + y)};
-	}
-
-	private RecalculateRectanglePoints() {
-		let m = this.entity.Transform();
-		let size = this.size;
-		let zero = new Point(0, 0).Transform(m);
-
-		let points = [
-			new Point(size.width / 2, size.height / 2),
-			new Point(-size.width / 2, size.height / 2),
-			new Point(-size.width / 2, -size.height / 2),
-			new Point(size.width / 2, -size.height / 2)
-		];
-
-		for (let i = 0; i < 4; ++i) {
-			points[i] = points[i].Transform(m);
-		}
-
-		this.rectanglePoints = { points: points, m: m, size: size, zero: zero};
-	}
-
-	public Map(p: Point): number {
-		p = p.Transform(this.entity.InverseTransform());
-		return new Point(
-			Math.max(Math.abs(p.x) - this.size.width / 2, 0),
-			Math.max(Math.abs(p.y) - this.size.height / 2, 0)
-		).Len();
-	}
-
-	public Abba() {
-		return this.abba;
-	}
-
-	public Mass(): number {
-		return (this.size.Area() * this.material.density);
-	}
-
-	public MomentOfInertia(): number {
-		return (this.size.width * this.size.height * (this.size.height * this.size.height +
-			this.size.width * this.size.width) * 4 * this.material.density / 3);
-	}
-
-	public RectanglePoints(): {points: Point[], m: Matrix, size: Size, zero: Point} {
-		return this.rectanglePoints;
-	}
-
-	public Clear() {
-		this.RecalculateAbba();
-		this.RecalculateRectanglePoints();
-	}
-
-	public Tick(dt: number) {
-		super.Tick(dt);
-	}
 
 	FromDelta(delta: any): void {
 		this.lineVelocity = new Point(delta.lineVelocity.x, delta.lineVelocity.y);
@@ -211,8 +139,158 @@ export class RectangleBody extends Body
 			angleVelocity: this.angleVelocity
 		}
 	}
+}
+
+export abstract class PolygonBody extends Body
+{
+	protected abba = {p1: new Point(0, 0), p2: new Point(0, 0)};
+	protected polygonPoints = new Array<Point>();
+	protected momentOfInertia = 0;
+	protected mass = 0;
+
+	protected abstract RecalculatePolygonPoints(): void;
+	protected abstract RecalculateMomentOfInertia(): void;
+
+	protected RecalculateMass() {
+		this.mass = this.Area() * this.material.density;
+	}
+
+	private RecalculateAbba() {
+		this.abba.p1.x = this.abba.p1.y = Infinity;
+		this.abba.p2.x = this.abba.p2.y = -Infinity;
+		for(let i = 0; i < this.polygonPoints.length; ++i) {
+			this.abba.p1.x = Math.min(this.abba.p1.x, this.polygonPoints[i].x);
+			this.abba.p1.y = Math.min(this.abba.p1.y, this.polygonPoints[i].y);
+			this.abba.p2.x = Math.max(this.abba.p2.x, this.polygonPoints[i].x);
+			this.abba.p2.y = Math.max(this.abba.p2.y, this.polygonPoints[i].y);
+		}
+	}
+
+	public Area(): number {
+		let result = 0;
+		const len = this.polygonPoints.length;
+		for (let i = 0; i < len; ++i) {
+			const p1 = this.polygonPoints[i];
+			const p2 = this.polygonPoints[(i + 1) % len];
+			result += p1.x * p2.y - p1.y * p2.x;
+		}
+		return result / 2;
+	}
+
+	public Abba() {
+		return this.abba;
+	}
+
+	public Mass(): number {
+		return this.mass;
+	}
+
+	public MomentOfInertia(): number {
+		return this.momentOfInertia;
+	}
+
+	public PolygonPoints(): Point[] {
+		return this.polygonPoints;
+	}
+
+	public Clear() {
+		this.RecalculatePolygonPoints();
+		this.RecalculateAbba();
+		this.RecalculateMass();
+		this.RecalculateMomentOfInertia();
+	}
+
+	public Map(p: Point): number {
+		let dist = Infinity;
+		for (let i = 0; i < this.polygonPoints.length; ++i) {
+			const p1 = this.polygonPoints[i];
+			const p2 = this.polygonPoints[(i + 1) % this.polygonPoints.length];
+			const v = p2.Sub(p1);
+			const d = p.Sub(p1);
+			const q = (v.x * d.x + v.y * d.y) / (v.x * v.x + v.y * v.y);
+			const pp = p.Sub(v.Mult(Math.min(Math.max(q, 0), 1)));
+			dist = Math.min(dist, p1.Sub(pp).Len());
+		}
+		return dist;
+	}
+}
+
+export class RectangleBody extends PolygonBody
+{
+	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public size: Size) {
+		super(name, entity, material);
+	}
+
+	protected RecalculateMomentOfInertia(): void {
+		const w = this.size.width;
+		const h = this.size.height;
+		this.momentOfInertia = this.material.density * w * h * (h * h + w * w) / 12;
+	}
+
+	protected RecalculatePolygonPoints(): void {
+		let m = this.entity.Transform();
+		let size = this.size;
+
+		let points = [
+			new Point(size.width / 2, size.height / 2),
+			new Point(-size.width / 2, size.height / 2),
+			new Point(-size.width / 2, -size.height / 2),
+			new Point(size.width / 2, -size.height / 2)
+		];
+
+		for (let i = 0; i < 4; ++i) {
+			points[i] = points[i].Transform(m);
+		}
+
+		this.polygonPoints = points;
+	}
+
+	public Area(): number {
+		return this.size.Area();
+	}
+
+	public Map(p: Point): number {
+		p = p.Transform(this.entity.InverseTransform());
+		return new Point(
+			Math.max(Math.abs(p.x) - this.size.width / 2, 0),
+			Math.max(Math.abs(p.y) - this.size.height / 2, 0)
+		).Len();
+	}
 
 	ToConstructor(): any[] {
 		return [this.entity.Name, this.material, this.size]
+	}
+}
+
+export class RegularPolygonBody extends PolygonBody
+{
+	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public radius: number, public vertexes: number) {
+		super(name, entity, material);
+	}
+
+	protected RecalculateMomentOfInertia(): void {
+		const angle = Math.PI / this.vertexes;
+		const a = Math.cos(angle) * this.radius;
+		const b = Math.sin(angle) * this.radius;
+		this.momentOfInertia = this.material.density * a * b * (a * a + b * b / 3) * this.vertexes / 2;
+	}
+
+	protected RecalculatePolygonPoints(): void {
+		let m = this.entity.Transform();
+		let points = new Array<Point>();
+		for (let i = 0; i < this.vertexes; ++i) {
+			const angle = Math.PI * 2 * i / this.vertexes;
+			points.push(new Point(Math.cos(angle) * this.radius, Math.sin(angle) * this.radius).Transform(m));
+		}
+		this.polygonPoints = points;
+	}
+
+	public Area(): number {
+		const a = Math.PI / this.vertexes;
+		return this.radius * this.radius * this.vertexes * Math.sin(a) * Math.cos(a);
+	}
+
+	ToConstructor(): any[] {
+		return [this.entity.Name, this.material, this.radius, this.vertexes]
 	}
 }

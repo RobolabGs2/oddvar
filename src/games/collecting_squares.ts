@@ -133,13 +133,15 @@ export class CollectingSquaresGame implements GameLogic {
 
 		const sensor = this.oddvar.Get("World").CreateTailEntity(name("ray entity"), e, new Point(this.size.width / 2 - 1, 0));
 		const ray = this.oddvar.Get("Physics").CreateRaySensor(name("ray sensor"), sensor);
-		const b = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
+		// const b = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
+		const b = this.oddvar.Get("Physics").CreateRegularPolygonBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size.height / 2, 8)
 		ray.AddToIgnore(b);
-		if (this.debug) {
-			this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body debug avatar"), b, texture);
-			this.oddvar.Get("Graphics").CreateRaySensorAvatar(name("ray avatar"), ray, texture);
-		}
-		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body avatar"), b, this.textures[player.id % this.textures.length]);
+		// if (this.debug) {
+		// 	this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body debug avatar"), b, texture);
+		// 	this.oddvar.Get("Graphics").CreateRaySensorAvatar(name("ray avatar"), ray, texture);
+		// }
+		// this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body avatar"), b, this.textures[player.id % this.textures.length]);
+		this.oddvar.Get("Graphics").CreateRegularPolygonBodyAvatar(name("body avatar"), b, this.textures[player.id % this.textures.length]);
 
 		const c = this.oddvar.Get("Controller").CreatePhysicControlled(name("controller"), b, player);
 		this.oddvar.Get("Graphics").CreatePhysicControlledAvatar(name("controller avatar"), c, currentColor)
