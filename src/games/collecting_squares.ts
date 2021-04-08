@@ -77,11 +77,11 @@ export class WallManager {
 		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
 		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar debug`, body, this.borderTextureDebug)
 	}
-	
-	public get creator() : WallCreator {
+
+	public get creator(): WallCreator {
 		return this.newWall.bind(this);
 	}
-	
+
 }
 
 export class CollectingSquaresGame implements GameLogic {
@@ -179,9 +179,17 @@ export class GameMap {
 	Draw(createWall: WallCreator) {
 		this.maze.Draw(this.cellSize, Point.Zero, createWall);
 	}
+
+	toMazeCoords(p: Point): Point {
+		return new Point((p.x / this.cellSize.width) | 0, (p.y / this.cellSize.height) | 0);
+	}
+
+	fromMazeCoords(p: Point): Point {
+		return new Point((p.x + 0.5) * this.cellSize.width, (p.y + 0.5) * this.cellSize.height);
+	}
 }
 
-export const PacManBig = Labirint.SymmetryOdd(Labirint.SymmetryOdd(PacManQ)).Frame();
+export const PacManBig = Labirint.SymmetryOdd(PacManQ, "XY", 2).Frame();
 export const PacMan = Labirint.SymmetryOdd(PacManQ).Frame();
 
 function drawMaze(maze: Labirint, canvasWidth: number, canvasHeight: number, createWall: WallCreator) {
