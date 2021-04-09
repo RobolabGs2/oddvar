@@ -18,17 +18,21 @@ import { Size } from "../oddvar/geometry";
 console.log("Hello ODDVAR");
 
 DownloadResources().then(([reflectionJSON, resources]) => {
-	const gameSize = 500;
-	const canvasSize = 900;
-	const canvas = HTML.CreateElement("canvas", c => {
-		c.height = c.width = canvasSize;
-		document.body.append(c);
-		c.style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
-	});
+	const gameSize = 800;
+	const canvasSize = 800;
+	const canvas = HTML.CreateElement("canvas",
+		HTML.SetStyles(style => {
+			style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
+		}),
+		c => {
+			c.height = c.width = canvasSize;
+			document.body.append(c);
+		});
 	const canvasContext = canvas.getContext("2d")!;
-	const hiddenContext = HTML.CreateElement("canvas", c => {c.height = c.width = canvasSize}).getContext("2d")!;
+	canvasContext.imageSmoothingEnabled = false;
+	const bufferCanvas = HTML.CreateElement("canvas", c => { c.height = c.width = gameSize; });
+	const hiddenContext = bufferCanvas.getContext("2d")!;
 	canvasContext.scale(canvasSize / gameSize, canvasSize / gameSize)
-	hiddenContext.scale(canvasSize / gameSize, canvasSize / gameSize)
 	const keyboards = [
 		new Keyboard(),
 		new Keyboard({
@@ -74,14 +78,16 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 		HTML.CreateElement("article",
 			HTML.SetStyles(style => {
 				style.display = "flex"
-				style.flexDirection = "row"
+				style.flexDirection = "column"
 				style.justifyContent = "space-between"
+				style.alignItems = "center"
+				style.width = "100%"
 			}),
 			HTML.Append(
 				HTML.CreateElement("header",
 					HTML.SetStyles(style => {
 						style.display = "flex"
-						style.flexDirection = "column"
+						style.flexDirection = "row"
 					}),
 					HTML.Append(
 						HTML.CreateElement("section", HTML.Append(
@@ -121,8 +127,9 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 				HTML.CreateElement("section",
 					HTML.SetStyles(style => {
 						style.display = "flex"
-						style.flexDirection = "column"
+						style.flexDirection = "row"
 						style.justifyContent = "space-between"
+						style.width = `${canvasSize}px`
 					}),
 					HTML.Append(keyboards.map(x => x.joystick()))
 				),

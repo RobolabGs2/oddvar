@@ -16,10 +16,12 @@ export class Keyboard extends Observable<KeyboardEvents>{
 	}) {
 		super();
 		document.addEventListener("keydown", ev => {
-			this.dispatchKeyInput(ev.code, "down");
+			if (this.dispatchKeyInput(ev.code, "down"))
+				ev.preventDefault();
 		});
 		document.addEventListener("keyup", ev => {
-			this.dispatchKeyInput(ev.code, "up");
+			if (this.dispatchKeyInput(ev.code, "up"))
+				ev.preventDefault();
 		});
 	}
 
@@ -27,11 +29,12 @@ export class Keyboard extends Observable<KeyboardEvents>{
 		return joystick(this.dispatchKeyCode.bind(this));
 	}
 
-	private dispatchKeyInput(keyCode: string, action: KeyInput["action"]) {
+	private dispatchKeyInput(keyCode: string, action: KeyInput["action"]): boolean {
 		const key = this.keyMapping[keyCode];
 		if (key === undefined)
-			return;
+			return false;
 		this.dispatchKeyCode(key, action);
+		return true;
 	}
 	private dispatchKeyCode(key: KeyAction, action: KeyInput["action"]) {
 		this.dispatchEvent("pressKey", { action, key: key, sync: Date.now() });

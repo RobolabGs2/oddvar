@@ -1,10 +1,9 @@
 import { Deadly, DeadlyWorld, StatelessDeadly } from "./base"
 import { IEntity } from "./world"
-import { Matrix, Point, Size } from "./geometry";
+import { Point, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
-import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, ColoredTexture } from "./textures";
-import { Body, RectangleBody, RegularPolygonBody } from "./physics/body";
-import { Essence } from "./physics/essence";
+import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, PolygonTexture } from "./textures";
+import { Body, PolygonBody, RectangleBody } from "./physics/body";
 import { RaySensor } from "./physics/sensor";
 
 
@@ -78,21 +77,12 @@ export class RegularPolygonBodyAvatar extends BodyAvatar {
 	public Tick(dt: number, context: CanvasRenderingContext2D): void {
 		this.drawEssense(dt, context);
 	}
+
 	protected drawEssense(dt: number, context: CanvasRenderingContext2D): void {
-		const poly = this.body.PolygonPoints();
-		if (poly.length == 0) {
-			return;
-		}
-		context.beginPath();
-		context.moveTo(poly[poly.length - 1].x, poly[poly.length - 1].y);
-		for (let i = 0; i < poly.length; ++i) {
-			context.lineTo(poly[i].x, poly[i].y);
-		}
-		context.lineJoin = "round";
-		context.strokeStyle = "black";
-		context.stroke();
+		this.texture.DrawPolygon(context, this.body.PolygonPoints());
 	}
-	public constructor(name: string, public readonly body: RegularPolygonBody, public readonly texture: RectangleTexture) {
+
+	public constructor(name: string, public readonly body: PolygonBody, public readonly texture: PolygonTexture) {
 		super(name, body);
 	}
 
@@ -183,42 +173,85 @@ function drawAll(avatars: Set<DeadlyAvatar>, context: CanvasRenderingContext2D, 
 	avatars.forEach(drawAvatar.bind(undefined, context, dt));
 }
 
+class RingBuffer {
+    private buffer: Array<number>;
+    private end = 0;
+	sum = 0
+
+	public get avg() {
+		return this.sum/this.capacity;
+	}
+    private get first() {
+        return this.inc(this.end, 1);
+    }
+
+    get capacity() {
+        return this.buffer.length;
+    }
+
+    put(elem: number) {
+		this.sum-=this.buffer[this.end]
+        this.sum+=this.buffer[this.end] = elem;
+        this.end = this.first;
+    }
+
+    forEach(action: (elem: number) => void) {
+        if(this.buffer[this.end]) {
+            for(let i = this.first; i!=this.end; i = this.inc(i, 1))
+                action(this.buffer[i]);
+            action(this.buffer[this.end]);
+            return
+        }
+        for(let i = 0; i!=this.end; ++i)
+            action(this.buffer[i]);
+    }
+
+    private inc(a: number, d = 1) {
+        return (a+d)%this.capacity;
+    }
+
+    constructor(size: number) {
+        this.buffer = new Array<number>(size);
+		this.buffer.fill(0);
+    }
+}
+
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
 {
-	private _backgound?: ImageData;
-	private get backgound(): ImageData {
-		if (this._backgound === undefined)
-			this._backgound = this.hiddenContext.getImageData(0, 0, this.hiddenContext.canvas.width, this.hiddenContext.canvas.height);
-		return this._backgound;
-	}
+	public readonly statistic = new RingBuffer(60*2);
+	private backgroundReady: boolean = false;
 
 	constructor(public readonly context: CanvasRenderingContext2D, public readonly hiddenContext: CanvasRenderingContext2D) {
 		super();
-		this.redrawBackground();
 	}
 	dynamic = new Set<DeadlyAvatar>();
 	static = new Set<DeadlyAvatar>();
 	public Tick(dt: number) {
-		if (this.backgound)
-			this.context.putImageData(this.backgound, 0, 0)
+		const startTime = performance.now();
+		this.context.clearRect(0, 0, this.hiddenContext.canvas.width, this.hiddenContext.canvas.height);
+		if (!this.backgroundReady)
+			this.redrawBackground();
+		this.context.drawImage(this.hiddenContext.canvas, 0, 0)
 		drawAll(this.dynamic, this.context, dt);
+		const renderTime = performance.now() - startTime;
+		this.statistic.put(renderTime);
 	}
 
 	protected redrawBackground() {
 		this.hiddenContext.clearRect(0, 0, this.hiddenContext.canvas.width, this.hiddenContext.canvas.height);
 		drawAll(this.static, this.hiddenContext, 0.01);
+		this.backgroundReady = true;
 	}
 
 	protected AddAvatar<T extends DeadlyAvatar>(avatar: T, dynamic = true): T {
 		if (dynamic) {
 			this.dynamic.add(avatar);
-			avatar.DeathSubscribe(_=>this.dynamic.delete(avatar));
+			avatar.DeathSubscribe(_ => this.dynamic.delete(avatar));
 		} else {
 			this.static.add(avatar);
-			drawAvatar(this.hiddenContext, 0.01, avatar);
-			avatar.DeathSubscribe(_=>{
+			avatar.DeathSubscribe(_ => {
 				this.static.delete(avatar);
-				this.redrawBackground();
+				this.backgroundReady = false;
 			});
 		}
 		return this.AddDeadly(avatar);
@@ -236,7 +269,7 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 		return this.AddBodyAvatar(new RectangleBodyAvatar(name, body, texture));
 	}
 
-	public CreateRegularPolygonBodyAvatar(name: string, body: RegularPolygonBody, texture: RectangleTexture): RegularPolygonBodyAvatar {
+	public CreatePolygonBodyAvatar(name: string, body: PolygonBody, texture: PolygonTexture): RegularPolygonBodyAvatar {
 		return this.AddBodyAvatar(new RegularPolygonBodyAvatar(name, body, texture));
 	}
 

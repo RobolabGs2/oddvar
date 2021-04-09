@@ -219,6 +219,7 @@ export class RectangleBody extends PolygonBody
 {
 	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public size: Size) {
 		super(name, entity, material);
+		this.Clear();
 	}
 
 	protected RecalculateMomentOfInertia(): void {
@@ -266,6 +267,7 @@ export class RegularPolygonBody extends PolygonBody
 {
 	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public radius: number, public vertexes: number) {
 		super(name, entity, material);
+		this.Clear();
 	}
 
 	protected RecalculateMomentOfInertia(): void {

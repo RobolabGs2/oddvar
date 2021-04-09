@@ -20,9 +20,14 @@ export interface VectorTexture extends Deadly {
 	DrawVector(context: CanvasRenderingContext2D, v: Point): void;
 }
 
+export interface PolygonTexture extends Deadly {
+	DrawPolygon(context: CanvasRenderingContext2D, polygon: Point[]): void;
+}
+
 export interface ColorSettings {
 	fill?: Color
 	stroke?: Color
+	strokeWidth?: number
 }
 
 export interface ImageSource {
@@ -51,7 +56,7 @@ interface ContextAction<T extends any[]> {
 	(this: CanvasRenderingContext2D, ...args: T): void;
 }
 
-abstract class StyledTexture extends StatelessDeadly implements RectangleTexture, CircleTexture, VectorTexture {
+export abstract class StyledTexture extends StatelessDeadly implements RectangleTexture, CircleTexture, VectorTexture, PolygonTexture {
 	public constructor(name: string) {
 		super(name);
 	}
@@ -64,6 +69,19 @@ abstract class StyledTexture extends StatelessDeadly implements RectangleTexture
 	DrawCircle(context: CanvasRenderingContext2D, r: number): void {
 		context.beginPath();
 		context.arc(0, 0, r, 0, 2 * Math.PI);
+		this.drawPath(context);
+	}
+
+	
+	DrawPolygon(context: CanvasRenderingContext2D, poly: Point[]): void {
+		if (poly.length == 0) {
+			return;
+		}
+		context.beginPath();
+		context.moveTo(poly[poly.length - 1].x, poly[poly.length - 1].y);
+		for (let i = 0; i < poly.length; ++i) {
+			context.lineTo(poly[i].x, poly[i].y);
+		}
 		this.drawPath(context);
 	}
 
@@ -119,7 +137,7 @@ export class ColoredTexture extends StyledTexture {
 	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
 		if (this.settings.stroke) {
 			context.strokeStyle = this.settings.stroke;
-			context.lineWidth = 2;
+			context.lineWidth = this.settings.strokeWidth || 2;
 			return true;
 		}
 		return false;

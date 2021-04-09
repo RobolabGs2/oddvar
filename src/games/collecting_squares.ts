@@ -7,7 +7,7 @@ import { GameLogic } from '../oddvar/manager';
 import { Body, IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
 import { Labirint } from './labirint';
 import { Observable } from '../oddvar/utils';
-import { RectangleTexture } from '../oddvar/textures';
+import { RectangleTexture, StyledTexture } from '../oddvar/textures';
 
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
@@ -68,13 +68,13 @@ export class WallManager {
 		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
 	}
 	private wallCounter = 0;
-	private borderTexture: RectangleTexture;
-	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red" });
-	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 0.1, angleFriction: 0.1 }) {
+	public borderTexture: StyledTexture;
+	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red", strokeWidth: 0.5 });
+	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 1, angleFriction: 1 }) {
 		const id = this.wallCounter++;
 		const border = this.oddvar.Get("World").CreateEntity(`wall ${id}`, center, rotation);
 		const body = this.oddvar.Get("Physics").CreateRectangleBody(`wall ${id} body`, border, material, size)
-		this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
+		this.oddvar.Get("Graphics").CreatePolygonBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
 		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar debug`, body, this.borderTextureDebug)
 	}
 
@@ -120,28 +120,23 @@ export class CollectingSquaresGame implements GameLogic {
 	}
 
 	private textures = [
-		this.oddvar.Get("TexturesManager").CreateImageTexture("player_1", "player_1"),
-		this.oddvar.Get("TexturesManager").CreateImageTexture("player_2", "player_2"),
-		this.oddvar.Get("TexturesManager").CreateImageTexture("player_3", "player_3")
+		this.oddvar.Get("TexturesManager").CreatePatternTexture("player_1", "player_1"),
+		this.oddvar.Get("TexturesManager").CreatePatternTexture("player_2", "player_2"),
+		this.oddvar.Get("TexturesManager").CreatePatternTexture("player_3", "player_3")
 	]
 
 	AddUser(player: Player): void {
 		const name = (type: string) => `player ${player.id}: ${type}`;
 		const e = this.oddvar.Get("World").CreateEntity(name("entity"), this.GenerateInconflictPoint(14));
 		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, fill: "white" });
+		const texture = this.oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { fill: currentColor });
 
 		const sensor = this.oddvar.Get("World").CreateTailEntity(name("ray entity"), e, new Point(this.size.width / 2 - 1, 0));
 		const ray = this.oddvar.Get("Physics").CreateRaySensor(name("ray sensor"), sensor);
 		// const b = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
 		const b = this.oddvar.Get("Physics").CreateRegularPolygonBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size.height / 2, 8)
 		ray.AddToIgnore(b);
-		// if (this.debug) {
-		// 	this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body debug avatar"), b, texture);
-		// 	this.oddvar.Get("Graphics").CreateRaySensorAvatar(name("ray avatar"), ray, texture);
-		// }
-		// this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(name("body avatar"), b, this.textures[player.id % this.textures.length]);
-		this.oddvar.Get("Graphics").CreateRegularPolygonBodyAvatar(name("body avatar"), b, this.textures[player.id % this.textures.length]);
+		this.oddvar.Get("Graphics").CreatePolygonBodyAvatar(name("body avatar"), b, texture)//this.textures[player.id % this.textures.length]);
 
 		const c = this.oddvar.Get("Controller").CreatePhysicControlled(name("controller"), b, player);
 		this.oddvar.Get("Graphics").CreatePhysicControlledAvatar(name("controller avatar"), c, currentColor)
