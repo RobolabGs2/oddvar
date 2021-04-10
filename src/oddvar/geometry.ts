@@ -27,6 +27,10 @@ export class Point {
 		return p.Sub(this).Len();
 	}
 
+	public Manhattan(p: Point): number {
+		return Math.abs(this.x - p.x) + Math.abs(this.y - p.y);
+	}
+
 	public Mult(k: number): Point {
 		return new Point(this.x * k, this.y * k);
 	}

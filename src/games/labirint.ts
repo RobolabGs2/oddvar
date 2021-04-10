@@ -1,6 +1,5 @@
-import { reverse } from "node:dns";
 import { PrettyPrint } from "../oddvar/debug";
-import { Point, Size } from "../oddvar/geometry";
+import { Matrix, Point, Size } from "../oddvar/geometry";
 import { PriorityQueue, Tagable } from "../oddvar/utils";
 
 export type WallCreator = (center: Point, rotation: number, size: Size) => void;
@@ -9,36 +8,169 @@ export function inRange(x: number, max: number, min = 0) {
 	return min <= x && x < max;
 }
 
-export class Labirint {
-	private matrix = new Array<Array<boolean>>();
-	constructor(readonly width: number, readonly height: number) {
-		for (let i = 0; i < height; ++i) {
-			this.matrix.push(new Array<boolean>(width).fill(true));
+export class DataMatrix<T> {
+	protected matrix = new Array<Array<T>>();
+	constructor(readonly width: number, readonly height: number, defaultValue: T | (() => T)) {
+		if (typeof defaultValue === "function") {
+			for (let i = 0; i < height; ++i) {
+				this.matrix.push(new Array<T>(width));
+				for (let j = 0; j < width; ++j) {
+					this.set(j, i, (<() => T>defaultValue)());
+				}
+			}
+		} else {
+			for (let i = 0; i < height; ++i) {
+				this.matrix.push(new Array<T>(width).fill(defaultValue));
+			}
 		}
+	}
+
+	public get(x: number, y: number): T {
+		return this.matrix[y][x];
+	}
+
+	public set(x: number, y: number, value: T) {
+		this.matrix[y][x] = value;
+	}
+
+	// Если нет в первом, берём из второго
+	public MergeOr<E, R extends DataMatrix<E | T>>(l: DataMatrix<E>, dst: R = <R>new DataMatrix<E | T>(l.width, l.height, l.get(0, 0))): R {
+		if (l.width != this.width || l.height != this.height) {
+			throw new Error("Лабиринты не сходятся!!!");
+		}
+		for (let i = 0; i < this.width; ++i) {
+			for (let j = 0; j < this.height; ++j) {
+				dst.set(i, j, this.get(i, j) || l.get(i, j));
+			}
+		}
+		return dst;
+	}
+
+	// Если есть в первом, берём из второго
+	public MergeAnd<E, R extends DataMatrix<E | T>>(l: DataMatrix<E>, dst: R = <R>new DataMatrix<E | T>(l.width, l.height, l.get(0, 0))): R {
+		if (l.width != this.width || l.height != this.height) {
+			throw new Error("Лабиринты не сходятся!!!");
+		}
+		for (let i = 0; i < this.width; ++i) {
+			for (let j = 0; j < this.height; ++j) {
+				dst.set(i, j, this.get(i, j) && l.get(i, j));
+			}
+		}
+		return dst;
+	}
+
+	FindPathBFS(start: Point, end: Point, wall: T): Dir[] | undefined {
+		const from = new DataMatrix<Dir>(this.width, this.height, -1);
+		start = start.Clone();
+		const queue = [start];
+		const startPoint = 9;
+		from.set(start.x, start.y, startPoint);
+		while (queue.length) {
+			const v = queue.shift()!;
+			if (isFinish(v)) {
+				const answer = new Array<Dir>();
+				for (let to = v; true;) {
+					const dir = from.get(to.x, to.y);
+					if (dir === startPoint)
+						break;
+					answer.push(dir);
+					movePoint(ReverseDir(dir), to)
+				}
+				return answer.reverse();
+			}
+
+			this.nextPoints(v, from, wall, (dir, next) => {
+				from.set(next.x, next.y, dir);
+				queue.push(next);
+			});
+
+		}
+
+		function isFinish(v: Point) {
+			return v.x === end.x && v.y === end.y;
+		}
+		return;
+	}
+
+	BFS(start: Point, depth: number, wall: T): { point: Point, depth: number, value: T }[] {
+		const from = new DataMatrix<Dir>(this.width, this.height, -1);
+		start = start.Clone();
+		const value = this.get(start.x, start.y);
+		const queue = [{ point: start, depth: 0, value }];
+		const startPoint = 9;
+		from.set(start.x, start.y, startPoint);
+		for (let i = 0; i !== queue.length; ++i) {
+			const v = queue[i];
+			if (v.depth === depth)
+				break
+			this.nextPoints(v.point, from, wall, (dir, next, value) => {
+				from.set(next.x, next.y, dir);
+				queue.push({ point: next, depth: v.depth + 1, value });
+			});
+		}
+		return queue;
+	}
+
+	FindPath(start: Point, finish: Point, wall: T): Dir[] | undefined {
+		return this.FindPathAStar(start, Point.prototype.Manhattan.bind(finish), wall);
+	}
+
+	// Если эвристика вернула 0 - точка считается местом назначения
+	FindPathAStar(start: Point, heuristic: (p: Point) => number, wall: T): Dir[] | undefined {
+		const from = new DataMatrix<Dir>(this.width, this.height, -1);
+		const queue = new PriorityQueue<PointItem>();
+		queue.Add(new PointItem(start, 0, heuristic(start), 9))
+		while (queue.size) {
+			const v = queue.enqueue();
+			if (from.get(v.p.x, v.p.y) !== -1)
+				continue;
+			from.set(v.p.x, v.p.y, v.dir);
+			if (v.g === 0) {
+				const answer = new Array<Dir>(v.length);
+				let i = v.length;
+				for (let to = v.p; true;) {
+					const dir = from.get(to.x, to.y)
+					if (to.x === start.x && to.y === start.y)
+						break;
+					answer[--i] = dir;
+					movePoint(ReverseDir(dir), to)
+				}
+				return answer;
+			}
+
+			this.nextPoints(v.p, from, wall, (dir, next) =>
+				queue.Add(new PointItem(next, v.length + 1, heuristic(next), dir)));
+		}
+		return;
+	}
+
+	private nextPoints(v: Point, from: DataMatrix<Dir>, wall: T, handler: (dir: Dir, next: Point, value: T) => void) {
+		for (let dir: Dir = 0; dir < 4; dir++) {
+			const next = movePoint(dir, v.Clone());
+			if (inRange(next.y, this.height) &&
+				inRange(next.x, this.width) &&
+				from.get(next.x, next.y) === -1 &&
+				this.get(next.x, next.y) !== wall)
+				handler(dir, next, this.get(next.x, next.y));
+		}
+	}
+
+	toString(valueMapper: (x: T) => string = (x) => `${x}`): string {
+		return PrettyPrint.matrix(this.matrix, valueMapper);
+	}
+}
+
+export class Labirint extends DataMatrix<boolean>{
+	constructor(readonly width: number, readonly height: number) {
+		super(width, height, true);
 	}
 
 	public And(l: Labirint): Labirint {
-		if (l.width != this.width || l.height != this.height) {
-			throw new Error("Лабиринты не сходятся!!!");
-		}
-		for (let i = 0; i < this.width; ++i) {
-			for (let j = 0; j < this.height; ++j) {
-				this.set(i, j, this.get(i, j) && l.get(i, j));
-			}
-		}
-		return this;
+		return this.MergeAnd(l, this);
 	}
 
 	public Or(l: Labirint): Labirint {
-		if (l.width != this.width || l.height != this.height) {
-			throw new Error("Лабиринты не сходятся!!!");
-		}
-		for (let i = 0; i < this.width; ++i) {
-			for (let j = 0; j < this.height; ++j) {
-				this.set(i, j, this.get(i, j) || l.get(i, j));
-			}
-		}
-		return this;
+		return this.MergeOr(l, this);
 	}
 
 	public Not(): Labirint {
@@ -52,14 +184,6 @@ export class Labirint {
 
 	public Frame(border = 1): Labirint {
 		return this.Or(Labirint.Frame(this.width, this.height, border));
-	}
-
-	public get(x: number, y: number): boolean {
-		return this.matrix[y][x];
-	}
-
-	public set(x: number, y: number, value: boolean) {
-		this.matrix[y][x] = value;
 	}
 
 	Step(x: number, y: number, n = 20) {
@@ -97,89 +221,20 @@ export class Labirint {
 		}
 	}
 
+	BFS(start: Point, depth: number): { point: Point, depth: number, value: boolean }[] {
+		return super.BFS(start, depth, true);
+	}
 	FindPathBFS(start: Point, end: Point): Dir[] | undefined {
-		const from = new Array<Dir>(this.height * this.width);
-		from.fill(-1);
-		start = start.Clone();
-		const queue = [start];
-		const startPoint = 9;
-		from[start.y * this.width + start.x] = startPoint;
-		while (queue.length) {
-			const v = queue.shift()!;
-			if (isFinish(v)) {
-				const answer = new Array<Dir>();
-				for (let to = v; true;) {
-					const dir = from[to.y * this.width + to.x];
-					if (dir === startPoint)
-						break;
-					answer.push(dir);
-					from[to.y * this.width + to.x] = startPoint;
-					movePoint(ReverseDir(dir), to)
-				}
-				return answer.reverse();
-			}
-
-			for (let dir: Dir = 0; dir < 4; dir++) {
-				const next = movePoint(dir, v.Clone());
-				if (inRange(next.y, this.height) &&
-					inRange(next.x, this.width) &&
-					from[next.y * this.width + next.x] === -1 &&
-					!this.get(next.x, next.y)
-				) {
-					from[next.y * this.width + next.x] = dir;
-					queue.push(next);
-				}
-			}
-		}
-
-		function isFinish(v: Point) {
-			return v.x === end.x && v.y === end.y;
-		}
-		return;
+		return super.FindPathBFS(start, end, true);
 	}
 
-	FindPathAStar(start: Point, end: Point): Dir[] | undefined {
-		const from = new Array<Dir>(this.height * this.width);
-		from.fill(-1);
-		start = start.Clone();
-		const heuristic = (p: Point) => Math.abs(end.x-p.x)+Math.abs(end.y-p.y);
-		const queue = new PriorityQueue<PointItem>();
-		queue.Add(new PointItem(start, 0, heuristic(start), 9))
-		while (queue.size) {
-			const v = queue.enqueue();
-			const coord = v.p.y * this.width + v.p.x;
-			if(from[coord] !== -1)
-				continue;
-			from[coord] = v.dir;
-			if (isFinish(v.p)) {
-				const answer = new Array<Dir>(v.length);
-				let i = v.length;
-				for (let to = v.p; true;) {
-					const dir = from[to.y * this.width + to.x];
-					if (to.x === start.x && to.y === start.y)
-						break;
-					answer[--i] = dir;
-					movePoint(ReverseDir(dir), to)
-				}
-				return answer;
-			}
+	FindPath(start: Point, finish: Point): Dir[] | undefined {
+		return this.FindPathAStar(start, Point.prototype.Manhattan.bind(finish));
+	}
 
-			for (let dir: Dir = 0; dir < 4; dir++) {
-				const next = movePoint(dir, v.p.Clone());
-				if (inRange(next.y, this.height) &&
-					inRange(next.x, this.width) &&
-					from[next.y * this.width + next.x] === -1 &&
-					!this.get(next.x, next.y)
-				) {
-					queue.Add(new PointItem(next, v.length+1, heuristic(next), dir));
-				}
-			}
-		}
-
-		function isFinish(v: Point) {
-			return v.x === end.x && v.y === end.y;
-		}
-		return;
+	// Если эвристика вернула 0 - точка считается местом назначения
+	FindPathAStar(start: Point, heuristic: (p: Point) => number): Dir[] | undefined {
+		return super.FindPathAStar(start, heuristic, true);
 	}
 
 	public static Generate(width: number, height: number): Labirint {
@@ -230,7 +285,7 @@ export class Labirint {
 				})
 			}
 		}
-		return deep > 1 ? this.Symmetry(result, axis, deep-1) : result;
+		return deep > 1 ? this.Symmetry(result, axis, deep - 1) : result;
 	}
 
 	public static SymmetryOdd(origin: (boolean | number)[][] | Labirint, axis: "X" | "Y" | "XY" = "XY", deep = 1): Labirint {
@@ -252,7 +307,7 @@ export class Labirint {
 				})
 			}
 		}
-		return deep > 1 ? this.SymmetryOdd(result, axis, deep-1) : result;
+		return deep > 1 ? this.SymmetryOdd(result, axis, deep - 1) : result;
 	}
 
 	toString(): string {
@@ -294,5 +349,5 @@ function movePoint(p: Dir, s: Point, count: number = 1): Point {
 
 class PointItem implements Tagable {
 	readonly time: number = this.length + this.g;
-	constructor(readonly p: Point, readonly length: number, readonly g: number, readonly dir: Dir){}
+	constructor(readonly p: Point, readonly length: number, readonly g: number, readonly dir: Dir) { }
 }

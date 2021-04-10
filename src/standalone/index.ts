@@ -22,7 +22,8 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	const canvasSize = 800;
 	const canvas = HTML.CreateElement("canvas",
 		HTML.SetStyles(style => {
-			style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
+			// style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
+			style.backgroundColor = "rgb(200, 200, 200)"
 		}),
 		c => {
 			c.height = c.width = canvasSize;

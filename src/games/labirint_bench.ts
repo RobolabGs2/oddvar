@@ -1,3 +1,4 @@
+import { Suite } from "mocha";
 import { Point } from "../oddvar/geometry";
 import { Dir, Labirint } from "./labirint";
 
@@ -12,7 +13,8 @@ const findPathTests = (findPath: ((this: Labirint, start: Point, finish: Point) 
 		console.timeEnd(size)
 	
 	}
-	return () => {
+	return function(this: Suite) {
+		this.timeout("10s")
 		it("little maze", () => {
 			const maze = Labirint.FromMatrix([
 				[0, 0, 0, 0],
@@ -44,5 +46,5 @@ const findPathTests = (findPath: ((this: Labirint, start: Point, finish: Point) 
 }
 
 
-describe("Labirint.AStar", findPathTests(Labirint.prototype.FindPathAStar));
+describe("Labirint.AStar", findPathTests(Labirint.prototype.FindPath));
 describe("Labirint.BFS", findPathTests(Labirint.prototype.FindPathBFS));

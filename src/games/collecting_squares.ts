@@ -43,7 +43,7 @@ function RandomElem<T>(elems: T[]): T {
 
 
 export interface TargetEvents<Player> {
-	relocate: Point;
+	relocate: {from: Point, to: Point};
 	collision: Player;
 }
 
@@ -59,7 +59,8 @@ export class Target<Player> extends Observable<TargetEvents<Player>> {
 	}
 
 	relocate(to: Point) {
-		this.dispatchEvent("relocate", this.body.entity.location = to);
+		this.dispatchEvent("relocate", {from:this.body.entity.location, to});
+		this.body.entity.location = to;
 	}
 }
 

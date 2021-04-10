@@ -62,5 +62,5 @@ const findPathTests = (findPath: ((this: Labirint, start: Point, finish: Point) 
 }
 
 
-describe("Labirint.AStar", findPathTests(Labirint.prototype.FindPathAStar));
+describe("Labirint.AStar", findPathTests(Labirint.prototype.FindPath));
 describe("Labirint.BFS", findPathTests(Labirint.prototype.FindPathBFS));
