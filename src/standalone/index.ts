@@ -9,7 +9,7 @@ import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
 import { GameLogic, Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, GameMap, MapCreator, PacMan, PacManBig, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
-import { MultiagentSimulation } from '../games/multuagent_sumulation';
+import { MultiagentSimulation } from '../games/multiagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";

@@ -8,6 +8,12 @@ export function inRange(x: number, max: number, min = 0) {
 	return min <= x && x < max;
 }
 
+export type MatrixCell<T> = {
+	point: Point;
+	depth: number;
+	value: T;
+};
+
 export class DataMatrix<T> {
 	protected matrix = new Array<Array<T>>();
 	constructor(readonly width: number, readonly height: number, defaultValue: T | (() => T)) {
@@ -91,8 +97,8 @@ export class DataMatrix<T> {
 		}
 		return;
 	}
-
-	BFS(start: Point, depth: number, wall: T): { point: Point, depth: number, value: T }[] {
+	
+	BFS(start: Point, depth: number, wall: T): MatrixCell<T>[] {
 		const from = new DataMatrix<Dir>(this.width, this.height, -1);
 		start = start.Clone();
 		const value = this.get(start.x, start.y);

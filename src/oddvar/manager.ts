@@ -22,8 +22,8 @@ export class Manager
 	}
 
 	public Tick(dt: number) {
-		this.gameLogic.Tick(dt);
 		this.oddvar.Tick(dt);
+		this.gameLogic.Tick(dt);
 	}
 
 	public GetSnapshot(force: boolean): OddvarSnapshot {
