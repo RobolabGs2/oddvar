@@ -1,8 +1,8 @@
 {
-    "bricks": "resources/img/gray-bricks.png",
-    "monster_1": "resources/img/oddvar-02.svg",
-    "monster_2": "resources/img/oddvar-03.svg",
-    "player_1": "resources/img/duck16x16.png",
-    "player_2": "resources/img/yana_duck.png",
-    "player_3": "resources/img/skull.png"
+	"bricks": "resources/img/gray-bricks.png",
+	"monster_1": "resources/img/oddvar-02.svg",
+	"monster_2": "resources/img/oddvar-03.svg",
+	"player_1": "resources/img/duck16x16.png",
+	"player_2": "resources/img/yana_duck.png",
+	"player_3": "resources/img/skull.png"
 }

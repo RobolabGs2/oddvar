@@ -1,5 +1,5 @@
 import { Deadly, DeadlyWorld } from "../base"
-import { Entity, IEntity} from "../world"
+import { Entity, IEntity } from "../world"
 import { Point, Size } from "../geometry";
 import { RectangleBody, Body, PhysicalMaterial, PolygonBody, RegularPolygonBody } from "./body";
 import { Essence } from "./essence";
@@ -21,7 +21,7 @@ export class Physics extends DeadlyWorld<Essence>
 
 			this.sensors.forEach(s => s.Take(b1));
 
-			for (let j  = i + 1; j < this.bodies.length; ++j) {
+			for (let j = i + 1; j < this.bodies.length; ++j) {
 				let b2 = this.bodies[j];
 				let abba2 = b2.Abba();
 				if (abba1.p2.x < abba2.p1.x)
@@ -47,8 +47,8 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
-		if (b1 instanceof(PolygonBody))
-			if (b2 instanceof(PolygonBody))
+		if (b1 instanceof (PolygonBody))
+			if (b2 instanceof (PolygonBody))
 				return this.IntersectPolygonPolygon(b1, b2);
 		throw new Error("unknown body");
 	}
@@ -76,11 +76,11 @@ export class Physics extends DeadlyWorld<Essence>
 	}
 
 	private IntersectPointPoly(p: Point, poly: Point[]): {
-			intersect: boolean,
-			near: number,
-			nearDist: number,
-			nearNorm: Point
-		} {
+		intersect: boolean,
+		near: number,
+		nearDist: number,
+		nearNorm: Point
+	} {
 		let len = poly.length;
 		let near = -1;
 		let nearDist = Infinity;

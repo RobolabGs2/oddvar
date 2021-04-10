@@ -4,6 +4,7 @@ import { Point } from "./geometry";
 import { Player } from "./players";
 import { IBody } from "./physics/body";
 import { KeyAction } from "./protocol";
+import { doesNotThrow } from "node:assert";
 
 
 export abstract class Control extends Deadly {
@@ -12,6 +13,9 @@ export abstract class Control extends Deadly {
 	}
 
 	public abstract Tick(dt: number): void;
+	public GetMetric(): any {
+		return undefined;
+	}
 }
 
 export class WalkController extends Control {
@@ -79,14 +83,13 @@ export class SpinRoundController extends Control {
 	}
 }
 
-type neededKeys = {a: boolean, w: boolean, s: boolean, d: boolean};
-type neededKeysSync = {[property in keyof neededKeys]: number};
+type neededKeys = { a: boolean, w: boolean, s: boolean, d: boolean };
+type neededKeysSync = { [property in keyof neededKeys]: number };
 
-export class ControlledWalker extends Control
-{
+export class ControlledWalker extends Control {
 	public modified: boolean = false;
-	private keys: neededKeys = {a: false, d: false, w: false, s: false}
-	private keySync: neededKeysSync = {a: 10, d: 10, w: 10, s: 10}
+	private keys: neededKeys = { a: false, d: false, w: false, s: false }
+	private keySync: neededKeysSync = { a: 10, d: 10, w: 10, s: 10 }
 	private _score = 0;
 
 	private lastEntityLocation = new Point(0, 0);
@@ -108,8 +111,7 @@ export class ControlledWalker extends Control
 		let move = new Point(0, 0);
 		this.player.input.forEach(i => {
 			const action = i.action == "down";
-			switch(i.key)
-			{
+			switch (i.key) {
 				case KeyAction.LEFT: this.KeyHandler("a", action, now); break;
 				case KeyAction.RIGHT: this.KeyHandler("d", action, now); break;
 				case KeyAction.UP: this.KeyHandler("w", action, now); break;
@@ -132,13 +134,13 @@ export class ControlledWalker extends Control
 		if (this.player.isCurrent && this.player.wasSnapshot) {
 			this.targetEntityLocation = this.entity.location.Mult(1);
 			this.entity.location = this.lastEntityLocation;
-			this.speed = this.targetEntityLocation.Sub(this.lastEntityLocation).Mult(1 / dt); // TODO:
+			this.speed = this.targetEntityLocation.Sub(this.lastEntityLocation).Mult(1 / dt);
 		}
 		if (this.player.isCurrent && !this.player.wasSnapshot) {
 			// this.entity.location = this.entity.location.Add(this.speed.Mult(dt));
 			this.entity.location = this.entity.location.Add(this.targetEntityLocation.Sub(this.entity.location).Mult(0.2));
 		}
-	
+
 
 		this.lastEntityLocation = this.entity.location.Mult(1);
 	}
@@ -148,10 +150,10 @@ export class ControlledWalker extends Control
 			return;
 		this.modified = true;
 		this.keys[key] = action;
-		this.keySync[key] =  this.player.isCurrent ? now : 0;
+		this.keySync[key] = this.player.isCurrent ? now : 0;
 	}
 
-	public get score() : number {
+	public get score(): number {
 		return this._score;
 	}
 
@@ -179,12 +181,11 @@ export class ControlledWalker extends Control
 }
 
 
-export class PhysicControlled extends Control
-{
+export class PhysicControlled extends Control {
 	public modified: boolean = false;
 	private _score = 0;
 
-	private keys: neededKeys = {a: false, d: false, w: false, s: false}
+	private keys: neededKeys = { a: false, d: false, w: false, s: false }
 
 	constructor(name: string, public readonly body: IBody, public readonly player: Player) {
 		super(name);
@@ -195,8 +196,7 @@ export class PhysicControlled extends Control
 		let move = new Point(0, 0);
 		this.player.input.forEach(i => {
 			const action = i.action == "down";
-			switch(i.key)
-			{
+			switch (i.key) {
 				case KeyAction.LEFT: this.KeyHandler("a", action); break;
 				case KeyAction.RIGHT: this.KeyHandler("d", action); break;
 				case KeyAction.UP: this.KeyHandler("w", action); break;
@@ -219,7 +219,7 @@ export class PhysicControlled extends Control
 		this.keys[key] = action;
 	}
 
-	public get score() : number {
+	public get score(): number {
 		return this._score;
 	}
 
@@ -236,7 +236,7 @@ export class PhysicControlled extends Control
 		if (!this.modified && !force)
 			return null;
 		this.modified = false;
-		return { score: this.score};
+		return { score: this.score };
 	}
 
 	ToConstructor(): any[] {
@@ -265,7 +265,7 @@ export class Controller extends DeadlyWorld<Control>
 		}
 	}
 
-	private AddClientController<T extends Control>(c: T): T{
+	private AddClientController<T extends Control>(c: T): T {
 		this.clientControllers.add(c);
 		c.DeathSubscribe(d => {
 			this.clientControllers.delete(c);

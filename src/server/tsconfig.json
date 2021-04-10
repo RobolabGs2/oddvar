@@ -1,10 +1,10 @@
 {
-    "compilerOptions": {
-        "moduleResolution": "node",
-        "baseUrl": "..",
-    },
-    "extends": "../tsconfig.json",
-    "files": [
-        "main.ts"
-    ]
+	"compilerOptions": {
+		"moduleResolution": "node",
+		"baseUrl": "..",
+	},
+	"extends": "../tsconfig.json",
+	"files": [
+		"main.ts"
+	]
 }

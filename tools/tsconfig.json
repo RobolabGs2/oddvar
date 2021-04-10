@@ -1,12 +1,14 @@
 {
-    "compilerOptions": {
-        "noImplicitAny": true,
-        "sourceMap": true,
-        "strict": true,
-        "lib": [
-            "es2019"
-        ],
-        "moduleResolution": "node",
-    },
-    "files": ["compiler.ts"]
+	"compilerOptions": {
+		"noImplicitAny": true,
+		"sourceMap": true,
+		"strict": true,
+		"lib": [
+			"es2019"
+		],
+		"moduleResolution": "node",
+	},
+	"files": [
+		"compiler.ts"
+	]
 }

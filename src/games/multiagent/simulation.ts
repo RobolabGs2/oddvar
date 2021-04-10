@@ -1,8 +1,8 @@
 import { Point } from '../../oddvar/geometry';
 import { Oddvar } from "../../oddvar/oddvar"
 import { RectangleTexture } from '../../oddvar/textures';
-import { GameMap, Target, WallManager } from '../collecting_squares';
-import { DataMatrix, MatrixCell } from '../labirint';
+import { GameMap, Target, WallManager } from '../collecting_squares/collecting_squares';
+import { DataMatrix, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Iterators } from '../../oddvar/iterator';
 import { GameLogic } from '../../oddvar/manager';
 import { Bot } from './bot';

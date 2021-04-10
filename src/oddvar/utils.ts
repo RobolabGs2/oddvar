@@ -123,3 +123,45 @@ export class PriorityQueue<T extends Tagable>{
 
 }
 
+export class RingBuffer {
+	private buffer: Array<number>;
+	private end = 0;
+	sum = 0
+
+	public get avg() {
+		return this.sum / this.capacity;
+	}
+	private get first() {
+		return this.inc(this.end, 1);
+	}
+
+	get capacity() {
+		return this.buffer.length;
+	}
+
+	put(elem: number) {
+		this.sum -= this.buffer[this.end]
+		this.sum += this.buffer[this.end] = elem;
+		this.end = this.first;
+	}
+
+	forEach(action: (elem: number) => void) {
+		if (this.buffer[this.end]) {
+			for (let i = this.first; i != this.end; i = this.inc(i, 1))
+				action(this.buffer[i]);
+			action(this.buffer[this.end]);
+			return
+		}
+		for (let i = 0; i != this.end; ++i)
+			action(this.buffer[i]);
+	}
+
+	private inc(a: number, d = 1) {
+		return (a + d) % this.capacity;
+	}
+
+	constructor(size: number) {
+		this.buffer = new Array<number>(size);
+		this.buffer.fill(0);
+	}
+}

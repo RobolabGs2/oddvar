@@ -33,7 +33,6 @@ export class NetworkCard extends StatelessDeadly {
 }
 
 export class Network extends DeadlyWorld<NetworkCard> {
-
 	cards: Map<string, NetworkCard> = new Map();
 
 	CreateNetworkCard(name: string, address: string): NetworkCard {

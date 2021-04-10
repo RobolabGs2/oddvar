@@ -9,11 +9,11 @@ import { Controller } from '../oddvar/controller';
 import { Manager } from '../oddvar/manager';
 import { ImageSource, TexturesManager } from '../oddvar/textures';
 import { Physics } from '../oddvar/physics/physics';
-import { CollectingSquaresGame, PacManLikeLabirint } from '../games/collecting_squares';
+import { CollectingSquaresGame, PacManLikeLabirint } from '../games/collecting_squares/collecting_squares';
 
 
 function DeepProxy<T extends object>(): T {
-	const proxy: T =  new Proxy<T>(function () { } as T, {
+	const proxy: T = new Proxy<T>(function () { } as T, {
 		get: (a1, a2, a3) => {
 			if (typeof a2 === "string" && !["inspect", "prototype", "consturctor"].some(x => x === a2))
 				return proxy;

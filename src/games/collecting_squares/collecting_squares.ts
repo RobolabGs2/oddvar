@@ -1,13 +1,13 @@
-import { Point, Size } from '../oddvar/geometry';
-import { Oddvar } from "../oddvar/oddvar"
-import { Entity } from "../oddvar/world"
-import { Player } from '../oddvar/players';
-import { PhysicControlled } from '../oddvar/controller';
-import { GameLogic } from '../oddvar/manager';
-import { Body, IBody, PhysicalMaterial, RectangleBody } from '../oddvar/physics/body';
-import { Labirint } from './labirint';
-import { Observable } from '../oddvar/utils';
-import { RectangleTexture, StyledTexture } from '../oddvar/textures';
+import { Point, Size } from '../../oddvar/geometry';
+import { Oddvar } from "../../oddvar/oddvar"
+import { Entity } from "../../oddvar/world"
+import { Player } from '../../oddvar/players';
+import { PhysicControlled } from '../../oddvar/controller';
+import { GameLogic } from '../../oddvar/manager';
+import { Body, IBody, PhysicalMaterial, RectangleBody } from '../../oddvar/physics/body';
+import { Labirint } from '../../oddvar/labirint/labirint';
+import { Observable } from '../../oddvar/utils';
+import { RectangleTexture, StyledTexture } from '../../oddvar/textures';
 
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
@@ -33,8 +33,6 @@ export const TestMap: MapCreator = (oddvar, createWall) => {
 		createWall(new Point(300, 300), -Math.PI / 4, borderSize, { lineFriction: 0.1, angleFriction: 0.1 });
 	}
 }
-
-export const RandomLabirint: MapCreator = (oddvar, createWall) => Labirint.Generate(50, 50).Or(Labirint.Frame(50, 50, 3)).Draw(new Size(10, 10), new Point(0, 0), createWall)
 
 
 function RandomElem<T>(elems: T[]): T {
@@ -135,7 +133,7 @@ export class CollectingSquaresGame implements GameLogic {
 		const sensor = this.oddvar.Get("World").CreateTailEntity(name("ray entity"), e, new Point(this.size.width / 2 - 1, 0));
 		const ray = this.oddvar.Get("Physics").CreateRaySensor(name("ray sensor"), sensor);
 		// const b = this.oddvar.Get("Physics").CreateRectangleBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size)
-		const b = this.oddvar.Get("Physics").CreateRegularPolygonBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size.height / 2, 8)
+		const b = this.oddvar.Get("Physics").CreateRegularPolygonBody(name("body"), e, { lineFriction: 0.1, angleFriction: 0.1 }, this.size.height / 2, 10)
 		ray.AddToIgnore(b);
 		this.oddvar.Get("Graphics").CreatePolygonBodyAvatar(name("body avatar"), b, texture)//this.textures[player.id % this.textures.length]);
 
@@ -187,11 +185,17 @@ export class GameMap {
 	}
 }
 
-export const PacManBig = Labirint.SymmetryOdd(PacManQ, "XY", 2).Frame();
-export const PacMan = Labirint.SymmetryOdd(PacManQ).Frame();
+export const BigPacManMap = Labirint.SymmetryOdd(PacManQ, "XY", 2).Frame();
+export const PacManMap = Labirint.SymmetryOdd(PacManQ).Frame();
+export const RandomMap = Labirint.Generate(50, 50).Or(Labirint.Frame(50, 50, 3));
 
 function drawMaze(maze: Labirint, canvasWidth: number, canvasHeight: number, createWall: WallCreator) {
 	maze.Draw(new Size(canvasWidth / maze.width, canvasHeight / maze.height), new Point(0, 0), createWall)
 }
 
-export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => drawMaze(PacMan, 500, 500, createWall);
+export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => drawMaze(PacManMap, 500, 500, createWall);
+
+export const RandomLabirint: MapCreator = (oddvar, createWall) => { 
+	RandomMap.Draw(new Size(10, 10), new Point(0, 0), createWall)
+}
+

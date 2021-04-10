@@ -5,6 +5,7 @@ import { ControlledWalker, PhysicControlled } from "./controller";
 import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, PolygonTexture } from "./textures";
 import { Body, PolygonBody, RectangleBody } from "./physics/body";
 import { RaySensor } from "./physics/sensor";
+import { RingBuffer } from "./utils";
 
 
 export abstract class DeadlyAvatar extends StatelessDeadly {
@@ -173,52 +174,9 @@ function drawAll(avatars: Set<DeadlyAvatar>, context: CanvasRenderingContext2D, 
 	avatars.forEach(drawAvatar.bind(undefined, context, dt));
 }
 
-class RingBuffer {
-    private buffer: Array<number>;
-    private end = 0;
-	sum = 0
-
-	public get avg() {
-		return this.sum/this.capacity;
-	}
-    private get first() {
-        return this.inc(this.end, 1);
-    }
-
-    get capacity() {
-        return this.buffer.length;
-    }
-
-    put(elem: number) {
-		this.sum-=this.buffer[this.end]
-        this.sum+=this.buffer[this.end] = elem;
-        this.end = this.first;
-    }
-
-    forEach(action: (elem: number) => void) {
-        if(this.buffer[this.end]) {
-            for(let i = this.first; i!=this.end; i = this.inc(i, 1))
-                action(this.buffer[i]);
-            action(this.buffer[this.end]);
-            return
-        }
-        for(let i = 0; i!=this.end; ++i)
-            action(this.buffer[i]);
-    }
-
-    private inc(a: number, d = 1) {
-        return (a+d)%this.capacity;
-    }
-
-    constructor(size: number) {
-        this.buffer = new Array<number>(size);
-		this.buffer.fill(0);
-    }
-}
-
 export class Graphics extends DeadlyWorld<DeadlyAvatar>
 {
-	public readonly statistic = new RingBuffer(60*2);
+	public readonly statistic = new RingBuffer(60 * 2);
 	private backgroundReady: boolean = false;
 
 	constructor(public readonly context: CanvasRenderingContext2D, public readonly hiddenContext: CanvasRenderingContext2D) {

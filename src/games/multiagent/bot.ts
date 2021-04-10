@@ -4,8 +4,8 @@ import { RectangleBody } from '../../oddvar/physics/body';
 import { RaySensor } from '../../oddvar/physics/sensor';
 import { ColoredTexture, RectangleTexture } from '../../oddvar/textures';
 import { TailEntity } from '../../oddvar/world';
-import { GameMap } from '../collecting_squares';
-import { DataMatrix, Dir, MatrixCell } from '../labirint';
+import { GameMap } from '../collecting_squares/collecting_squares';
+import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { NetworkCard } from './net';
 
 export class Bot {

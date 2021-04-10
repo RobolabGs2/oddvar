@@ -1,6 +1,6 @@
-import { PrettyPrint } from "../oddvar/debug";
-import { Matrix, Point, Size } from "../oddvar/geometry";
-import { PriorityQueue, Tagable } from "../oddvar/utils";
+import { PrettyPrint } from "../debug";
+import { Matrix, Point, Size } from "../geometry";
+import { PriorityQueue, Tagable } from "../utils";
 
 export type WallCreator = (center: Point, rotation: number, size: Size) => void;
 
@@ -193,7 +193,7 @@ export class Labirint extends DataMatrix<boolean>{
 	}
 
 	Step(x: number, y: number, n = 20) {
-		if (!inRange(x, this.width) || !!inRange(y, this.height)) {
+		if (!inRange(x, this.width) || !inRange(y, this.height)) {
 			return;
 		}
 		if (!this.get(x, y)) {
@@ -204,6 +204,15 @@ export class Labirint extends DataMatrix<boolean>{
 		if (Math.random() < n) this.Step(x + 1, y, n * 0.9);
 		if (Math.random() < n) this.Step(x, y + 1, n * 0.9);
 		if (Math.random() < n) this.Step(x, y - 1, n * 0.9);
+	}
+
+	public static Generate(width: number, height: number): Labirint {
+		const result = new Labirint(width, height);
+		result.Step((width / 2) | 0, (height / 2) | 0);
+		for (let i = 0; i < 10; ++i) {
+			result.Step((Math.random() * width) | 0, (Math.random() * height) | 0);
+		}
+		return result;
 	}
 
 	Draw(size: Size, shift: Point, createWall: WallCreator) {
@@ -241,15 +250,6 @@ export class Labirint extends DataMatrix<boolean>{
 	// Если эвристика вернула 0 - точка считается местом назначения
 	FindPathAStar(start: Point, heuristic: (p: Point) => number): Dir[] | undefined {
 		return super.FindPathAStar(start, heuristic, true);
-	}
-
-	public static Generate(width: number, height: number): Labirint {
-		const result = new Labirint(width, height);
-		result.Step((width / 2) | 0, (height / 2) | 0);
-		for (let i = 0; i < 10; ++i) {
-			result.Step((Math.random() * width) | 0, (Math.random() * height) | 0);
-		}
-		return result;
 	}
 
 	public static Frame(width: number, height: number, border: number = 1) {

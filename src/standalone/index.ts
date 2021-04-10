@@ -8,7 +8,7 @@ import { Controller } from "../oddvar/controller";
 import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
 import { GameLogic, Manager } from "../oddvar/manager";
-import { CollectingSquaresGame, GameMap, MapCreator, PacMan, PacManBig, PacManLikeLabirint, RandomLabirint, TestMap } from '../games/collecting_squares';
+import { CollectingSquaresGame, GameMap, MapCreator, PacManMap, BigPacManMap, PacManLikeLabirint, RandomLabirint, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
 import { MultiagentSimulation } from '../games/multiagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
@@ -45,10 +45,10 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	];
 
 	const maps: Record<string, MapCreator | GameMap> = {
-		symmetric: new GameMap(PacMan, new Size(gameSize, gameSize)),
-		symmetric_big: new GameMap(PacManBig, new Size(gameSize, gameSize)),
+		symmetric: new GameMap(PacManMap, new Size(gameSize, gameSize)),
+		symmetric_big: new GameMap(BigPacManMap, new Size(gameSize, gameSize)),
 		test: TestMap,
-		"random maze": RandomLabirint,
+		"random maze": new GameMap(RandomMap, new Size(gameSize, gameSize)),
 	}
 	type gameCreator = (o: Oddvar, m: MapCreator | GameMap) => GameLogic | undefined;
 	const games: Record<string, gameCreator> = {
