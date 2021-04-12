@@ -1,4 +1,3 @@
-import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } from "node:constants";
 import { Deadly, DeadlyWorld } from "./base"
 import { Matrix, Point } from "./geometry"
 

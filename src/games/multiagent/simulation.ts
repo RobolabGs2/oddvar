@@ -1,7 +1,9 @@
 import { Point } from '../../oddvar/geometry';
 import { Oddvar } from "../../oddvar/oddvar"
 import { RectangleTexture } from '../../oddvar/textures';
-import { GameMap, Target, WallManager } from '../collecting_squares/collecting_squares';
+import { Target } from "../utils/target";
+import { WallManager } from "../utils/wall_manager";
+import { GameMap } from "../utils/game_map";
 import { DataMatrix, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Iterators } from '../../oddvar/iterator';
 import { GameLogic } from '../../oddvar/manager';
@@ -32,7 +34,7 @@ export class MultiagentSimulation implements GameLogic {
 			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width, layers));
 			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0.001, layers }, targetSize);
 			oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "avatar"), targetBody, this.getTexture(i));
-			oddvar.Get("Graphics").CreateCircleEntityAvatar(targetName(i, "avatar circle"), targetPoint, targetSize.width*0.9, bot.color);
+			oddvar.Get("Graphics").CreateCircleEntityAvatar(targetName(i, "avatar circle"), targetPoint, targetSize.width * 0.9, bot.color);
 			const target = new Target<number>(targetBody);
 			target.addEventListener("relocate", (p) => {
 				const old = this.map.toMazeCoords(p.from);
@@ -63,7 +65,7 @@ export class MultiagentSimulation implements GameLogic {
 			this.time = 0;
 		}
 		this.bots.forEach(bot => {
-			const l = bot.botMap.toMazeCoords(bot.location);
+			const l = bot.map.toMazeCoords(bot.location);
 			bot.Tick(this.time, this.targetMap.BFS(l, 2, true) as MatrixCell<Map<string, Point>>[])
 		});
 		this.bots.forEach(bot => bot.TickBody(dt));

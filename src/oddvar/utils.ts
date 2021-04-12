@@ -1,8 +1,12 @@
 export function getOrDefault<T>(nullable: T | null | undefined, default_: T): T {
-	if (nullable) {
+	if (nullable !== null && nullable !== undefined) {
 		return nullable;
 	}
 	return default_;
+}
+
+export function RandomElem<T>(elems: T[]): T {
+	return elems[(Math.random() * elems.length) | 0];
 }
 
 export type MapOfArrays<T> = {
@@ -26,8 +30,13 @@ export class Observable<EventsMap> {
 			return property;
 		}
 	});
-	public addEventListener<E extends keyof EventsMap>(eventType: E, listener: EventHandler<EventsMap, this>[E]) {
-		this.listeners[eventType].push(listener);
+	// Возвращает индекс слушателя
+	public addEventListener<E extends keyof EventsMap>(eventType: E, listener: EventHandler<EventsMap, this>[E]): number {
+		return this.listeners[eventType].push(listener) - 1;
+	}
+	// Удаляет слушателя по индексу
+	public removeEventListener<E extends keyof EventsMap>(eventType: E, listener: number) {
+		delete(this.listeners[eventType][listener]);
 	}
 	protected dispatchEvent<E extends keyof EventsMap>(eventType: E, event: EventsMap[E]) {
 		this.listeners[eventType].forEach(listener => listener.call(this, event));

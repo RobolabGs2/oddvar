@@ -4,7 +4,7 @@ import { RectangleBody } from '../../oddvar/physics/body';
 import { RaySensor } from '../../oddvar/physics/sensor';
 import { ColoredTexture, RectangleTexture } from '../../oddvar/textures';
 import { TailEntity } from '../../oddvar/world';
-import { GameMap } from '../collecting_squares/collecting_squares';
+import { GameMap } from "../utils/game_map";
 import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { NetworkCard } from './net';
 
@@ -12,20 +12,20 @@ export class Bot {
 	body: RectangleBody;
 	program?: Dir[];
 	lastCommand?: { dir: Dir; dest: Point; };
-	botMap: BotMap;
+	map: BotMap;
 	color: ColoredTexture;
 	constructor(
 		readonly name: string,
 		oddvar: Oddvar,
 		place: Point, readonly size: Size, botTexture: RectangleTexture,
-		readonly map: GameMap,
+		map: GameMap,
 		readonly layer: number,
 		readonly network: NetworkCard,
 		readonly debug = false) {
 		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2});
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
-		this.botMap = new BotMap(map);
+		this.map = new BotMap(map);
 		const e = oddvar.Get("World").CreateEntity(nameOf("entity"), place);
 		this.body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
 		oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), this.body, botTexture);
@@ -42,23 +42,23 @@ export class Bot {
 		const current = this.map.toMazeCoords(this.location);
 		this.lastCommand = {
 			dir: next,
-			dest: shifPoint(next, this.map.fromMazeCoords(movePoint(next, current)), this.map.cellSize.width / 4)
+			dest: Dir.shifPoint(next, this.map.fromMazeCoords(Dir.movePoint(next, current)), this.map.cellSize.width / 4)
 		};
 	}
 
 	resetMap() {
-		this.botMap = new BotMap(this.map);
+		this.map = new BotMap(this.map);
 	}
 
 	nextPath() {
-		this.program = this.botMap.nextPath(this.location);
+		this.program = this.map.nextPath(this.location);
 		this.nextPoint();
 		if (this.debug && this.program && this.layer === 0)
-			console.log(this.botMap.toString());
+			console.log(this.map.toString());
 	}
 
 	Move(direction: Dir) {
-		this.body.Kick(new Point(90000, 0).Transform(Matrix.Rotation(AngleDir(direction))));
+		this.body.Kick(new Point(90000, 0).Transform(Matrix.Rotation(Dir.Angle(direction))));
 		//this.body.entity.rotation - (direction == "backward" ? Math.PI : 0))))
 	}
 
@@ -83,23 +83,23 @@ export class Bot {
 	Tick(dt: number, visible: MatrixCell<Map<string, Point>>[]) {
 		this.network.readAll({
 			"target": (point) => {
-				if (this.botMap.target !== undefined)
+				if (this.map.target !== undefined)
 					return;
-				const l = this.botMap.toMazeCoords(point)
-				this.botMap.update(l.x, l.y, point);
+				const l = this.map.toMazeCoords(point)
+				this.map.update(l.x, l.y, point);
 			}
 		});
 		visible.forEach(cell => {
 			let updated = false;
 			cell.value.forEach((point, owner) => {
 				if (owner === this.name) {
-					this.botMap.update(cell.point.x, cell.point.y, point);
+					this.map.update(cell.point.x, cell.point.y, point);
 					updated = true;
 				} else {
 					this.network.send(owner, "target", point);
 				}
 			});
-			if (!updated) this.botMap.update(cell.point.x, cell.point.y, null)
+			if (!updated) this.map.update(cell.point.x, cell.point.y, null)
 		})
 		this.time += dt;
 		if (this.lastCommand === undefined) {
@@ -222,36 +222,6 @@ function* BotProgram(sensors: BotSensors): Generator<BotCommand<keyof BotCommand
 			}
 		}
 	}
-}
-
-export function AngleDir(d: Dir): number {
-	switch (d) {
-		case Dir.UP: return Math.PI * 1.5;
-		case Dir.DOWN: return Math.PI * 0.5;
-		case Dir.LEFT: return Math.PI;
-		case Dir.RIGHT: return 0;
-	}
-	throw new TypeError(`Unknown Dir: ${d}`);
-}
-
-export function movePoint(p: Dir, s: Point, count: number = 1): Point {
-	switch (p) {
-		case Dir.UP: s.y -= count; break;
-		case Dir.DOWN: s.y += count; break;
-		case Dir.LEFT: s.x -= count; break;
-		case Dir.RIGHT: s.x += count; break;
-	}
-	return s;
-}
-
-export function shifPoint(p: Dir, s: Point, count: number = 1): Point {
-	switch (p) {
-		case Dir.UP: s.x += count; break;
-		case Dir.DOWN: s.x -= count; break;
-		case Dir.LEFT: s.y += count; break;
-		case Dir.RIGHT: s.y -= count; break;
-	}
-	return s;
 }
 
 type BotSensor = {

@@ -1,5 +1,5 @@
 import { PrettyPrint } from "../debug";
-import { Matrix, Point, Size } from "../geometry";
+import { Point, Size } from "../geometry";
 import { PriorityQueue, Tagable } from "../utils";
 
 export type WallCreator = (center: Point, rotation: number, size: Size) => void;
@@ -80,7 +80,7 @@ export class DataMatrix<T> {
 					if (dir === startPoint)
 						break;
 					answer.push(dir);
-					movePoint(ReverseDir(dir), to)
+					Dir.movePoint(Dir.Reverse(dir), to)
 				}
 				return answer.reverse();
 			}
@@ -97,7 +97,7 @@ export class DataMatrix<T> {
 		}
 		return;
 	}
-	
+
 	BFS(start: Point, depth: number, wall: T): MatrixCell<T>[] {
 		const from = new DataMatrix<Dir>(this.width, this.height, -1);
 		start = start.Clone();
@@ -139,7 +139,7 @@ export class DataMatrix<T> {
 					if (to.x === start.x && to.y === start.y)
 						break;
 					answer[--i] = dir;
-					movePoint(ReverseDir(dir), to)
+					Dir.movePoint(Dir.Reverse(dir), to)
 				}
 				return answer;
 			}
@@ -152,7 +152,7 @@ export class DataMatrix<T> {
 
 	private nextPoints(v: Point, from: DataMatrix<Dir>, wall: T, handler: (dir: Dir, next: Point, value: T) => void) {
 		for (let dir: Dir = 0; dir < 4; dir++) {
-			const next = movePoint(dir, v.Clone());
+			const next = Dir.movePoint(dir, v.Clone());
 			if (inRange(next.y, this.height) &&
 				inRange(next.x, this.width) &&
 				from.get(next.x, next.y) === -1 &&
@@ -321,36 +321,50 @@ export class Labirint extends DataMatrix<boolean>{
 	}
 }
 
-export enum Dir { UP, DOWN, LEFT, RIGHT }
+// Мне не хватило возможности сунуть в enum функций, поэтому здесь рукотворный enum
+export type Dir = number
+export const Dir = {
+	UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3,
+	0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT",
 
-function ReverseDir(d: Dir): Dir {
-	switch (d) {
-		case Dir.UP: return Dir.DOWN;
-		case Dir.DOWN: return Dir.UP;
-		case Dir.LEFT: return Dir.RIGHT;
-		case Dir.RIGHT: return Dir.LEFT;
+	Reverse(d: Dir): Dir {
+		switch (d) {
+			case Dir.UP: return Dir.DOWN;
+			case Dir.DOWN: return Dir.UP;
+			case Dir.LEFT: return Dir.RIGHT;
+			case Dir.RIGHT: return Dir.LEFT;
+		}
+		throw new TypeError(`Unknown Dir: ${d}`);
+	},
+	Angle(d: Dir): number {
+		switch (d) {
+			case Dir.UP: return Math.PI * 1.5;
+			case Dir.DOWN: return Math.PI * 0.5;
+			case Dir.LEFT: return Math.PI;
+			case Dir.RIGHT: return 0;
+		}
+		throw new TypeError(`Unknown Dir: ${d}`);
+	},
+	// Перемещает точку по направлению
+	movePoint(p: Dir, s: Point, count: number = 1): Point {
+		switch (p) {
+			case Dir.UP: s.y -= count; break;
+			case Dir.DOWN: s.y += count; break;
+			case Dir.LEFT: s.x -= count; break;
+			case Dir.RIGHT: s.x += count; break;
+		}
+		return s;
+	},
+	// Сдвигает точку, чтобы она соблюдала правила ПДД с левосторонним движением
+	shifPoint(p: Dir, s: Point, count: number = 1): Point {
+		switch (p) {
+			case Dir.UP: s.x += count; break;
+			case Dir.DOWN: s.x -= count; break;
+			case Dir.LEFT: s.y += count; break;
+			case Dir.RIGHT: s.y -= count; break;
+		}
+		return s;
 	}
-	throw new TypeError(`Unknown Dir: ${d}`);
-}
-
-function AngleDir(d: Dir): number {
-	switch (d) {
-		case Dir.UP: return Math.PI * 1.5;
-		case Dir.DOWN: return Math.PI * 0.5;
-		case Dir.LEFT: return Math.PI;
-		case Dir.RIGHT: return 0;
-	}
-	throw new TypeError(`Unknown Dir: ${d}`);
-}
-
-function movePoint(p: Dir, s: Point, count: number = 1): Point {
-	switch (p) {
-		case Dir.UP: s.y -= count; break;
-		case Dir.DOWN: s.y += count; break;
-		case Dir.LEFT: s.x -= count; break;
-		case Dir.RIGHT: s.x += count; break;
-	}
-	return s;
 }
 
 class PointItem implements Tagable {

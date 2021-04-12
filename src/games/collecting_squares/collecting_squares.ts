@@ -4,13 +4,11 @@ import { Entity } from "../../oddvar/world"
 import { Player } from '../../oddvar/players';
 import { PhysicControlled } from '../../oddvar/controller';
 import { GameLogic } from '../../oddvar/manager';
-import { Body, IBody, PhysicalMaterial, RectangleBody } from '../../oddvar/physics/body';
+import { IBody } from '../../oddvar/physics/body';
 import { Labirint } from '../../oddvar/labirint/labirint';
-import { Observable } from '../../oddvar/utils';
-import { RectangleTexture, StyledTexture } from '../../oddvar/textures';
-
-
-export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
+import { GameMap } from '../utils/game_map';
+import { Target } from '../utils/target';
+import { WallCreator, WallManager } from '../utils/wall_manager';
 
 export type MapCreator = (oddvar: Oddvar, createWall: WallCreator) => void;
 
@@ -32,55 +30,6 @@ export const TestMap: MapCreator = (oddvar, createWall) => {
 		createWall(new Point(100, 300), Math.PI / 4, borderSize);
 		createWall(new Point(300, 300), -Math.PI / 4, borderSize, { lineFriction: 0.1, angleFriction: 0.1 });
 	}
-}
-
-
-function RandomElem<T>(elems: T[]): T {
-	return elems[(Math.random() * elems.length) | 0];
-}
-
-
-export interface TargetEvents<Player> {
-	relocate: {from: Point, to: Point};
-	collision: Player;
-}
-
-export class Target<Player> extends Observable<TargetEvents<Player>> {
-	readonly players = new Map<Body, Player>();
-	constructor(readonly body: Body) {
-		super();
-		body.AddCollisionListener((self, another) => {
-			const player = this.players.get(another);
-			if (player !== undefined)
-				this.dispatchEvent("collision", player)
-		})
-	}
-
-	relocate(to: Point) {
-		this.dispatchEvent("relocate", {from:this.body.entity.location, to});
-		this.body.entity.location = to;
-	}
-}
-
-export class WallManager {
-	constructor(readonly oddvar: Oddvar, textureName = "bricks", readonly debug = false) {
-		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
-	}
-	private wallCounter = 0;
-	public borderTexture: StyledTexture;
-	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red", strokeWidth: 0.5 });
-	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 1, angleFriction: 1 }) {
-		const id = this.wallCounter++;
-		const border = this.oddvar.Get("World").CreateEntity(`wall ${id}`, center, rotation);
-		const body = this.oddvar.Get("Physics").CreateRectangleBody(`wall ${id} body`, border, material, size)
-		this.oddvar.Get("Graphics").CreatePolygonBodyAvatar(`wall ${id} avatar`, body, this.borderTexture)
-		if (this.debug) this.oddvar.Get("Graphics").CreateRectangleBodyAvatar(`wall ${id} avatar debug`, body, this.borderTextureDebug)
-	}
-
-	public get creator(): WallCreator {
-		return this.newWall.bind(this);
-	}
-
 }
 
 export class CollectingSquaresGame implements GameLogic {
@@ -163,28 +112,6 @@ const PacManQ: (0 | 1)[][] = [
 	[0, 0, 0, 1, 1, 1, 0, 1, 1, 1],
 ]
 
-export class GameMap {
-	constructor(
-		readonly maze: Labirint,
-		readonly size: Size = new Size(500, 500)
-	) {
-		this.cellSize = new Size(size.width / maze.width, size.height / maze.height)
-	}
-	readonly cellSize: Readonly<Size>;
-
-	Draw(createWall: WallCreator) {
-		this.maze.Draw(this.cellSize, Point.Zero, createWall);
-	}
-
-	toMazeCoords(p: Point): Point {
-		return new Point((p.x / this.cellSize.width) | 0, (p.y / this.cellSize.height) | 0);
-	}
-
-	fromMazeCoords(p: Point): Point {
-		return new Point((p.x + 0.5) * this.cellSize.width, (p.y + 0.5) * this.cellSize.height);
-	}
-}
-
 export const BigPacManMap = Labirint.SymmetryOdd(PacManQ, "XY", 2).Frame();
 export const PacManMap = Labirint.SymmetryOdd(PacManQ).Frame();
 export const RandomMap = Labirint.Generate(50, 50).Or(Labirint.Frame(50, 50, 3));
@@ -195,7 +122,7 @@ function drawMaze(maze: Labirint, canvasWidth: number, canvasHeight: number, cre
 
 export const PacManLikeLabirint: MapCreator = (oddvar, createWall) => drawMaze(PacManMap, 500, 500, createWall);
 
-export const RandomLabirint: MapCreator = (oddvar, createWall) => { 
+export const RandomLabirint: MapCreator = (oddvar, createWall) => {
 	RandomMap.Draw(new Size(10, 10), new Point(0, 0), createWall)
 }
 
