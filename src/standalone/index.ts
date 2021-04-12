@@ -11,6 +11,7 @@ import { GameLogic, Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, MapCreator, PacManMap, BigPacManMap, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
 import { GameMap } from "../games/utils/game_map";
 import { MultiagentSimulation } from '../games/multiagent/simulation';
+import { MonoagentSimulation } from '../games/monoagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
@@ -54,6 +55,7 @@ DownloadResources().then(([reflectionJSON, resources]) => {
 	type gameCreator = (o: Oddvar, m: MapCreator | GameMap) => GameLogic | undefined;
 	const games: Record<string, gameCreator> = {
 		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MultiagentSimulation(o, m) : undefined,
+		"Симуляция с одним агентом": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m) : undefined,
 		"Собери квадраты": (o: Oddvar, m: MapCreator | GameMap) => new CollectingSquaresGame(o, m),
 	}
 	let lastMap = maps["symmetric"];
