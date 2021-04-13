@@ -60,7 +60,7 @@ function joystick(listener: (key: KeyAction, state: "up" | "down") => void) {
 		}
 	}
 	const centerSize = 50;
-	const backSize = 256;
+	const backSize = 128;
 	const borderWidth = 6;
 	const offset = (backSize - centerSize) / 2 - borderWidth;
 	const joystickView = HTML.CreateElement("div",

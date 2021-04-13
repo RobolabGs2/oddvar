@@ -3,13 +3,22 @@ export namespace HTML {
 	export function CreateElement<K extends keyof HTMLElementTagNameMap>(
 		tagName: K,
 		...modify: ((t: HTMLElementTagNameMap[K]) => void)[]): HTMLElementTagNameMap[K] {
-		const elem = document.createElement(tagName);
-		modify.forEach(x => x(elem));
-		return elem;
+		return ModifyElement(document.createElement(tagName), ...modify);
+	}
+
+	export function ModifyElement<T extends HTMLElement>(
+		tag: T,
+		...modify: ((t: T) => void)[]): T {
+		modify.forEach(x => x(tag));
+		return tag;
 	}
 
 	export function SetTitle(title: string) {
 		return (elem: HTMLElement) => elem.title = title;
+	}
+
+	export function SetId(id: string) {
+		return (elem: HTMLElement) => elem.id = id;
 	}
 
 	export function AddClass(className: string) {
@@ -77,12 +86,11 @@ export namespace HTML {
 					el.addEventListener("touchstart", function (ev) {
 						ev.preventDefault();
 						const touch = ev.touches.item(0)!;
-						(<((this: HTMLElement, ev: HTMLElementEventMap["mousedown"]) => any)>listener).
-							call(this, new MouseEvent("mousedown", {
-								clientX: touch.clientX,
-								clientY: touch.clientY,
-								button: 0,
-							}));
+						ev.target!.dispatchEvent(new MouseEvent("mousedown", {
+							clientX: touch.clientX,
+							clientY: touch.clientY,
+							button: 0,
+						}));
 					});
 					break;
 				case "mousemove":
@@ -97,13 +105,11 @@ export namespace HTML {
 						for (let i = 0; i < touches.length; i++) {
 							const touch = ev.touches.item(i)!;
 							if (distanceFromCenter(touch.clientX, touch.clientY) < r_2) {
-								(<((this: HTMLElement, ev: HTMLElementEventMap["mousemove"]) => any)>listener).
-									call(this, new MouseEvent("mousemove", {
-										clientX: touch.clientX,
-										clientY: touch.clientY,
-										button: 0,
-									}));
-								return
+								ev.target!.dispatchEvent(new MouseEvent("mousemove", {
+									clientX: touch.clientX,
+									clientY: touch.clientY,
+									button: 0,
+								}));
 							}
 						}
 					});
@@ -111,8 +117,7 @@ export namespace HTML {
 				case "mouseup":
 					el.addEventListener("touchend", function (ev) {
 						ev.preventDefault();
-						(<((this: HTMLElement, ev: HTMLElementEventMap["mouseup"]) => any)>listener).
-							call(this, new MouseEvent("mouseup"));
+						ev.target!.dispatchEvent(new MouseEvent("mouseup"));
 					});
 					break;
 			}
@@ -123,5 +128,5 @@ export namespace HTML {
 
 function sqr(x: number) { return x * x }
 function distanceSquare(x1: number, y1: number, x2: number, y2: number) {
-	return sqr(x1-x2)+sqr(y1-y2);
+	return sqr(x1 - x2) + sqr(y1 - y2);
 }
