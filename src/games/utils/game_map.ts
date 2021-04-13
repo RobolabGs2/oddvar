@@ -4,13 +4,14 @@ import { WallCreator } from './wall_manager';
 
 
 export class GameMap {
+	readonly cellSize: Readonly<Size>;
+
 	constructor(
 		readonly maze: Labirint,
 		readonly size: Size = new Size(500, 500)
 	) {
 		this.cellSize = new Size(size.width / maze.width, size.height / maze.height);
 	}
-	readonly cellSize: Readonly<Size>;
 
 	Draw(createWall: WallCreator) {
 		this.maze.Draw(this.cellSize, Point.Zero, createWall);

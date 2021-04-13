@@ -6,12 +6,14 @@ import { StyledTexture } from '../../oddvar/textures';
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
 
 export class WallManager {
-	constructor(readonly oddvar: Oddvar, textureName = "bricks", readonly debug = false) {
-		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
-	}
 	private wallCounter = 0;
 	public borderTexture: StyledTexture;
 	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red", strokeWidth: 0.5 });
+
+	constructor(readonly oddvar: Oddvar, textureName = "bricks", readonly debug = false) {
+		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
+	}
+
 	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 1, angleFriction: 1 }) {
 		const id = this.wallCounter++;
 		const border = this.oddvar.Get("World").CreateEntity(`wall ${id}`, center, rotation);

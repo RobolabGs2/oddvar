@@ -9,6 +9,7 @@ export interface TargetEvents<Player> {
 
 export class Target<Player> extends Observable<TargetEvents<Player>> {
 	readonly players = new Map<Body, Player>();
+
 	constructor(readonly body: Body) {
 		super();
 		body.AddCollisionListener((self, another) => {
