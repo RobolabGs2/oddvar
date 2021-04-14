@@ -9,16 +9,35 @@ import { Iterators } from '../../oddvar/iterator';
 import { GameLogic } from '../../oddvar/manager';
 import { Bot } from './bot';
 import { Network } from './net';
+import { Observable } from '../../oddvar/utils';
+import { TableModel, WindowsManager } from '../../web/windows';
 
 const botsCount = 5;
+
+interface BotTableLine {
+	name: string;
+	score: number;
+}
+
+class BotTable extends Observable<{ updated: number }> implements TableModel<BotTable, keyof BotTableLine> {
+	fields: BotTableLine[] = [];
+	addBot(name: string) {
+		this.fields.push({ name, score: -1 });
+	}
+	updateScore(i: number) {
+		this.fields[i].score++;
+		this.dispatchEvent("updated", i);
+	}
+}
 
 export class MultiagentSimulation implements GameLogic {
 	bots: Bot[]
 	wallManager = new WallManager(this.oddvar);
 	private network = new Network();
 	private targetMap: DataMatrix<boolean | Map<string, Point>>
-	constructor(readonly oddvar: Oddvar, private map: GameMap, readonly debug = false) {
+	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
 		console.log(this.map.maze.toString())
+		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
 		this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
 		const nameOfBot = (i: number) => `BOT №${i}`
@@ -29,7 +48,8 @@ export class MultiagentSimulation implements GameLogic {
 		const targetSize = this.map.cellSize.Scale(1 / 5);
 		const targetName = (i: number, name: string) => `target_${i} ${name}`
 		const admin = this.network.CreateNetworkCard("admin card", "admin");
-		this.bots.forEach((bot, i) => {
+		this.bots.map((bot, i) => {
+			scoreTable.addBot(bot.name);
 			const layers = 1 << i;
 			const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), this.GenerateInconflictPoint(targetSize.width, layers));
 			const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0.001, layers }, targetSize);
@@ -42,6 +62,7 @@ export class MultiagentSimulation implements GameLogic {
 				(<Map<string, Point>>this.targetMap.get(old.x, old.y)).delete(bot.name);
 				(<Map<string, Point>>this.targetMap.get(now.x, now.y)).set(bot.name, p.to);
 				bot.resetMap();
+				scoreTable.updateScore(i);
 				// admin.send(new Message("admin", bot.name, "target", p.to));
 			});
 			target.addEventListener("collision", () => {
@@ -50,7 +71,9 @@ export class MultiagentSimulation implements GameLogic {
 			});
 			target.players.set(bot.body, i);
 			target.relocate(this.GenerateInconflictPoint(targetSize.width, layers));
-		})
+		});
+		winMan.CreateTableWindow("Score", scoreTable, ["name", "score"],
+			this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 	}
 
 	private getTexture(i: number): RectangleTexture {

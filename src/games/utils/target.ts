@@ -7,7 +7,7 @@ export interface TargetEvents<Player> {
 	collision: Player;
 }
 
-export class Target<Player> extends Observable<TargetEvents<Player>> {
+export class Target<Player> extends Observable<TargetEvents<Player>, Target<Player>> {
 	readonly players = new Map<Body, Player>();
 
 	constructor(readonly body: Body) {

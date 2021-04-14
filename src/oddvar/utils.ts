@@ -19,8 +19,8 @@ export type EventHandler<T, This = unknown> = {
 
 type ListenersMap<EventsMap, This = unknown> = MapOfArrays<EventHandler<EventsMap, This>>;
 
-export class Observable<EventsMap> {
-	protected listeners: ListenersMap<EventsMap, this> = new Proxy<ListenersMap<EventsMap, this>>({} as ListenersMap<EventsMap, this>, {
+export class Observable<EventsMap, This = unknown> {
+	protected listeners: ListenersMap<EventsMap, This> = new Proxy<ListenersMap<EventsMap, This>>({} as ListenersMap<EventsMap, This>, {
 		get: (map, propertyName, receiver) => {
 			let property = Reflect.get(map, propertyName, receiver);
 			if(property !== undefined)
@@ -31,7 +31,7 @@ export class Observable<EventsMap> {
 		}
 	});
 	// Возвращает индекс слушателя
-	public addEventListener<E extends keyof EventsMap>(eventType: E, listener: EventHandler<EventsMap, this>[E]): number {
+	public addEventListener<E extends keyof EventsMap>(eventType: E, listener: EventHandler<EventsMap, This>[E]): number {
 		return this.listeners[eventType].push(listener) - 1;
 	}
 	// Удаляет слушателя по индексу
@@ -39,7 +39,7 @@ export class Observable<EventsMap> {
 		delete(this.listeners[eventType][listener]);
 	}
 	protected dispatchEvent<E extends keyof EventsMap>(eventType: E, event: EventsMap[E]) {
-		this.listeners[eventType].forEach(listener => listener.call(this, event));
+		this.listeners[eventType].forEach(listener => listener.call(this as unknown as This, event));
 	}
 }
 
