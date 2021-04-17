@@ -12,7 +12,7 @@ import { Network } from './net';
 import { Observable } from '../../oddvar/utils';
 import { TableModel, WindowsManager } from '../../web/windows';
 
-const botsCount = 5;
+const botsCount = 6;
 
 interface BotTableLine {
 	name: string;
@@ -40,7 +40,7 @@ export class MultiagentSimulation implements GameLogic {
 		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
 		this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
-		const nameOfBot = (i: number) => `BOT №${i}`
+		const nameOfBot = (i: number) => `Bot ${i}`
 		this.bots = Iterators.Range(botsCount).
 			map(i => new Bot(nameOfBot(i),
 				this.oddvar, this.GenerateInconflictPoint(10, 1 << i), this.map.cellSize.Scale(3 / 7),
@@ -72,7 +72,7 @@ export class MultiagentSimulation implements GameLogic {
 			target.players.set(bot.body, i);
 			target.relocate(this.GenerateInconflictPoint(targetSize.width, layers));
 		});
-		winMan.CreateTableWindow("Score", scoreTable, ["name", "score"],
+		winMan.CreateTableWindow("Score", scoreTable, ["name", "score"], new Point(map.size.width, map.size.height/4),
 			this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 	}
 

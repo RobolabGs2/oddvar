@@ -8,6 +8,10 @@ import { GameMap } from "../utils/game_map";
 import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { NetworkCard } from './net';
 
+const Colors = [
+	"blue", "red", "green",
+	"purple", "gold", "peru", "plum", "silver"
+];
 export class Bot {
 	body: RectangleBody;
 	program?: Dir[];
@@ -22,14 +26,14 @@ export class Bot {
 		readonly layer: number,
 		readonly network: NetworkCard,
 		readonly debug = false) {
-		const currentColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2});
+		const currentColor = Colors[layer]//`rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2 });
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
 		this.map = new BotMap(map);
 		const e = oddvar.Get("World").CreateEntity(nameOf("entity"), place);
 		this.body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
 		oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), this.body, botTexture);
-		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("circle avatar"), e, size.width*0.9, this.color);
+		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("circle avatar"), e, size.width * 0.9, this.color);
 	}
 
 	nextPoint() {

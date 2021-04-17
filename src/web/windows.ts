@@ -8,7 +8,7 @@ export interface TableModel<T, E extends string> extends Observable<{ updated: n
 
 export class WindowsManager {
 	constructor(readonly container: HTMLElement, styleSheet: CSSStyleSheet) {
-		const containerClass = "windows-container";
+		const containerClass = "windows-container"+Math.random().toString().slice(2);
 		container.classList.add(containerClass);
 		styleSheet.addRule(`.${containerClass} > article`, `
 			position: absolute;
@@ -28,14 +28,23 @@ export class WindowsManager {
 			margin: 0;
 			height: 100%;
 		`);
+		styleSheet.addRule(`.${containerClass} > article > header button:focus`, `
+			outline: none;
+		`);
 		styleSheet.addRule(`.${containerClass} > article > section > .table`, `
 			display: flex;
 			flex-direction: column;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section > .table > section `, `
+		styleSheet.addRule(`.${containerClass} > article > section > .table > section`, `
 			display: flex;
 			justify-content: space-between;
 			border-top: solid 1px gray;
+		`);
+		styleSheet.addRule(`.${containerClass} > article > section > .table > section > span`, `
+			font-family: monoscape;
+			font-weight: bold;
+			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
+			color: white;
 		`);
 	}
 
@@ -44,13 +53,13 @@ export class WindowsManager {
 	}
 
 	CreateTableWindow<T, K extends string>(title: string, table: TableModel<T, K>,
-		header: K[], lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
+		header: K[], pos = Point.Zero, lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
 		const lines = table.fields.map((line) => header.map(name => HTML.CreateElement("span", HTML.SetText(`${line[name]}`))));
 		table.addEventListener("updated", i => lines[i].forEach((cell, j) => HTML.SetText(`${table.fields[i][header[j]]}`)(cell)))
 		this.container.appendChild(this.CreateWindow(title, HTML.CreateElement("article",
 			HTML.AddClass("table"),
 			HTML.Append(lines.map((view, i) => HTML.CreateElement("section", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { })))))
-		)))
+		), pos))
 	}
 
 	private CreateWindow(title: string, inner: HTMLElement, defaultPosition = Point.Zero): HTMLElement {
@@ -86,7 +95,7 @@ export class WindowsManager {
 		const hide = () => {
 			const wasHide = content.style.display === "none";
 			content.style.display = wasHide ? "" : "none";
-			hideButton.innerText = wasHide ? "🗖" : "🗕";
+			hideButton.innerText = wasHide ? "🗕" : "🗖";
 		};
 		return HTML.CreateElement("header",
 			HTML.AddEventListener("dblclick", hide),

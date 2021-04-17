@@ -42,6 +42,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	document.body.style.minWidth = document.body.style.minHeight = `${gameSize}px`;
 	document.body.style.height = "100vh";
 	document.body.style.width = "100vw";
+	document.body.style.overflow = "hidden";
 	const canvas = HTML.CreateElement("canvas",
 		HTML.SetStyles(style => {
 			// style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
