@@ -89,11 +89,11 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	type gameCreator = (o: Oddvar, m: MapCreator | GameMap) => GameLogic | undefined;
 	const games: Record<string, gameCreator> = {
 		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MultiagentSimulation(o, m, gameWindowsManager) : undefined,
-		"Симуляция с одним агентом": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m) : undefined,
+		"Симуляция с одним агентом": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m, gameWindowsManager) : undefined,
 		"Собери квадраты": (o: Oddvar, m: MapCreator | GameMap) => new CollectingSquaresGame(o, m),
 	}
 	let lastMap = maps["symmetric"];
-	let lastGame = games["Симуляция с кучей агентов"];
+	let lastGame = games["Симуляция с одним агентом"];
 
 	const newManager = (game: gameCreator = lastGame, map: MapCreator | GameMap = lastMap) => {
 		gameWindowsContainer.innerHTML = "";
