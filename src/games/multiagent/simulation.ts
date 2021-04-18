@@ -31,6 +31,28 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 	}
 }
 
+class RotatedLogs<T extends { section: HTMLElement }> {
+	buffer: T[] = [];
+	cur = 0;
+	constructor(readonly cap = 100, readonly create: () => T, readonly parent: HTMLElement) {
+		for(let i = 0; i< cap; i++) {
+			const line = (this.buffer[i] = this.create()).section;
+			line.style.order = `-1`;
+			this.parent.appendChild(line);
+		}
+	}
+	insert(inserter: (line: T) => void) {
+		const lineNum = this.cur;
+		requestAnimationFrame(() => {
+			const line = this.buffer[(lineNum) % this.cap];
+			line.section.style.order = `${lineNum}`;
+			inserter(line);
+		})
+		++this.cur;
+	}
+
+}
+
 export class MultiagentSimulation implements GameLogic {
 	bots: Bot[]
 	wallManager = new WallManager(this.oddvar);
@@ -40,31 +62,51 @@ export class MultiagentSimulation implements GameLogic {
 		console.log(this.map.maze.toString())
 
 
+		const logHeight = 450;
 		const networkLogsView = HTML.CreateElement("article",
 			HTML.SetStyles(style => {
-				style.height = "256px";
-				style.maxHeight = "256px";
+				style.maxHeight = style.height = `${logHeight}px`;
 				style.width = "512px";
 				style.overflow = "auto";
 				style.background = "rgba(0, 0, 0, 0.9)";
 				style.color = "lime";
+				style.display = "flex";
+				style.flexDirection = "column";
 			})
 		);
+		const networkLogs = new RotatedLogs(32, () => {
+			const columns = [1, 2, 3, 4].map(text => HTML.CreateElement("span", HTML.SetStyles(s => s.flex = "1")))
+			const section = HTML.CreateElement("section",
+				HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
+				HTML.Append(columns));
+			return { section, columns }
+		}, networkLogsView);
 
-		setInterval(() => requestAnimationFrame(() => networkLogsView.scroll(0, networkLogsView.scrollHeight)), 1000)
+		// setInterval(() => requestAnimationFrame(() => networkLogsView.scroll(0, networkLogsView.scrollHeight)), 1000)
 
-		const p2s = (p: Point) => `(${(p.x/100).toFixed(2).slice(2)}, ${(p.y/100).toFixed(2).slice(2)})`
-		winMan.CreateInfoWindow("Network", networkLogsView, new Point(map.size.width, map.size.height-300));
-		this.network = new Network((msg => requestAnimationFrame(()=> networkLogsView.appendChild(HTML.CreateElement("section",
-			HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
-			(el) => setTimeout(() => networkLogsView.removeChild(el), 5 * 1000),
-			HTML.Append([
-				`${msg.from} -> ${msg.to}`,
-				msg.type,
-				`${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
-				`${msg.timestamp.toFixed(2)}`
-			].map(text => HTML.CreateElement("span", HTML.SetText(text), HTML.SetStyles(s => s.flex = "1"))
-			)))))));
+		const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`
+		winMan.CreateInfoWindow("Network", networkLogsView, new Point(map.size.width, map.size.height - logHeight - 28));
+		this.network = new Network(
+			(msg => {
+				networkLogs.insert(line => {
+					const columns = line.columns;
+					columns[0].textContent = `${msg.from} -> ${msg.to}`,
+					columns[1].textContent = msg.type,
+					columns[2].textContent = `${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
+					columns[3].textContent = `${msg.timestamp.toFixed(2)}`;
+				})
+			})
+				// requestAnimationFrame(() => networkLogsView.appendChild(HTML.CreateElement("section",
+				// HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
+				// (el) => setTimeout(() => networkLogsView.removeChild(el), 5 * 1000),
+				// HTML.Append([
+				// 	`${msg.from} -> ${msg.to}`,
+				// 	msg.type,
+				// 	`${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
+				// 	`${msg.timestamp.toFixed(2)}`
+				// ].map(text => HTML.CreateElement("span", HTML.SetText(text), HTML.SetStyles(s => s.flex = "1"))
+				// ))))))
+		);
 		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
 		this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
