@@ -29,7 +29,7 @@ export class Bot {
 		const currentColor = Colors[layer]//`rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2 });
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
-		this.map = new BotMap(map);
+		this.map = new BotMap(map, -1);
 		const e = oddvar.Get("World").CreateEntity(nameOf("entity"), place);
 		this.body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
 		oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), this.body, botTexture);
@@ -51,7 +51,8 @@ export class Bot {
 	}
 
 	resetMap() {
-		this.map = new BotMap(this.map);
+		this.map = new BotMap(this.map, this.network.time);
+		this.network.broadcast("captured", true);
 	}
 
 	nextPath() {
@@ -62,7 +63,7 @@ export class Bot {
 	}
 
 	Move(direction: Dir) {
-		this.body.Kick(new Point(90000, 0).Transform(Matrix.Rotation(Dir.Angle(direction))));
+		this.body.Kick(new Point(100000, 0).Transform(Matrix.Rotation(Dir.Angle(direction))));
 		//this.body.entity.rotation - (direction == "backward" ? Math.PI : 0))))
 	}
 
@@ -83,14 +84,24 @@ export class Bot {
 			this.body.Kick(delta.Norm().Mult(this.body.size.Area() * 500));
 		}
 	}
-
+	anotherStates = new Map<string, boolean>();
 	Tick(dt: number, visible: MatrixCell<Map<string, Point>>[]) {
 		this.network.readAll({
-			"target": (point) => {
-				if (this.map.target !== undefined)
+			"target": (msg) => {
+				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt)
 					return;
-				const l = this.map.toMazeCoords(point)
-				this.map.update(l.x, l.y, point);
+				const l = this.map.toMazeCoords(msg.data)
+				if (this.map.update(l.x, l.y, msg.data))
+					this.nextPath();
+			},
+			"captured": (msg) => {
+				this.anotherStates.set(msg.from, false);
+			},
+			"empty": (msg) => {
+				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt)
+					return;
+				const l = this.map.toMazeCoords(msg.data)
+				this.map.update(l.x, l.y, null);
 			}
 		});
 		visible.forEach(cell => {
@@ -98,12 +109,20 @@ export class Bot {
 			cell.value.forEach((point, owner) => {
 				if (owner === this.name) {
 					this.map.update(cell.point.x, cell.point.y, point);
-					updated = true;
 				} else {
-					this.network.send(owner, "target", point);
+					if (!this.anotherStates.get(owner)) {
+						this.network.send(owner, "target", point);
+						this.anotherStates.set(owner, true);
+					}
+					this.map.update(cell.point.x, cell.point.y, null);
 				}
+				updated = true;
 			});
-			if (!updated) this.map.update(cell.point.x, cell.point.y, null)
+			if (!updated) {
+				if (this.map.update(cell.point.x, cell.point.y, null)) {
+					this.network.broadcast("empty", this.map.fromMazeCoords(cell.point));
+				}
+			}
 		})
 		this.time += dt;
 		if (this.lastCommand === undefined) {
@@ -130,17 +149,21 @@ export class BotMap extends GameMap {
 	explored: DataMatrix<undefined | null | Point>
 	merged: DataMatrix<undefined | null | Point | boolean>
 	target?: Point;
-	constructor(gameMap: GameMap) {
+	constructor(gameMap: GameMap, readonly createdAt: number) {
 		super(gameMap.maze, gameMap.size);
 		this.explored = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
 		this.merged = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
 	}
-	update(x: number, y: number, data: null | Point) {
+	update(x: number, y: number, data: null | Point): boolean {
 		if (data !== null)
 			this.target = this.toMazeCoords(data);
 		else if (this.target !== undefined && this.target.x === x && this.target.y === y)
 			this.target = undefined;
-		this.explored.set(x, y, data);
+		if (this.explored.get(x, y) !== data) {
+			this.explored.set(x, y, data);
+			return true;
+		}
+		return false;
 	}
 	nextPath(from: Point): Dir[] | undefined {
 		from = this.toMazeCoords(from);
@@ -150,7 +173,7 @@ export class BotMap extends GameMap {
 		return this.maze.FindPathAStar(from, (p) => {
 			if (this.explored.get(p.x, p.y) === undefined)
 				return 0;
-			return 1;//this.maze.width + this.maze.height - from.Manhattan(p);
+			return (Math.random()*10)+1///this.maze.width + this.maze.height - from.Manhattan(p);
 		});
 	}
 	toString() {

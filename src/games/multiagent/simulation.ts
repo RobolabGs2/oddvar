@@ -11,8 +11,9 @@ import { Bot } from './bot';
 import { Network } from './net';
 import { Observable } from '../../oddvar/utils';
 import { TableModel, WindowsManager } from '../../web/windows';
+import { HTML } from '../../web/html';
 
-const botsCount = 6;
+const botsCount = 5;
 
 interface BotTableLine {
 	name: string;
@@ -33,10 +34,37 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 export class MultiagentSimulation implements GameLogic {
 	bots: Bot[]
 	wallManager = new WallManager(this.oddvar);
-	private network = new Network();
+	private network: Network;
 	private targetMap: DataMatrix<boolean | Map<string, Point>>
 	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
 		console.log(this.map.maze.toString())
+
+
+		const networkLogsView = HTML.CreateElement("article",
+			HTML.SetStyles(style => {
+				style.height = "256px";
+				style.maxHeight = "256px";
+				style.width = "512px";
+				style.overflow = "auto";
+				style.background = "rgba(0, 0, 0, 0.9)";
+				style.color = "lime";
+			})
+		);
+
+		setInterval(() => requestAnimationFrame(() => networkLogsView.scroll(0, networkLogsView.scrollHeight)), 1000)
+
+		const p2s = (p: Point) => `(${(p.x/100).toFixed(2).slice(2)}, ${(p.y/100).toFixed(2).slice(2)})`
+		winMan.CreateInfoWindow("Network", networkLogsView, new Point(map.size.width, map.size.height-300));
+		this.network = new Network((msg => requestAnimationFrame(()=> networkLogsView.appendChild(HTML.CreateElement("section",
+			HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
+			(el) => setTimeout(() => networkLogsView.removeChild(el), 5 * 1000),
+			HTML.Append([
+				`${msg.from} -> ${msg.to}`,
+				msg.type,
+				`${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
+				`${msg.timestamp.toFixed(2)}`
+			].map(text => HTML.CreateElement("span", HTML.SetText(text), HTML.SetStyles(s => s.flex = "1"))
+			)))))));
 		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
 		this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
@@ -72,7 +100,7 @@ export class MultiagentSimulation implements GameLogic {
 			target.players.set(bot.body, i);
 			target.relocate(this.GenerateInconflictPoint(targetSize.width, layers));
 		});
-		winMan.CreateTableWindow("Score", scoreTable, ["name", "score"], new Point(map.size.width, map.size.height/4),
+		winMan.CreateTableWindow("Score", scoreTable, ["name", "score"], new Point(map.size.width, map.size.height / 4),
 			this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 	}
 
@@ -82,8 +110,11 @@ export class MultiagentSimulation implements GameLogic {
 
 	time = 0
 	Tick(dt: number): void {
+		if (dt > 1) {
+			dt = 1;
+		}
 		this.time += dt;
-		if (this.time > 0.5) {
+		if (this.time > 0.1) {
 			this.network.Tick(this.time);
 			this.time = 0;
 		}

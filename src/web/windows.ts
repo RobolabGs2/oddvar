@@ -15,6 +15,8 @@ export class WindowsManager {
 			border: double 5px gray;
 			border-radius: 5px;
 			background-color: rgba(250, 250, 250, 0.6);
+			font-family: "Bitstream Vera Sans Mono", monospace;
+			font-size: 12px;
 		`);
 		styleSheet.addRule(`.${containerClass} > article > header`, `
 			border-bottom: solid 1px gray;
@@ -27,6 +29,7 @@ export class WindowsManager {
 			border-left: solid 1px gray;
 			margin: 0;
 			height: 100%;
+			width: 18px;
 		`);
 		styleSheet.addRule(`.${containerClass} > article > header button:focus`, `
 			outline: none;
@@ -41,7 +44,6 @@ export class WindowsManager {
 			border-top: solid 1px gray;
 		`);
 		styleSheet.addRule(`.${containerClass} > article > section > .table > section > span`, `
-			font-family: monoscape;
 			font-weight: bold;
 			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
 			color: white;

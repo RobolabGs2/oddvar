@@ -17,6 +17,7 @@ import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
 import { Point, Size } from "../oddvar/geometry";
 import { WindowsManager } from "../web/windows";
+import { Labirint } from "../oddvar/labirint/labirint";
 
 console.log("Hello ODDVAR");
 
@@ -36,6 +37,13 @@ function GetStyleSheet(): Promise<CSSStyleSheet> {
 			}))
 	})
 }
+
+const smallMap = Labirint.SymmetryOdd([
+	[0, 0, 0, 0],
+	[0, 0, 0, 0],
+	[0, 0, 0, 1],
+	[0, 0, 1, 1]
+]).Frame(1);
 
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
 	const gameSize = 800;
@@ -82,6 +90,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 
 	const maps: Record<string, MapCreator | GameMap> = {
 		symmetric: new GameMap(PacManMap, new Size(gameSize, gameSize)),
+		symmetric_mini: new GameMap(smallMap, new Size(gameSize, gameSize)),
 		symmetric_big: new GameMap(BigPacManMap, new Size(gameSize, gameSize)),
 		test: TestMap,
 		"random maze": new GameMap(RandomMap, new Size(gameSize, gameSize)),
