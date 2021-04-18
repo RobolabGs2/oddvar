@@ -1,5 +1,5 @@
 import { Point, Size } from '../../oddvar/geometry';
-import { Labirint } from '../../oddvar/labirint/labirint';
+import { Labirint, Dir } from '../../oddvar/labirint/labirint';
 import { WallCreator } from './wall_manager';
 
 
@@ -16,12 +16,16 @@ export class GameMap {
 	Draw(createWall: WallCreator) {
 		this.maze.Draw(this.cellSize, Point.Zero, createWall);
 	}
-
+	
 	toMazeCoords(p: Point): Point {
 		return new Point((p.x / this.cellSize.width) | 0, (p.y / this.cellSize.height) | 0);
 	}
 
 	fromMazeCoords(p: Point): Point {
 		return new Point((p.x + 0.5) * this.cellSize.width, (p.y + 0.5) * this.cellSize.height);
+	}
+
+	findPath(start: Point, end: Point): Dir[] | undefined {
+		return this.maze.FindPath(this.toMazeCoords(start), this.toMazeCoords(end))
 	}
 }

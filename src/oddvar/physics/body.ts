@@ -29,6 +29,9 @@ export interface IBody extends Deadly
 {
 	readonly entity: Entity;
 	Kick(force: Point): void;
+	TurnKick(force: number): void;
+	MomentOfInertia(): number;
+	Mass(): number;
 }
 
 
