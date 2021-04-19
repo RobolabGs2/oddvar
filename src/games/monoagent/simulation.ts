@@ -6,7 +6,7 @@ import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
 import { Administrator, PointAdministrator, RandomAdministrator } from './administrators'
 import { IBody, PolygonBody } from '../../oddvar/physics/body';
-import { DemocraticUnity, TimerUnity, Unity } from './unity';
+import { DemocraticUnity, DictaturaUnity, SmartUnity, TimerUnity, Unity } from './unity';
 import { TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
 
@@ -53,8 +53,10 @@ export class MonoagentSimulation implements GameLogic {
 		}
 		//this.administrators.push(new RandomAdministrator());
 
+		// this.unity = new TimerUnity(this.administrators);
 		// this.unity = new DemocraticUnity(this.administrators);
-		this.unity = new TimerUnity(this.administrators);
+		// this.unity = new DictaturaUnity(this.administrators);
+		this.unity = new SmartUnity(this.administrators);
 
 		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
 	}
