@@ -40,11 +40,24 @@ export class Worlds {
 	}
 }
 
+export interface Clock {
+	now(): number;
+}
+
+class OddvarClock {
+	currentTime = 0;
+	now(): number {
+		return this.currentTime;
+	}
+}
+
 export class Oddvar {
 	public underworld = new Map<string, Soul>();
 	private newSouls = new Array<Soul>();
 	private deletedSouls = new Array<string>();
 	private parser: Parser;
+	private readonly clock = new OddvarClock();
+
 	constructor(
 		private worlds: Worlds,
 		reflectionJson: ReflectionJSON
@@ -54,6 +67,10 @@ export class Oddvar {
 			map.set(factory, this.Get(factory as keyof Worlds));
 		}
 		this.parser = new Parser(map, [Point, Size], reflectionJson, this.underworld);
+	}
+
+	public get Clock(): Clock {
+		return this.clock;
 	}
 
 	public Die() {
@@ -69,6 +86,7 @@ export class Oddvar {
 			console.warn(`time oveflow dt = ${dt}`);
 			dt = 0.02;
 		}
+		this.clock.currentTime += dt;
 		this.worlds.Physics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
 		this.worlds.Players.Tick(dt);

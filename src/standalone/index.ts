@@ -16,7 +16,7 @@ import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
 import { Point, Size } from "../oddvar/geometry";
-import { WindowsManager } from "../web/windows";
+import { MetricsTable, WindowsManager } from "../web/windows";
 import { Labirint } from "../oddvar/labirint/labirint";
 
 console.log("Hello ODDVAR");
@@ -125,32 +125,47 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	document.body.appendChild(canvas);
 	// document.body.appendChild(CreateWindow("Buffer", bufferCanvas));
 	keyboards.map((x, i) => mainWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));
-	mainWindowsManager.CreateInfoWindow("Настройки",
+	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.Append(
+		HTML.CreateElement("article", HTML.SetStyles(style => { style.display = "flex"; style.flexDirection = "row"; }), HTML.Append(([
+			["game", games, (value) => processor.manager = newManager(value, lastMap)],
+			["map", maps, (value) => processor.manager = newManager(lastGame, value)],
+		] as [string, Record<string, any>, (v: any) => void][]).
+			map(([name, record, onChange]) => HTML.CreateElement("section", HTML.Append(
+				HTML.CreateElement("header", HTML.SetText(`Choose ${name}:`), HTML.SetStyles(s => s.marginRight = "16px")),
+				CreateSelector(record, onChange)
+			))))),
 		HTML.CreateElement("article",
 			HTML.SetStyles(style => {
+				style.marginTop = "8px"
 				style.display = "flex"
 				style.flexDirection = "row"
 			}),
-			HTML.Append(
-				...([
-					["game", games, (value: string) => processor.manager = newManager(games[value], lastMap)],
-					["map", maps, (value: string) => processor.manager = newManager(lastGame, maps[value])],
-				] as [string, object, (v: string) => void][]).
-					map(([name, record, onChange]) => HTML.CreateElement("section", HTML.Append(
-						HTML.CreateElement("header", HTML.SetText(`Choose ${name}:`), HTML.SetStyles(s => s.marginRight = "16px")),
-						HTML.CreateElement("select",
-							HTML.AddEventListener("change", function () {
-								try {
-									onChange((<HTMLSelectElement>this).value)
-								} catch (e) {
-									alert(`${e}`)
-								}
-							}),
-							HTML.Append(...Object.keys(record).map((name) => HTML.CreateElement("option",
-								HTML.SetText(name),
-								(el) => el.value = name,
-							)))
-						)))))
-		), new Point(gameSize, 0)
-	)
+			HTML.Append(HTML.CreateElement("section",
+				HTML.Append((<[string, Function][]>[["play", processor.play], ["pause", processor.pause]]).
+					map(([name, action]) => HTML.CreateElement("button",
+						HTML.SetText(name),
+						HTML.AddEventListener("click", () => action.call(processor))))),
+				HTML.SetStyles(style => {
+					style.display = "flex"
+					style.flex = "1";
+					style.flexDirection = "column";
+					style.justifyContent = "space-between";
+					style.padding = "16px";
+				})
+			)),
+			HTML.Append(HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1"))),
+		))), new Point(gameSize, 0))
 });
+
+function CreateSelector<T>(options: Record<string, T>, onChange: (value: T) => void) {
+	return HTML.CreateElement("select",
+		HTML.AddEventListener("change", function () {
+			try {
+				onChange(options[(<HTMLSelectElement>this).value])
+			} catch (e) {
+				alert(`${e}`)
+			}
+		}),
+		HTML.Append(...Object.keys(options).map(name => HTML.CreateElement("option", HTML.SetText(name), (el) => el.value = name)))
+	)
+}

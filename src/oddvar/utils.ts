@@ -17,6 +17,10 @@ export type EventHandler<T, This = unknown> = {
 	[K in keyof T]: (this: This, data: T[K]) => void
 }
 
+export function ConvertRecord<T1, T2>(a: Record<string, T1>, mapper: (key: string, origin: T1) => T2): Record<string, T2> {
+	return Object.fromEntries(Object.entries(a).map(([k, f]) => [k, mapper(k, f)]));
+}
+
 type ListenersMap<EventsMap, This = unknown> = MapOfArrays<EventHandler<EventsMap, This>>;
 
 export class Observable<EventsMap, This = unknown> {

@@ -51,7 +51,7 @@ export class Bot {
 	}
 
 	resetMap() {
-		this.map = new BotMap(this.map, this.network.time);
+		this.map = new BotMap(this.map, this.network.clock.now());
 		this.network.broadcast("captured", true);
 	}
 
@@ -264,7 +264,3 @@ type BotSensors = {
 
 type Settings<T, S> = { [K in keyof T]: S }
 type SensorsSettings = Settings<BotSensors, number>
-
-function ConvertRecord<T1, T2>(a: Record<string, T1>, mapper: (key: string, origin: T1) => T2): Record<string, T2> {
-	return Object.fromEntries(Object.entries(a).map(([k, f]) => [k, mapper(k, f)]));
-}

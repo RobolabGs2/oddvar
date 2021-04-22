@@ -95,18 +95,7 @@ export class MultiagentSimulation implements GameLogic {
 					columns[2].textContent = `${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
 					columns[3].textContent = `${msg.timestamp.toFixed(2)}`;
 				})
-			})
-				// requestAnimationFrame(() => networkLogsView.appendChild(HTML.CreateElement("section",
-				// HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
-				// (el) => setTimeout(() => networkLogsView.removeChild(el), 5 * 1000),
-				// HTML.Append([
-				// 	`${msg.from} -> ${msg.to}`,
-				// 	msg.type,
-				// 	`${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
-				// 	`${msg.timestamp.toFixed(2)}`
-				// ].map(text => HTML.CreateElement("span", HTML.SetText(text), HTML.SetStyles(s => s.flex = "1"))
-				// ))))))
-		);
+			}), oddvar.Clock);
 		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
 		this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))

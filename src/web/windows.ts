@@ -6,15 +6,41 @@ export interface TableModel<T, E extends string> extends Observable<{ updated: n
 	fields: Record<E, any>[];
 }
 
+interface MetricsTableLine {
+	name: string;
+	value: number;
+}
+
+export class MetricsTable extends Observable<{ updated: number }> implements TableModel<MetricsTable, keyof MetricsTableLine> {
+	constructor(readonly metricsSource: () => Record<string, string | number | boolean>) {
+		super();
+		this.fields = this.getMetrics();
+	}
+	static readonly header = ["name", "value"];
+	fields: MetricsTableLine[];
+	Tick() {
+		this.fields = this.getMetrics();
+		for (let i = 0; i < this.fields.length; ++i)
+			this.dispatchEvent("updated", i)
+	}
+	getMetrics() {
+		return Object.entries(this.metricsSource()).map(([name, value]) => { return <MetricsTableLine>{ name, value } });
+	}
+}
+
+
 export class WindowsManager {
+	public static readonly cssClasses = {
+		visibleOnAnything: "visible-on-anything"
+	}
 	constructor(readonly container: HTMLElement, styleSheet: CSSStyleSheet) {
-		const containerClass = "windows-container"+Math.random().toString().slice(2);
+		const containerClass = "windows-container" + Math.random().toString().slice(2);
 		container.classList.add(containerClass);
 		styleSheet.addRule(`.${containerClass} > article`, `
 			position: absolute;
 			border: double 5px gray;
 			border-radius: 5px;
-			background-color: rgba(250, 250, 250, 0.6);
+			background-color: rgba(255, 255, 255, 0.9);
 			font-family: "Bitstream Vera Sans Mono", monospace;
 			font-size: 12px;
 		`);
@@ -34,16 +60,16 @@ export class WindowsManager {
 		styleSheet.addRule(`.${containerClass} > article > header button:focus`, `
 			outline: none;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section > .table`, `
+		styleSheet.addRule(`.${containerClass} > article > section .table`, `
 			display: flex;
 			flex-direction: column;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section > .table > section`, `
+		styleSheet.addRule(`.${containerClass} > article > section .table > section`, `
 			display: flex;
 			justify-content: space-between;
 			border-top: solid 1px gray;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section > .table > section > span`, `
+		styleSheet.addRule(`.${containerClass} > article > section .${WindowsManager.cssClasses.visibleOnAnything}`, `
 			font-weight: bold;
 			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
 			color: white;
@@ -56,12 +82,19 @@ export class WindowsManager {
 
 	CreateTableWindow<T, K extends string>(title: string, table: TableModel<T, K>,
 		header: K[], pos = Point.Zero, lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
+		this.container.appendChild(this.CreateWindow(title, this.CreateTable(table, header, lineStyles), pos))
+	}
+
+	public CreateTable<T, K extends string>(table: TableModel<T, K>, header: K[], lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
 		const lines = table.fields.map((line) => header.map(name => HTML.CreateElement("span", HTML.SetText(`${line[name]}`))));
 		table.addEventListener("updated", i => lines[i].forEach((cell, j) => HTML.SetText(`${table.fields[i][header[j]]}`)(cell)))
-		this.container.appendChild(this.CreateWindow(title, HTML.CreateElement("article",
-			HTML.AddClass("table"),
-			HTML.Append(lines.map((view, i) => HTML.CreateElement("section", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { })))))
-		), pos))
+		return HTML.CreateElement("article", HTML.AddClass("table"),
+			HTML.Append(lines.map((view, i) => HTML.CreateElement("section", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { }))))),
+			table => {
+				if (lineStyles.length)
+					table.classList.add(WindowsManager.cssClasses.visibleOnAnything);
+			}
+		);
 	}
 
 	private CreateWindow(title: string, inner: HTMLElement, defaultPosition = Point.Zero): HTMLElement {
@@ -88,7 +121,7 @@ export class WindowsManager {
 			const delta = next.Sub(pos);
 			elem.style.left = `${startPos.x + delta.x}px`;
 			elem.style.top = `${startPos.y + delta.y}px`;
-		}
+		};
 		const mouseMove = function (ev: MouseEvent): void {
 			onMove(new Point(ev.pageX, ev.pageY), window);
 		};
