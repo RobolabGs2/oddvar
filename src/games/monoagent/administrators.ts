@@ -5,20 +5,17 @@ import { GameMap } from "../utils/game_map";
 import { Entity } from '../../oddvar/world';
 
 
-export interface Administrator
-{
+export interface Administrator {
 	Work(dt: number): Point;
 }
 
-export class RandomAdministrator implements Administrator
-{
+export class RandomAdministrator implements Administrator {
 	Work(dt: number): Point {
 		return new Point(Math.random(), Math.random()).Sub(new Point(0.5, 0.5));
 	}
 }
 
-export class PointAdministrator implements Administrator
-{
+export class PointAdministrator implements Administrator {
 	private nextPoint: Point = new Point(0, 0);
 	private path: Dir[] = new Array();
 
@@ -40,12 +37,7 @@ export class PointAdministrator implements Administrator
 		if (this.path.length == 0) {
 			return this.updatePath();
 		}
-		switch (this.path[0]) {
-			case Dir.LEFT: this.nextPoint.x -= this.map.cellSize.height; break;
-			case Dir.RIGHT: this.nextPoint.x += this.map.cellSize.height; break;
-			case Dir.UP: this.nextPoint.y -= this.map.cellSize.width; break;
-			case Dir.DOWN: this.nextPoint.y += this.map.cellSize.width; break;
-		}
+		Dir.movePoint(this.path[0], this.nextPoint, this.map.cellSize.width)
 		this.path = this.path.slice(1)
 	}
 

@@ -356,7 +356,7 @@ export const Dir = {
 		return s;
 	},
 	// Сдвигает точку, чтобы она соблюдала правила ПДД с левосторонним движением
-	shifPoint(p: Dir, s: Point, count: number = 1): Point {
+	shiftPoint(p: Dir, s: Point, count: number = 1): Point {
 		switch (p) {
 			case Dir.UP: s.x += count; break;
 			case Dir.DOWN: s.x -= count; break;

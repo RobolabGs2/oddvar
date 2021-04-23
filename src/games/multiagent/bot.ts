@@ -3,7 +3,7 @@ import { Oddvar } from "../../oddvar/oddvar";
 import { RectangleBody } from '../../oddvar/physics/body';
 import { RaySensor } from '../../oddvar/physics/sensor';
 import { ColoredTexture, RectangleTexture } from '../../oddvar/textures';
-import { TailEntity } from '../../oddvar/world';
+import { Entity, TailEntity } from '../../oddvar/world';
 import { GameMap } from "../utils/game_map";
 import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { NetworkCard } from './net';
@@ -34,20 +34,29 @@ export class Bot {
 		this.body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
 		oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), this.body, botTexture);
 		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("circle avatar"), e, size.width * 0.9, this.color);
-	}
 
+		this.destinationE = oddvar.Get("World").CreateEntity(nameOf("destination entity"), Point.Zero);
+		this.destinationE.rotation = Math.PI / 4;
+		oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("destination avatar"), this.destinationE, size.Scale(0.8), this.color);
+
+		this.nextE = oddvar.Get("World").CreateEntity(nameOf("next entity"), Point.Zero);
+		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("next avatar"), this.nextE, 2, this.color);
+	}
+	destinationE: Entity;
+	nextE: Entity;
 	nextPoint() {
 		this.time = 0;
 		const next = this.program?.shift();
-		if (next === undefined) {
+		if (next === undefined || this.map.destination === undefined) {
 			this.lastCommand = undefined;
 			return;
 		}
 		const current = this.map.toMazeCoords(this.location);
 		this.lastCommand = {
 			dir: next,
-			dest: Dir.shifPoint(next, this.map.fromMazeCoords(Dir.movePoint(next, current)), this.map.cellSize.width / 4)
+			dest: Dir.shiftPoint(next, this.map.fromMazeCoords(Dir.movePoint(next, current)), this.map.cellSize.width / 4)
 		};
+		this.nextE.location = this.lastCommand.dest;
 	}
 
 	resetMap() {
@@ -60,6 +69,7 @@ export class Bot {
 		this.nextPoint();
 		if (this.debug && this.program && this.layer === 0)
 			console.log(this.map.toString());
+		this.destinationE.location = this.map.destination ? this.map.fromMazeCoords(this.map.destination) : Point.Zero;
 	}
 
 	Move(direction: Dir) {
@@ -143,12 +153,20 @@ export class Bot {
 	}
 }
 
+function pointEquals(p: Point | undefined, x: number, y: number): boolean {
+	return p !== undefined && p.x === x && p.y === y;
+}
 
+function pointsEqual(p: Point | undefined, p2: Point | undefined): boolean {
+	return p !== undefined && p2 !== undefined && p.x === p2.x && p.y === p2.y;
+}
 
 export class BotMap extends GameMap {
 	explored: DataMatrix<undefined | null | Point>
 	merged: DataMatrix<undefined | null | Point | boolean>
+	// in maze coords
 	target?: Point;
+	destination?: Point;
 	constructor(gameMap: GameMap, readonly createdAt: number) {
 		super(gameMap.maze, gameMap.size);
 		this.explored = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
@@ -157,9 +175,12 @@ export class BotMap extends GameMap {
 	update(x: number, y: number, data: null | Point): boolean {
 		if (data !== null)
 			this.target = this.toMazeCoords(data);
-		else if (this.target !== undefined && this.target.x === x && this.target.y === y)
+		else if (pointEquals(this.target, x, y))
 			this.target = undefined;
 		if (this.explored.get(x, y) !== data) {
+			if (!pointsEqual(this.destination, this.target) && pointEquals(this.destination, x, y)) {
+				this.destination = undefined;
+			}
 			this.explored.set(x, y, data);
 			return true;
 		}
@@ -168,13 +189,16 @@ export class BotMap extends GameMap {
 	nextPath(from: Point): Dir[] | undefined {
 		from = this.toMazeCoords(from);
 		if (this.target) {
+			this.destination = this.target;
 			return this.maze.FindPath(from, this.target);
 		}
-		return this.maze.FindPathAStar(from, (p) => {
+		const path = this.maze.FindPathAStar(from, (p) => {
 			if (this.explored.get(p.x, p.y) === undefined)
 				return 0;
-			return (Math.random()*10)+1///this.maze.width + this.maze.height - from.Manhattan(p);
+			return this.maze.width + this.maze.height - from.Manhattan(p);
 		});
+		this.destination = path?.reduce((p, d) => Dir.movePoint(d, p), from);
+		return path;
 	}
 	toString() {
 		return this.maze.MergeOr(this.explored, this.merged).toString(x => {
