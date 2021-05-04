@@ -121,7 +121,9 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		}
 		return new Manager(oddvar, newGame);
 	}
-	const processor = new Processor(newManager());
+	const processor = new Processor(newManager(), [
+		gameWindowsManager,
+		mainWindowsManager]);
 	document.body.appendChild(canvas);
 	// document.body.appendChild(CreateWindow("Buffer", bufferCanvas));
 	keyboards.map((x, i) => mainWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));

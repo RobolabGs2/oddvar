@@ -1,5 +1,5 @@
-import { time } from "node:console";
-import { Point } from "../../oddvar/geometry";
+import { BarChartRow, ChartWindow, Logger, WindowsManager } from "../../web/windows";
+import { Point, Size } from "../../oddvar/geometry";
 import { Administrator } from "./administrators";
 
 export abstract class Unity
@@ -53,7 +53,7 @@ export class DictaturaUnity extends Unity {
 export class SmartUnity extends Unity {
 	vector = new Point(1, 0);
 
-	constructor(administrators: Administrator[], private period: number = 5) {
+	constructor(administrators: Administrator[]) {
 		super(administrators);
 	}
 
@@ -72,7 +72,7 @@ export class SmartUnity extends Unity {
 			}
 			const delta = this.vector.Dot(buffer[i]);
 			// distribution[i] =  Math.pow(1 - Math.acos(delta) / Math.PI, 10);
-			distribution[i] =  delta < -0.5 ? 1e-10 : 1;
+			distribution[i] =  delta < -0.5 ? 1e-10 : delta < 0.5 ? 0.1 : 2;
 			sum += distribution[i];
 		}
 		if (sum < 1e-10) {
@@ -88,5 +88,75 @@ export class SmartUnity extends Unity {
 		}
 		console.log("oops");
 		return this.vector = buffer[buffer.length - 1];
+	}
+}
+
+const Colors = [
+	"blue", "red", "green",
+	"purple", "gold", "peru", "plum", "silver"
+];
+
+export class WeightedUnity extends Unity {
+	index = 0;
+	weights: number[];
+	companions: number[] = [];
+	logger: Logger;
+	rows: BarChartRow[];
+	chart: ChartWindow;
+
+	constructor(administrators: Administrator[], private winMan: WindowsManager, size: Size, startTime: number = 10) {
+		super(administrators);
+		this.logger = winMan.CreateConsoleWindow('My console', new Point(size.width, size.height / 2))
+		this.rows = administrators.map((a, i) => new BarChartRow(i.toString(), 0, Colors[i % Colors.length]))
+		winMan.CreateBarChartWindow('Time', this.rows, new Point(size.width * 1.5, 0), new Size(30, administrators.length*2))
+		this.weights = administrators.map(a => startTime)
+		this.chart = winMan.CreateChartWindow('last unit', new Point(size.width * 1.5, 200), new Size(30, 10))
+	}
+
+	timer = 0;
+	Work(dt: number): Point {
+		this.timer += dt;
+		if (this.timer > 0.2) {
+			this.chart.append(this.weights[0] * 10)
+			this.timer = 0;
+		}
+		if (this.weights[this.index] <= 0) {
+			let len = this.companions.length;
+			let next = this.index;
+			if (len > 1) {
+				while (next == this.index) {
+					next = this.companions[((Math.random() * len) | 0) % len];
+				}
+			}
+			else {
+				len = this.administrators.length
+				while (next == this.index) {
+					next = ((Math.random() * len) | 0) % len;
+				}
+			}
+			this.logger.WarnLine(`switch to ${next}`)
+			this.index = next
+		}
+
+		let logline = `${this.index}: `;
+		for (let i = 0; i < this.weights.length; ++i) {
+			logline += `${i}: ${this.weights[i].toFixed(2)}, `;
+		}
+		this.logger.InfoLine(logline)
+
+		const work = this.administrators[this.index].Work(dt).Norm();
+		this.companions = [this.index]
+		for (let i = 0; i < this.administrators.length; ++i) {
+			this.weights[i] += dt / this.administrators.length;
+			if (i == this.index) continue;
+			const currentWork = this.administrators[i].Work(dt);
+			if (currentWork.Dot(work) > 0.5) {
+				this.companions.push(i)
+			}
+		}
+		this.rows[this.index].value += dt;
+		const payment = dt / this.companions.length;
+		this.companions.forEach(i => this.weights[i] -= payment);
+		return work;
 	}
 }

@@ -1,4 +1,4 @@
-import { Point } from "../oddvar/geometry";
+import { Point, Size } from "../oddvar/geometry";
 import { Observable } from "../oddvar/utils";
 import { HTML } from "./html";
 
@@ -9,6 +9,10 @@ export interface TableModel<T, E extends string> extends Observable<{ updated: n
 interface MetricsTableLine {
 	name: string;
 	value: number;
+}
+
+export interface Ticker {
+	Tick(dt: number): void;
 }
 
 export class MetricsTable extends Observable<{ updated: number }> implements TableModel<MetricsTable, keyof MetricsTableLine> {
@@ -28,11 +32,155 @@ export class MetricsTable extends Observable<{ updated: number }> implements Tab
 	}
 }
 
+export interface Logger {
+	InfoLine(msg: string): void;
+	WarnLine(msg: string): void;
+	ErrorLine(msg: string): void;
+}
 
-export class WindowsManager {
+export class RotatedLogs<T extends { section: HTMLElement }> {
+	buffer: T[] = [];
+	cur = 0;
+	constructor(readonly create: () => T, readonly parent: HTMLElement, readonly cap = 100) {
+		parent.style.display = "flex";
+		parent.style.flexDirection = "column";
+		for(let i = 0; i< cap; i++) {
+			const line = (this.buffer[i] = this.create()).section;
+			line.style.order = `-1`;
+			this.parent.appendChild(line);
+		}
+	}
+
+	insert(inserter: (line: T) => void) {
+		const lineNum = this.cur;
+		requestAnimationFrame(() => {
+			const line = this.buffer[(lineNum) % this.cap];
+			line.section.style.order = `${lineNum}`;
+			inserter(line);
+		})
+		++this.cur;
+	}
+}
+
+export class ConsoleWindow implements Logger {
+	logs = new RotatedLogs<{section: HTMLElement}>(
+		() => { return {section: HTML.CreateElement('div')}; },
+		this.container, 1000);
+
+	constructor(private container: HTMLElement) {
+	}
+
+	private WriteLine(msg: string, color: string) {
+		this.logs.insert(line => {
+			HTML.ModifyElement(line.section,
+				HTML.SetText(msg),
+				HTML.SetStyles(s => s.color = color))
+		});
+		this.container.scrollTop = this.container.scrollHeight
+	}
+
+	InfoLine(msg: string): void {
+		this.WriteLine(msg, 'lime')
+	}
+
+	WarnLine(msg: string): void {
+		this.WriteLine(msg, 'yellow')
+	}
+
+	ErrorLine(msg: string): void {
+		this.WriteLine(msg, 'red')
+	}
+}
+
+export class BarChartRow {
+	constructor(public name: string, public value: number, public color: string = 'white') {
+	}
+}
+
+export class BarChartWindow implements Ticker{
+	lines: HTMLElement[] = []
+	table: HTMLElement;
+	constructor(private container: HTMLElement, private rows: BarChartRow[]) {
+		this.table = HTML.CreateElement('table', HTML.SetStyles(s => {s.width = '100%'; s.height = "100%"; s.borderCollapse = "collapse"}));
+		container.appendChild(this.table);
+		rows.forEach(r => this._append(r));
+	}
+
+	private _append(row: BarChartRow) {
+		let line;
+		this.table.append(
+			HTML.CreateElement('tr', HTML.SetStyles(s => {s.width = '100%';}), HTML.Append(
+				HTML.CreateElement('td', HTML.SetStyles(s => s.border = '1px solid black'), HTML.SetText(row.name)),
+				HTML.CreateElement('td', HTML.SetStyles(s => {s.height = `${100 / this.rows.length}%`; s.width = '100%'; s.border = '1px solid gray'}), HTML.Append(
+					line = HTML.CreateElement('div',
+						HTML.SetStyles(s => {
+							s.backgroundColor = row.color;
+							s.height = '100%';
+							s.textAlign = "center";
+						}), HTML.AddClass(WindowsManager.cssClasses.visibleOnAnything)
+					)
+				))
+			))
+		);
+		this.lines.push(line);
+	}
+
+	append(row: BarChartRow) {
+		this.rows.push(row)
+		this._append(row);
+	}
+
+	Tick(dt: number): void {
+		let	max = Math.max(...this.rows.map(r => r.value));
+
+		this.lines.forEach((l, i) => {
+			l.style.width = `${this.rows[i].value / max * 100}%`;
+			l.textContent = this.rows[i].value.toFixed(2);
+		})
+	}
+}
+
+export class ChartWindow
+{
+	private context: CanvasRenderingContext2D;
+	private last = 0;
+	private first = true;
+	constructor(private container: HTMLElement) {
+		let canvas = HTML.CreateElement('canvas');
+		container.append(canvas)
+		this.context = canvas.getContext('2d')!;
+		this.context.strokeStyle = "lime";
+		this.context.fillStyle = "black";
+	}
+
+	public append(value: number) {
+		value = this.context.canvas.height - value
+		if (this.first) {
+			this.first = false;
+			this.last = value;
+			return;
+		}
+		const frameWidth = this.context.canvas.width - 1;
+		const frameHeight = this.context.canvas.height;
+		this.context.drawImage(this.context.canvas, 1, 0, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+		this.context.fillRect(frameWidth, 0, 10, this.context.canvas.height)
+		this.context.beginPath();
+		this.context.moveTo(frameWidth, this.last);
+		this.context.lineTo(this.context.canvas.width, value);
+		this.context.stroke();
+		this.context.closePath();
+		this.last = value;
+	}
+}
+
+
+export class WindowsManager implements Ticker{
+	tickers = new Array<Ticker>();
+
 	public static readonly cssClasses = {
 		visibleOnAnything: "visible-on-anything"
 	}
+
 	constructor(readonly container: HTMLElement, styleSheet: CSSStyleSheet) {
 		const containerClass = "windows-container" + Math.random().toString().slice(2);
 		container.classList.add(containerClass);
@@ -74,6 +222,58 @@ export class WindowsManager {
 			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
 			color: white;
 		`);
+	}
+
+	public Tick(dt: number) {
+		this.tickers.forEach(t => t.Tick(dt))
+	}
+
+	public NewCreateBarChartWindow(title: string, rows: BarChartRow[], size: Size = new Size(50, 30)): [HTMLElement, BarChartWindow] {
+		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
+			s.width = `${size.width}rem`;
+			s.height = `${size.height}rem`;
+			s.overflow = 'auto'
+			s.color = 'rgb(250, 250, 250)'
+			s.backgroundColor = 'black';
+			s.display = 'table';
+		}))
+		const barChart = new BarChartWindow(container, rows)
+		this.tickers.push(barChart);
+		return [container, barChart];
+	}
+
+	public CreateBarChartWindow(title: string, rows: BarChartRow[], position = Point.Zero, size: Size = new Size(50, 30)): BarChartWindow {
+		const pair = this.NewCreateBarChartWindow(title, rows, size);
+		this.CreateInfoWindow(title, pair[0], position);
+		return pair[1];
+	}
+
+	CreateConsoleWindow(title: string, position = Point.Zero, size: Size = new Size(50, 30)): ConsoleWindow {
+		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
+			s.whiteSpace = 'pre';
+			s.width = `${size.width.toString()}rem`;
+			s.height = `${size.height.toString()}rem`;
+			s.overflow = 'auto'
+			s.color = 'lime'
+			s.backgroundColor = 'black'
+		}))
+		const window = new ConsoleWindow(container)
+		this.CreateInfoWindow(title, container, position)
+		return window;
+	}
+
+	CreateChartWindow(title: string, position = Point.Zero, size: Size = new Size(50, 30)): ChartWindow {
+		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
+			s.whiteSpace = 'pre';
+			s.width = `${size.width.toString()}rem`;
+			s.height = `${size.height.toString()}rem`;
+			s.overflow = 'auto'
+			s.color = 'lime'
+			s.backgroundColor = 'black'
+		}))
+		const chart = new ChartWindow(container)
+		this.CreateInfoWindow(title, container, position)
+		return chart;
 	}
 
 	CreateInfoWindow(title: string, content: HTMLElement, position = Point.Zero) {

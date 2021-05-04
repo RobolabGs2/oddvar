@@ -10,7 +10,7 @@ import { GameLogic } from '../../oddvar/manager';
 import { Bot } from './bot';
 import { Network } from './net';
 import { Observable } from '../../oddvar/utils';
-import { TableModel, WindowsManager } from '../../web/windows';
+import { RotatedLogs, TableModel, WindowsManager } from '../../web/windows';
 import { HTML } from '../../web/html';
 
 const botsCount = 5;
@@ -31,27 +31,6 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 	}
 }
 
-class RotatedLogs<T extends { section: HTMLElement }> {
-	buffer: T[] = [];
-	cur = 0;
-	constructor(readonly cap = 100, readonly create: () => T, readonly parent: HTMLElement) {
-		for(let i = 0; i< cap; i++) {
-			const line = (this.buffer[i] = this.create()).section;
-			line.style.order = `-1`;
-			this.parent.appendChild(line);
-		}
-	}
-	insert(inserter: (line: T) => void) {
-		const lineNum = this.cur;
-		requestAnimationFrame(() => {
-			const line = this.buffer[(lineNum) % this.cap];
-			line.section.style.order = `${lineNum}`;
-			inserter(line);
-		})
-		++this.cur;
-	}
-
-}
 
 export class MultiagentSimulation implements GameLogic {
 	bots: Bot[]
@@ -74,13 +53,13 @@ export class MultiagentSimulation implements GameLogic {
 				style.flexDirection = "column";
 			})
 		);
-		const networkLogs = new RotatedLogs(32, () => {
+		const networkLogs = new RotatedLogs(() => {
 			const columns = [1, 2, 3, 4].map(text => HTML.CreateElement("span", HTML.SetStyles(s => s.flex = "1")))
 			const section = HTML.CreateElement("section",
 				HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
 				HTML.Append(columns));
 			return { section, columns }
-		}, networkLogsView);
+		}, networkLogsView, 32);
 
 		// setInterval(() => requestAnimationFrame(() => networkLogsView.scroll(0, networkLogsView.scrollHeight)), 1000)
 

@@ -6,9 +6,10 @@ import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
 import { Administrator, PointAdministrator, RandomAdministrator } from './administrators'
 import { IBody, PolygonBody } from '../../oddvar/physics/body';
-import { DemocraticUnity, DictaturaUnity, SmartUnity, TimerUnity, Unity } from './unity';
-import { TableModel, WindowsManager } from '../../web/windows';
+import { DemocraticUnity, DictaturaUnity, SmartUnity, TimerUnity, Unity, WeightedUnity } from './unity';
+import { BarChartRow, BarChartWindow, ChartWindow, Logger, TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
+import { HTML } from '../../web/html';
 
 
 interface TableLine {
@@ -34,6 +35,7 @@ export class MonoagentSimulation implements GameLogic {
 	private bot: PolygonBody;
 	private size: Size;
 	private unity: Unity;
+	private chart: ChartWindow;
 
 	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
 		this.size = this.map.cellSize.Scale(0.2);
@@ -44,24 +46,27 @@ export class MonoagentSimulation implements GameLogic {
 
 		const adminTable = new AdminTable();
 		adminTable.add('sum');
-		for (let i = 0; i < 10; ++i) {
+		for (let i = 0; i < 5; ++i) {
 			adminTable.add(`target ${i}`);
 			this.createTargetAdministrator(i, idx => {
 				adminTable.updateScore(0);
 				adminTable.updateScore(idx + 1);
 			});
 		}
-		//this.administrators.push(new RandomAdministrator());
+		this.administrators.push(new RandomAdministrator());
 
 		// this.unity = new TimerUnity(this.administrators);
 		// this.unity = new DemocraticUnity(this.administrators);
 		// this.unity = new DictaturaUnity(this.administrators);
-		this.unity = new SmartUnity(this.administrators);
-
+		// this.unity = new SmartUnity(this.administrators);
+		this.unity = new WeightedUnity(this.administrators, winMan, map.size, 2);
+		
 		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
+		this.chart = winMan.CreateChartWindow('chart', new Point(map.size.width * 1, map.size.height * 1), new Size(30, 10))
 	}
 
 	Tick(dt: number): void {
+		this.chart.append((Math.sin(this.oddvar.Clock.now() * 3) + 1) * 50)
 		const direction = this.unity.Work(dt);
 		if (direction.Len() < 1e-10) {
 			return;

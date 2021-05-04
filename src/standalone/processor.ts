@@ -1,6 +1,6 @@
 import { Manager } from "../oddvar/manager";
 import { RingBuffer } from "../oddvar/utils";
-import { MetricsTable } from "../web/windows";
+import { MetricsTable, Ticker } from "../web/windows";
 
 export class Processor {
 	private _manager: Manager;
@@ -13,7 +13,7 @@ export class Processor {
 
 	public readonly metricsTable: MetricsTable;
 
-	constructor(manager: Manager) {
+	constructor(manager: Manager, drawTicker: Ticker[]) {
 		this._manager = this.manager = manager;
 		this.metricsTable = new MetricsTable(() => this.metrics);
 		let lastTime = 0;
@@ -22,6 +22,7 @@ export class Processor {
 			let dt = (t - lastTime) / 1000;
 			lastTime = t;
 			this._manager.DrawTick(dt);
+			drawTicker.forEach(t => t.Tick(dt));
 			this.metricsTable.Tick();
 			requestAnimationFrame(Render);
 		};
