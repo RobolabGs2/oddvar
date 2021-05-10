@@ -35,7 +35,6 @@ export class MonoagentSimulation implements GameLogic {
 	private bot: PolygonBody;
 	private size: Size;
 	private unity: Unity;
-	private chart: ChartWindow;
 
 	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
 		this.size = this.map.cellSize.Scale(0.2);
@@ -62,11 +61,9 @@ export class MonoagentSimulation implements GameLogic {
 		this.unity = new WeightedUnity(this.administrators, winMan, map.size, 2);
 		
 		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
-		this.chart = winMan.CreateChartWindow('chart', new Point(map.size.width * 1, map.size.height * 1), new Size(30, 10))
 	}
 
 	Tick(dt: number): void {
-		this.chart.append((Math.sin(this.oddvar.Clock.now() * 3) + 1) * 50)
 		const direction = this.unity.Work(dt);
 		if (direction.Len() < 1e-10) {
 			return;
@@ -93,6 +90,7 @@ export class MonoagentSimulation implements GameLogic {
 			if (b == this.bot) {
 				target.location = this.GenerateInconflictPoint(this.size.width);
 				admin.updatePath();
+				admin.SetEndwork();
 				if (hitAction) hitAction(idx);
 			}
 		});

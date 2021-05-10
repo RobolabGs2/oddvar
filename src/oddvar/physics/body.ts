@@ -56,6 +56,8 @@ export abstract class Body extends Essence implements IBody
 	public abstract Mass(): number;
 	public abstract MomentOfInertia(): number;
 
+	protected abstract ForceClear(): void;
+
 	public AddCollisionListener(listener: CollisionListener) {
 		this.CollisionEvents.add(listener);
 	}
@@ -73,6 +75,13 @@ export abstract class Body extends Essence implements IBody
 		return this.lineVelocity.Add(
 			new Point(delta.y, -delta.x).Norm().Mult(delta.Len() * this.angleVelocity)
 		);
+	}
+
+	public Clear() {
+		if (this.material.static) {
+			return;
+		}
+		this.ForceClear();
 	}
 
 	public Tick(dt: number) {
@@ -196,7 +205,7 @@ export abstract class PolygonBody extends Body
 		return this.polygonPoints;
 	}
 
-	public Clear() {
+	protected ForceClear() {
 		this.RecalculatePolygonPoints();
 		this.RecalculateAbba();
 		this.RecalculateMass();
@@ -222,7 +231,7 @@ export class RectangleBody extends PolygonBody
 {
 	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public size: Size) {
 		super(name, entity, material);
-		this.Clear();
+		this.ForceClear();
 	}
 
 	protected RecalculateMomentOfInertia(): void {
@@ -270,7 +279,7 @@ export class RegularPolygonBody extends PolygonBody
 {
 	public constructor(name: string, entity: Entity, material: Partial<PhysicalMaterial>, public radius: number, public vertexes: number) {
 		super(name, entity, material);
-		this.Clear();
+		this.ForceClear();
 	}
 
 	protected RecalculateMomentOfInertia(): void {

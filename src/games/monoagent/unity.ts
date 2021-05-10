@@ -14,7 +14,9 @@ export class DemocraticUnity extends Unity {
 	Work(dt: number): Point {
 		let direction = new Point(0, 0);
 		for (let i = 0; i < this.administrators.length; ++i) {
-			direction = direction.Add(this.administrators[i].Work(dt));
+			let vec = this.administrators[i].Work(dt);
+			vec = vec ? vec : new Point(0, 0);
+			direction = direction.Add(vec);
 		}
 		return direction;
 	}
@@ -37,7 +39,9 @@ export class TimerUnity extends Unity {
 			this.timer = 0;
 			this.index = (this.index + 1) % this.administrators.length;
 		}
-		return this.administrators[this.index].Work(dt);
+		let vec = this.administrators[this.index].Work(dt);
+		vec = vec ? vec : new Point(0, 0);
+		return vec;
 	}
 }
 
@@ -46,7 +50,9 @@ export class DictaturaUnity extends Unity {
 		if (this.administrators.length == 0) {
 			return new Point(0, 0);
 		}
-		return this.administrators[0].Work(dt);
+		let vec = this.administrators[0].Work(dt);
+		vec = vec ? vec : new Point(0, 0);
+		return vec;
 	}
 }
 
@@ -65,7 +71,9 @@ export class SmartUnity extends Unity {
 		const buffer = new Array<Point>(this.administrators.length);
 		let sum = 0;
 		for (let i = 0; i < this.administrators.length; ++i) {
-			buffer[i] = this.administrators[i].Work(dt);
+			let vec = this.administrators[i].Work(dt);
+			vec = vec ? vec : new Point(0, 0);
+			buffer[i] = vec;
 			if (buffer[i].Len() < 1e-10) {
 				distribution[i] = 0;
 				continue;
@@ -117,7 +125,7 @@ export class WeightedUnity extends Unity {
 	Work(dt: number): Point {
 		this.timer += dt;
 		if (this.timer > 0.2) {
-			this.chart.append(this.weights[0] * 10)
+			//this.chart.append(this.weights[0] * 10)
 			this.timer = 0;
 		}
 		if (this.weights[this.index] <= 0) {
@@ -134,7 +142,7 @@ export class WeightedUnity extends Unity {
 					next = ((Math.random() * len) | 0) % len;
 				}
 			}
-			this.logger.WarnLine(`switch to ${next}`)
+			//this.logger.WarnLine(`switch to ${next}`)
 			this.index = next
 		}
 
@@ -142,14 +150,17 @@ export class WeightedUnity extends Unity {
 		for (let i = 0; i < this.weights.length; ++i) {
 			logline += `${i}: ${this.weights[i].toFixed(2)}, `;
 		}
-		this.logger.InfoLine(logline)
+		//this.logger.InfoLine(logline)
 
-		const work = this.administrators[this.index].Work(dt).Norm();
+		let vec = this.administrators[this.index].Work(dt);
+		vec = vec ? vec : new Point(0, 0);
+		const work = vec.Norm();
 		this.companions = [this.index]
 		for (let i = 0; i < this.administrators.length; ++i) {
 			this.weights[i] += dt / this.administrators.length;
 			if (i == this.index) continue;
-			const currentWork = this.administrators[i].Work(dt);
+			let currentWork = this.administrators[i].Work(dt);
+			currentWork = currentWork ? currentWork : new Point(0, 0);
 			if (currentWork.Dot(work) > 0.5) {
 				this.companions.push(i)
 			}
@@ -160,3 +171,4 @@ export class WeightedUnity extends Unity {
 		return work;
 	}
 }
+
