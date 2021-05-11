@@ -33,6 +33,10 @@ export namespace HTML {
 		return (input: HTMLInputElement | HTMLSelectElement) => input.required = required;
 	}
 
+	export function SetChecked(checked = true) {
+		return (input: HTMLInputElement) => input.checked = checked;
+	}
+
 	export function SetInputType(type: string) {
 		return (input: HTMLInputElement) => input.type = type;
 	}
@@ -55,6 +59,14 @@ export namespace HTML {
 
 	export function SetStyles(setter: (styles: CSSStyleDeclaration) => void) {
 		return (el: HTMLElement) => setter(el.style);
+	}
+
+	export function FlexContainer(direction = "row", justifyContent = "") {
+		return SetStyles(style => {
+			style.display = "flex";
+			style.flexDirection = direction;
+			style.justifyContent = justifyContent;
+		})
 	}
 
 	interface ForEachable<T> {

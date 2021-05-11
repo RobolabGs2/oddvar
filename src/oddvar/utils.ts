@@ -17,8 +17,8 @@ export type EventHandler<T, This = unknown> = {
 	[K in keyof T]: (this: This, data: T[K]) => void
 }
 
-export function ConvertRecord<T1, T2>(a: Record<string, T1>, mapper: (key: string, origin: T1) => T2): Record<string, T2> {
-	return Object.fromEntries(Object.entries(a).map(([k, f]) => [k, mapper(k, f)]));
+export function ConvertRecord<T1, T2, Keys extends number | string>(a: Record<Keys, T1>, mapper: (key: Keys, origin: T1) => T2): Record<Keys, T2> {
+	return Object.fromEntries(Object.entries(a).map(([k, f]) => [k, mapper(k as Keys, f as T1)])) as Record<Keys, T2>;
 }
 
 type ListenersMap<EventsMap, This = unknown> = MapOfArrays<EventHandler<EventsMap, This>>;
@@ -27,7 +27,7 @@ export class Observable<EventsMap, This = unknown> {
 	protected listeners: ListenersMap<EventsMap, This> = new Proxy<ListenersMap<EventsMap, This>>({} as ListenersMap<EventsMap, This>, {
 		get: (map, propertyName, receiver) => {
 			let property = Reflect.get(map, propertyName, receiver);
-			if(property !== undefined)
+			if (property !== undefined)
 				return property;
 			property = [];
 			Reflect.set(map, propertyName, property, receiver);
@@ -40,7 +40,7 @@ export class Observable<EventsMap, This = unknown> {
 	}
 	// Удаляет слушателя по индексу
 	public removeEventListener<E extends keyof EventsMap>(eventType: E, listener: number) {
-		delete(this.listeners[eventType][listener]);
+		delete (this.listeners[eventType][listener]);
 	}
 	protected dispatchEvent<E extends keyof EventsMap>(eventType: E, event: EventsMap[E]) {
 		this.listeners[eventType].forEach(listener => listener.call(this as unknown as This, event));
@@ -63,7 +63,7 @@ export class PriorityQueue<T extends Tagable>{
 
 	Add(body: T) {
 		this.list.push(body);
-		this.Up(this.list.length-1);
+		this.Up(this.list.length - 1);
 	}
 
 	private Up(i: number) {

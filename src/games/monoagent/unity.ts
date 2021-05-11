@@ -1,6 +1,7 @@
-import { BarChartRow, ChartWindow, Logger, WindowsManager } from "../../web/windows";
+import { BarChartRow, ChartWindow, WindowsManager } from "../../web/windows";
 import { Point, Size } from "../../oddvar/geometry";
 import { Administrator } from "./administrators";
+import { Logger } from "../../oddvar/utils/logger";
 
 export abstract class Unity
 {
@@ -114,7 +115,7 @@ export class WeightedUnity extends Unity {
 
 	constructor(administrators: Administrator[], private winMan: WindowsManager, size: Size, startTime: number = 10) {
 		super(administrators);
-		this.logger = winMan.CreateConsoleWindow('My console', new Point(size.width, size.height / 2))
+		this.logger = winMan.CreateLoggerWindow('My console', new Point(size.width, size.height / 2), new Size(administrators.length*4+4, 30))
 		this.rows = administrators.map((a, i) => new BarChartRow(i.toString(), 0, Colors[i % Colors.length]))
 		winMan.CreateBarChartWindow('Time', this.rows, new Point(size.width * 1.5, 0), new Size(30, administrators.length*2))
 		this.weights = administrators.map(a => startTime)
@@ -142,15 +143,11 @@ export class WeightedUnity extends Unity {
 					next = ((Math.random() * len) | 0) % len;
 				}
 			}
-			//this.logger.WarnLine(`switch to ${next}`)
+			this.logger.WarnLine(`switch to ${next}`)
 			this.index = next
 		}
 
-		let logline = `${this.index}: `;
-		for (let i = 0; i < this.weights.length; ++i) {
-			logline += `${i}: ${this.weights[i].toFixed(2)}, `;
-		}
-		//this.logger.InfoLine(logline)
+		this.logger.InfoLine(`${this.index}: ${this.weights.map((w, i) => `${i}: ${w.toFixed(2)}`).join(", ")}`);
 
 		let vec = this.administrators[this.index].Work(dt);
 		vec = vec ? vec : new Point(0, 0);

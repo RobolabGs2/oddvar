@@ -6,10 +6,9 @@ import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
 import { Administrator, PointAdministrator, RandomAdministrator } from './administrators'
 import { IBody, PolygonBody } from '../../oddvar/physics/body';
-import { DemocraticUnity, DictaturaUnity, SmartUnity, TimerUnity, Unity, WeightedUnity } from './unity';
-import { BarChartRow, BarChartWindow, ChartWindow, Logger, TableModel, WindowsManager } from '../../web/windows';
+import { Unity, WeightedUnity } from './unity';
+import { TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
-import { HTML } from '../../web/html';
 
 
 interface TableLine {

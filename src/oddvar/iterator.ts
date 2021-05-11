@@ -80,4 +80,9 @@ export namespace Iterators {
 		return Iterators.Wrap(RangeGenerator(n));
 	}
 	
+	export function zip<T1, T2>(arr1: T1[], arr2: T2[]): [T1, T2][] {
+		if(arr1.length !== arr2.length)
+			throw TypeError(`Zipped arrays must have equal lenght!`);
+		return arr1.map((v, i) => [v, arr2[i]]);
+	}
 }

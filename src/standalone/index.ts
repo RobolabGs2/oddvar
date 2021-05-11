@@ -16,7 +16,7 @@ import { Keyboard } from "../oddvar/input";
 import { KeyAction } from "../oddvar/protocol";
 import { HTML } from "../web/html";
 import { Point, Size } from "../oddvar/geometry";
-import { MetricsTable, WindowsManager } from "../web/windows";
+import { MetricsTable, StyleSheetTree, WindowsManager } from "../web/windows";
 import { Labirint } from "../oddvar/labirint/labirint";
 
 console.log("Hello ODDVAR");
@@ -85,8 +85,8 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	const gameWindowsContainer = HTML.CreateElement("div")
 	const mainWindowsContainer = HTML.CreateElement("div")
 	document.body.append(gameWindowsContainer, mainWindowsContainer);
-	const gameWindowsManager = new WindowsManager(gameWindowsContainer, styleSheet);
-	const mainWindowsManager = new WindowsManager(mainWindowsContainer, styleSheet);
+	const gameWindowsManager = new WindowsManager(gameWindowsContainer, new StyleSheetTree(styleSheet));
+	const mainWindowsManager = new WindowsManager(mainWindowsContainer, new StyleSheetTree(styleSheet));
 
 	const maps: Record<string, MapCreator | GameMap> = {
 		symmetric: new GameMap(PacManMap, new Size(gameSize, gameSize)),
@@ -105,7 +105,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	let lastGame = games["Симуляция с кучей агентов"];
 
 	const newManager = (game: gameCreator = lastGame, map: MapCreator | GameMap = lastMap) => {
-		gameWindowsContainer.innerHTML = "";
+		gameWindowsManager.Dispose();
 		const worlds = new Worlds(
 			new World(),
 			new LocalPlayers(keyboards),
@@ -126,7 +126,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		mainWindowsManager]);
 	document.body.appendChild(canvas);
 	// document.body.appendChild(CreateWindow("Buffer", bufferCanvas));
-	keyboards.map((x, i) => mainWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));
+	// keyboards.map((x, i) => mainWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));
 	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.Append(
 		HTML.CreateElement("article", HTML.SetStyles(style => { style.display = "flex"; style.flexDirection = "row"; }), HTML.Append(([
 			["game", games, (value) => processor.manager = newManager(value, lastMap)],

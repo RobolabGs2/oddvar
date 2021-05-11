@@ -84,14 +84,11 @@ export class DataMatrix<T> {
 				}
 				return answer.reverse();
 			}
-
 			this.nextPoints(v, from, wall, (dir, next) => {
 				from.set(next.x, next.y, dir);
 				queue.push(next);
 			});
-
 		}
-
 		function isFinish(v: Point) {
 			return v.x === end.x && v.y === end.y;
 		}
@@ -321,13 +318,9 @@ export class Labirint extends DataMatrix<boolean>{
 	}
 }
 
-// Мне не хватило возможности сунуть в enum функций, поэтому здесь рукотворный enum
-export type Dir = number
-export const Dir = {
-	UP: 0, DOWN: 1, LEFT: 2, RIGHT: 3,
-	0: "UP", 1: "DOWN", 2: "LEFT", 3: "RIGHT",
-
-	Reverse(d: Dir): Dir {
+export enum Dir {UP, DOWN, LEFT, RIGHT}
+export namespace Dir {
+	export function Reverse(d: Dir): Dir {
 		switch (d) {
 			case Dir.UP: return Dir.DOWN;
 			case Dir.DOWN: return Dir.UP;
@@ -335,8 +328,8 @@ export const Dir = {
 			case Dir.RIGHT: return Dir.LEFT;
 		}
 		throw new TypeError(`Unknown Dir: ${d}`);
-	},
-	Angle(d: Dir): number {
+	}
+	export function Angle(d: Dir): number {
 		switch (d) {
 			case Dir.UP: return Math.PI * 1.5;
 			case Dir.DOWN: return Math.PI * 0.5;
@@ -344,9 +337,9 @@ export const Dir = {
 			case Dir.RIGHT: return 0;
 		}
 		throw new TypeError(`Unknown Dir: ${d}`);
-	},
+	}
 	// Перемещает точку по направлению
-	movePoint(p: Dir, s: Point, count: number = 1): Point {
+	export function movePoint(p: Dir, s: Point, count: number = 1): Point {
 		switch (p) {
 			case Dir.UP: s.y -= count; break;
 			case Dir.DOWN: s.y += count; break;
@@ -354,9 +347,9 @@ export const Dir = {
 			case Dir.RIGHT: s.x += count; break;
 		}
 		return s;
-	},
+	}
 	// Сдвигает точку, чтобы она соблюдала правила ПДД с левосторонним движением
-	shiftPoint(p: Dir, s: Point, count: number = 1): Point {
+	export function shiftPoint(p: Dir, s: Point, count: number = 1): Point {
 		switch (p) {
 			case Dir.UP: s.x += count; break;
 			case Dir.DOWN: s.x -= count; break;

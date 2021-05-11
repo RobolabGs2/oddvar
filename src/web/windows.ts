@@ -1,5 +1,6 @@
 import { Point, Size } from "../oddvar/geometry";
-import { Observable } from "../oddvar/utils";
+import { ConvertRecord, Observable } from "../oddvar/utils";
+import { LoggerLevel, Logger } from "../oddvar/utils/logger";
 import { HTML } from "./html";
 
 export interface TableModel<T, E extends string> extends Observable<{ updated: number }, T> {
@@ -32,63 +33,45 @@ export class MetricsTable extends Observable<{ updated: number }> implements Tab
 	}
 }
 
-export interface Logger {
-	InfoLine(msg: string): void;
-	WarnLine(msg: string): void;
-	ErrorLine(msg: string): void;
-}
-
-export class RotatedLogs<T extends { section: HTMLElement }> {
-	buffer: T[] = [];
-	cur = 0;
+export class RotatedLogs<T extends { section: HTMLElement } = { section: HTMLElement }> {
+	private buffer: T[] = [];
+	private cur = 0;
 	constructor(readonly create: () => T, readonly parent: HTMLElement, readonly cap = 100) {
-		parent.style.display = "flex";
-		parent.style.flexDirection = "column";
-		for(let i = 0; i< cap; i++) {
+		parent.style.overflow = "auto";
+		for (let i = 0; i < cap; i++) {
 			const line = (this.buffer[i] = this.create()).section;
-			line.style.order = `-1`;
 			this.parent.appendChild(line);
 		}
 	}
 
 	insert(inserter: (line: T) => void) {
-		const lineNum = this.cur;
-		requestAnimationFrame(() => {
-			const line = this.buffer[(lineNum) % this.cap];
-			line.section.style.order = `${lineNum}`;
-			inserter(line);
-		})
-		++this.cur;
+		const line = this.buffer[(this.cur++) % this.cap];
+		this.parent.appendChild(line.section)
+		inserter(line);
 	}
 }
 
-export class ConsoleWindow implements Logger {
-	logs = new RotatedLogs<{section: HTMLElement}>(
-		() => { return {section: HTML.CreateElement('div')}; },
-		this.container, 1000);
-
-	constructor(private container: HTMLElement) {
+export class ConsoleWindow<MsgType extends string> {
+	logs: Record<MsgType, RotatedLogs>;
+	constructor(private logsContainer: HTMLElement, msgTypes: MsgType[]) {
+		this.logs = msgTypes.reduce((acc, value) => {
+			acc[value] = new RotatedLogs(() => { return { section: <HTMLElement>HTML.CreateElement('div', HTML.AddClass(value)) }; }, this.logsContainer, (1000 / msgTypes.length) | 0);
+			return acc;
+		}, {} as Record<MsgType, RotatedLogs>);
 	}
 
-	private WriteLine(msg: string, color: string) {
-		this.logs.insert(line => {
-			HTML.ModifyElement(line.section,
-				HTML.SetText(msg),
-				HTML.SetStyles(s => s.color = color))
-		});
-		this.container.scrollTop = this.container.scrollHeight
+	buffer = new Array<[string, MsgType]>()
+
+	public WriteLine(lvl: MsgType, msg: string) {
+		this.buffer.push([msg, lvl])
 	}
 
-	InfoLine(msg: string): void {
-		this.WriteLine(msg, 'lime')
-	}
-
-	WarnLine(msg: string): void {
-		this.WriteLine(msg, 'yellow')
-	}
-
-	ErrorLine(msg: string): void {
-		this.WriteLine(msg, 'red')
+	Tick(dt: number) {
+		if (this.buffer.length) {
+			this.buffer.forEach(([msg, lvl]) => this.logs[lvl].insert(line => line.section.textContent = msg));
+			this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+			this.buffer.length = 0;
+		}
 	}
 }
 
@@ -97,11 +80,11 @@ export class BarChartRow {
 	}
 }
 
-export class BarChartWindow implements Ticker{
+export class BarChartWindow implements Ticker {
 	lines: HTMLElement[] = []
 	table: HTMLElement;
-	constructor(private container: HTMLElement, private rows: BarChartRow[]) {
-		this.table = HTML.CreateElement('table', HTML.SetStyles(s => {s.width = '100%'; s.height = "100%"; s.borderCollapse = "collapse"}));
+	constructor(container: HTMLElement, private rows: BarChartRow[]) {
+		this.table = HTML.CreateElement('table', HTML.SetStyles(s => { s.width = '100%'; s.height = "100%"; s.borderCollapse = "collapse" }));
 		container.appendChild(this.table);
 		rows.forEach(r => this._append(r));
 	}
@@ -109,9 +92,9 @@ export class BarChartWindow implements Ticker{
 	private _append(row: BarChartRow) {
 		let line;
 		this.table.append(
-			HTML.CreateElement('tr', HTML.SetStyles(s => {s.width = '100%';}), HTML.Append(
+			HTML.CreateElement('tr', HTML.SetStyles(s => { s.width = '100%'; }), HTML.Append(
 				HTML.CreateElement('td', HTML.SetStyles(s => s.border = '1px solid black'), HTML.SetText(row.name)),
-				HTML.CreateElement('td', HTML.SetStyles(s => {s.height = `${100 / this.rows.length}%`; s.width = '100%'; s.border = '1px solid gray'}), HTML.Append(
+				HTML.CreateElement('td', HTML.SetStyles(s => { s.height = `${100 / this.rows.length}%`; s.width = '100%'; s.border = '1px solid gray' }), HTML.Append(
 					line = HTML.CreateElement('div',
 						HTML.SetStyles(s => {
 							s.backgroundColor = row.color;
@@ -131,7 +114,7 @@ export class BarChartWindow implements Ticker{
 	}
 
 	Tick(dt: number): void {
-		let	max = Math.max(...this.rows.map(r => r.value));
+		let max = Math.max(...this.rows.map(r => r.value));
 
 		this.lines.forEach((l, i) => {
 			l.style.width = `${this.rows[i].value / max * 100}%`;
@@ -140,12 +123,11 @@ export class BarChartWindow implements Ticker{
 	}
 }
 
-export class ChartWindow
-{
+export class ChartWindow {
 	private context: CanvasRenderingContext2D;
 	private last = 0;
 	private first = true;
-	constructor(private container: HTMLElement) {
+	constructor(container: HTMLElement) {
 		let canvas = HTML.CreateElement('canvas');
 		container.append(canvas)
 		this.context = canvas.getContext('2d')!;
@@ -173,18 +155,72 @@ export class ChartWindow
 	}
 }
 
+export class StyleSheetTree {
+	private rules = new Set<CSSRule>();
+	private childs = new Array<StyleSheetTree>();
+	constructor(private readonly styleSheet: CSSStyleSheet, readonly selector: string = "") { }
 
-export class WindowsManager implements Ticker{
+	addRule(selector: string, style: string = ''): CSSStyleRule {
+		const index = this.styleSheet.insertRule(`${this.selector} ${selector} {${style}}`, this.styleSheet.rules.length);
+		const rule = this.styleSheet.cssRules[index];
+		this.rules.add(rule);
+		return rule as CSSStyleRule;
+	}
+
+	deleteRule(rule: CSSStyleRule): void {
+		if (!this.rules.has(rule))
+			throw new RangeError(`Try remove rule '${rule.cssText}' from incorrect sheet`);
+		this.rules.delete(rule);
+		for (let i = 0; i < this.styleSheet.cssRules.length; i++) {
+			if (this.styleSheet.cssRules.item(i) === rule) {
+				this.styleSheet.removeRule(i);
+				return;
+			}
+		}
+		throw new RangeError(`Can't remove rule ${rule.cssText}`);
+	}
+
+	child(selector: string): StyleSheetTree {
+		const sheet = new StyleSheetTree(this.styleSheet, `${this.selector} ${selector}`);
+		this.childs.push(sheet);
+		return sheet;
+	}
+
+	Dispose(cascade = true) {
+		if (cascade) {
+			this.childs.forEach(child => child.Dispose());
+			this.childs.length = 0;
+		}
+		for (let i = this.styleSheet.cssRules.length - 1; i >= 0; i--) {
+			if (this.rules.has(this.styleSheet.cssRules.item(i)!)) {
+				this.styleSheet.removeRule(i);
+			}
+		}
+	}
+}
+
+export function CSSColors<T extends string | number>(colorsSettings: Record<T, string>): Record<T, Partial<CSSStyleDeclaration>> {
+	return ConvertRecord(colorsSettings, (key, color) => { return { color } })
+}
+
+export class WindowsManager implements Ticker {
 	tickers = new Array<Ticker>();
-
+	disposes = new Array<{ Dispose: () => void }>();
 	public static readonly cssClasses = {
 		visibleOnAnything: "visible-on-anything"
 	}
 
-	constructor(readonly container: HTMLElement, styleSheet: CSSStyleSheet) {
+	private windowCSS: StyleSheetTree
+	private headerCSS: StyleSheetTree
+	private contentCSS: StyleSheetTree
+
+	constructor(readonly container: HTMLElement, styleSheet: StyleSheetTree) {
 		const containerClass = "windows-container" + Math.random().toString().slice(2);
 		container.classList.add(containerClass);
-		styleSheet.addRule(`.${containerClass} > article`, `
+		this.windowCSS = styleSheet.child(`.${containerClass} > article`);
+		this.headerCSS = this.windowCSS.child(`> header`);
+		this.contentCSS = this.windowCSS.child(`> section`);
+		this.windowCSS.addRule('', `
 			position: absolute;
 			border: double 5px gray;
 			border-radius: 5px;
@@ -192,32 +228,32 @@ export class WindowsManager implements Ticker{
 			font-family: "Bitstream Vera Sans Mono", monospace;
 			font-size: 12px;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > header`, `
+		this.headerCSS.addRule(``, `
 			border-bottom: solid 1px gray;
 			display: flex;
 			height: 1.3em;
 			padding-left: 4px;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > header button`, `
+		this.headerCSS.addRule(`button`, `
 			border: none;
 			border-left: solid 1px gray;
 			margin: 0;
 			height: 100%;
 			width: 18px;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > header button:focus`, `
+		this.headerCSS.addRule(`button:focus`, `
 			outline: none;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section .table`, `
+		this.contentCSS.addRule(`.table`, `
 			display: flex;
 			flex-direction: column;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section .table > section`, `
+		this.contentCSS.addRule(`.table > section`, `
 			display: flex;
 			justify-content: space-between;
 			border-top: solid 1px gray;
 		`);
-		styleSheet.addRule(`.${containerClass} > article > section .${WindowsManager.cssClasses.visibleOnAnything}`, `
+		this.contentCSS.addRule(`.${WindowsManager.cssClasses.visibleOnAnything}`, `
 			font-weight: bold;
 			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
 			color: white;
@@ -228,8 +264,15 @@ export class WindowsManager implements Ticker{
 		this.tickers.forEach(t => t.Tick(dt))
 	}
 
-	public NewCreateBarChartWindow(title: string, rows: BarChartRow[], size: Size = new Size(50, 30)): [HTMLElement, BarChartWindow] {
-		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
+	public Dispose() {
+		this.tickers.length = 0;
+		this.disposes.forEach(d => d.Dispose());
+		this.disposes.length = 0;
+		this.container.innerHTML = "";
+	}
+
+	public NewCreateBarChartWindow(rows: BarChartRow[], size: Size = new Size(50, 30)): [HTMLElement, BarChartWindow] {
+		const container = HTML.CreateElement('div', HTML.SetStyles(s => {
 			s.width = `${size.width}rem`;
 			s.height = `${size.height}rem`;
 			s.overflow = 'auto'
@@ -243,30 +286,71 @@ export class WindowsManager implements Ticker{
 	}
 
 	public CreateBarChartWindow(title: string, rows: BarChartRow[], position = Point.Zero, size: Size = new Size(50, 30)): BarChartWindow {
-		const pair = this.NewCreateBarChartWindow(title, rows, size);
+		const pair = this.NewCreateBarChartWindow(rows, size);
 		this.CreateInfoWindow(title, pair[0], position);
 		return pair[1];
 	}
 
-	CreateConsoleWindow(title: string, position = Point.Zero, size: Size = new Size(50, 30)): ConsoleWindow {
-		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
-			s.whiteSpace = 'pre';
-			s.width = `${size.width.toString()}rem`;
-			s.height = `${size.height.toString()}rem`;
+	CreateLoggerWindow(title: string, position = Point.Zero, size: Size = new Size(50, 30)): Logger {
+		const console = this.CreateConsoleWindow<LoggerLevel>(title, position, size,
+			CSSColors({
+				TRACE: "white",
+				DEBUG: "cyan",
+				INFO: "lime",
+				WARN: "yellow",
+				ERROR: "red",
+			}));
+		return new Logger("TRACE", "", console.WriteLine.bind(console));
+	}
+
+	CreateConsoleWindow<MsgTypes extends string>(title: string, position = Point.Zero, size: Size = new Size(50, 30),
+		settings: Record<MsgTypes, Partial<CSSStyleDeclaration>>): ConsoleWindow<MsgTypes> {
+		const styleSheet = this.contentCSS.child("> article");
+		Object.entries<Partial<CSSStyleDeclaration>>(settings).forEach(([type, style]) => {
+			const rule = styleSheet.addRule(`.${type}`);
+			for (let x in style) {
+				const value = style[x];
+				if (value)
+					rule.style[x] = value;
+			}
+		});
+		this.disposes.push(styleSheet);
+		const container = HTML.CreateElement('div', HTML.SetStyles(s => {
 			s.overflow = 'auto'
-			s.color = 'lime'
-			s.backgroundColor = 'black'
 		}))
-		const window = new ConsoleWindow(container)
-		this.CreateInfoWindow(title, container, position)
+		const window = new ConsoleWindow<MsgTypes>(container, Object.keys(settings) as MsgTypes[]);
+		this.tickers.push(window);
+		this.CreateInfoWindow(title, HTML.CreateElement("article", HTML.FlexContainer("column"),
+			HTML.SetStyles(s => {
+				s.whiteSpace = 'pre';
+				s.width = `${size.width}rem`;
+				s.height = `${size.height}rem`;
+				s.color = 'lime'
+				s.backgroundColor = 'black'
+			}),
+			HTML.Append(
+				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between"), HTML.Append(
+					Object.keys(settings).map(lvl => {
+						const selector = `div.${lvl}`;
+						const rule = styleSheet.addRule(selector);
+						return HTML.CreateElement("section", HTML.Append(
+							HTML.CreateElement("input", HTML.SetInputType("checkbox"), HTML.AddClass(lvl), HTML.SetChecked(),
+								HTML.AddEventListener("change", function () {
+									rule.style.display = (<HTMLInputElement>this).checked ? "" : "none";
+								})),
+							HTML.CreateElement("span", HTML.SetText(lvl), HTML.AddClass(lvl)),
+						))
+					})
+				)), container
+			)), position)
 		return window;
 	}
 
 	CreateChartWindow(title: string, position = Point.Zero, size: Size = new Size(50, 30)): ChartWindow {
-		const container = HTML.CreateElement('div', HTML.SetStyles(s =>{
+		const container = HTML.CreateElement('div', HTML.SetStyles(s => {
 			s.whiteSpace = 'pre';
-			s.width = `${size.width.toString()}rem`;
-			s.height = `${size.height.toString()}rem`;
+			s.width = `${size.width}rem`;
+			s.height = `${size.height}rem`;
 			s.overflow = 'auto'
 			s.color = 'lime'
 			s.backgroundColor = 'black'
@@ -305,10 +389,7 @@ export class WindowsManager implements Ticker{
 			}))
 		const content = HTML.CreateElement("section", HTML.Append(inner));
 		return HTML.ModifyElement(window,
-			HTML.Append(
-				this.CreateHeader(title, window, content),
-				content
-			)
+			HTML.Append(this.CreateHeader(title, window, content), content)
 		)
 	}
 

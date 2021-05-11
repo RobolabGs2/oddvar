@@ -1,4 +1,4 @@
-import { Point } from '../../oddvar/geometry';
+import { Point, Size } from '../../oddvar/geometry';
 import { Oddvar } from "../../oddvar/oddvar"
 import { RectangleTexture } from '../../oddvar/textures';
 import { Target } from "../utils/target";
@@ -8,10 +8,9 @@ import { DataMatrix, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Iterators } from '../../oddvar/iterator';
 import { GameLogic } from '../../oddvar/manager';
 import { Bot } from './bot';
-import { Network } from './net';
+import { MessageDataMap, Network } from './net';
 import { Observable } from '../../oddvar/utils';
-import { RotatedLogs, TableModel, WindowsManager } from '../../web/windows';
-import { HTML } from '../../web/html';
+import { TableModel, WindowsManager } from '../../web/windows';
 
 const botsCount = 5;
 
@@ -42,38 +41,24 @@ export class MultiagentSimulation implements GameLogic {
 
 
 		const logHeight = 450;
-		const networkLogsView = HTML.CreateElement("article",
-			HTML.SetStyles(style => {
-				style.maxHeight = style.height = `${logHeight}px`;
-				style.width = "512px";
-				style.overflow = "auto";
-				style.background = "rgba(0, 0, 0, 0.9)";
-				style.color = "lime";
-				style.display = "flex";
-				style.flexDirection = "column";
-			})
-		);
-		const networkLogs = new RotatedLogs(() => {
-			const columns = [1, 2, 3, 4].map(text => HTML.CreateElement("span", HTML.SetStyles(s => s.flex = "1")))
-			const section = HTML.CreateElement("section",
-				HTML.SetStyles(s => { s.display = "flex"; s.justifyContent = "space-between"; s.textAlign = "center" }),
-				HTML.Append(columns));
-			return { section, columns }
-		}, networkLogsView, 32);
-
-		// setInterval(() => requestAnimationFrame(() => networkLogsView.scroll(0, networkLogsView.scrollHeight)), 1000)
-
+		const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 28), new Size(30, 30), {
+			// empty: "white",
+			// target: "lime",
+			// captured: "red",
+			empty: {color: "white", fontWeight: "1000"},
+			target: {color: "lime"},
+			captured: {color: "red", fontWeight: "1000", fontStyle: "italic"},
+		});
 		const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`
-		winMan.CreateInfoWindow("Network", networkLogsView, new Point(map.size.width, map.size.height - logHeight - 28));
 		this.network = new Network(
 			(msg => {
-				networkLogs.insert(line => {
-					const columns = line.columns;
-					columns[0].textContent = `${msg.from} -> ${msg.to}`,
-					columns[1].textContent = msg.type,
-					columns[2].textContent = `${msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type}`,
-					columns[3].textContent = `${msg.timestamp.toFixed(2)}`;
-				})
+				networkLogs.WriteLine(msg.type,
+					[
+						[msg.from.padEnd(10), msg.to.padStart(10)].join(" -> ").padEnd(30),
+						msg.type.padEnd(10),
+						(msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type).padEnd(10),
+						msg.timestamp.toFixed(2).padStart(10)
+					].join(" "))
 			}), oddvar.Clock);
 		const scoreTable = new BotTable();
 		map.Draw(this.wallManager.creator)
@@ -85,7 +70,7 @@ export class MultiagentSimulation implements GameLogic {
 				this.getTexture(i), this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)))).toArray();
 		const targetSize = this.map.cellSize.Scale(1 / 5);
 		const targetName = (i: number, name: string) => `target_${i} ${name}`
-		const admin = this.network.CreateNetworkCard("admin card", "admin");
+		const admin = this.network.CreateNetworkCard("admin card", "Lier");
 		this.bots.map((bot, i) => {
 			scoreTable.addBot(bot.name);
 			const layers = 1 << i;
@@ -101,7 +86,7 @@ export class MultiagentSimulation implements GameLogic {
 				(<Map<string, Point>>this.targetMap.get(now.x, now.y)).set(bot.name, p.to);
 				bot.resetMap();
 				scoreTable.updateScore(i);
-				// admin.send(new Message("admin", bot.name, "target", p.to));
+				admin.send(bot.name, "target", new Point(map.size.width - p.to.x, map.size.height - p.to.y));
 			});
 			target.addEventListener("collision", () => {
 				const newLocation = this.GenerateInconflictPoint(targetSize.width, layers);
