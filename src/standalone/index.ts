@@ -45,6 +45,7 @@ const smallMap = Labirint.SymmetryOdd([
 	[0, 0, 1, 1]
 ]).Frame(1);
 
+
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
 	const gameSize = 800;
 	document.body.style.minWidth = document.body.style.minHeight = `${gameSize}px`;
@@ -53,7 +54,6 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	document.body.style.overflow = "hidden";
 	const canvas = HTML.CreateElement("canvas",
 		HTML.SetStyles(style => {
-			// style.backgroundImage = "url(https://raw.githubusercontent.com/RobolabGs2/test-io/develop/static/img/background/0.jpg)";
 			style.backgroundColor = "rgb(200, 200, 200)"
 			style.width = style.height = "100%";
 		}),
@@ -71,16 +71,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	canvasContext.imageSmoothingEnabled = false;
 	const bufferCanvas = HTML.CreateElement("canvas", c => { c.height = c.width = gameSize; });
 	const hiddenContext = bufferCanvas.getContext("2d")!;
-	// canvasContext.scale(canvasSize / gameSize, canvasSize / gameSize)
-	const keyboards = [
-		new Keyboard(),
-		new Keyboard({
-			"ArrowLeft": KeyAction.LEFT,
-			"ArrowRight": KeyAction.RIGHT,
-			"ArrowUp": KeyAction.UP,
-			"ArrowDown": KeyAction.DOWN,
-		})
-	];
+	const keyboards = [new Keyboard(Keyboard.Mappings.WASD), new Keyboard(Keyboard.Mappings.Arrows)];
 
 	const gameWindowsContainer = HTML.CreateElement("div")
 	const mainWindowsContainer = HTML.CreateElement("div")
@@ -88,7 +79,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	const gameWindowsManager = new WindowsManager(gameWindowsContainer, new StyleSheetTree(styleSheet));
 	const mainWindowsManager = new WindowsManager(mainWindowsContainer, new StyleSheetTree(styleSheet));
 
-	const maps: Record<string, MapCreator | GameMap> = {
+	const maps = {
 		symmetric: new GameMap(PacManMap, new Size(gameSize, gameSize)),
 		symmetric_mini: new GameMap(smallMap, new Size(gameSize, gameSize)),
 		symmetric_big: new GameMap(BigPacManMap, new Size(gameSize, gameSize)),
@@ -96,14 +87,17 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		"random maze": new GameMap(RandomMap, new Size(gameSize, gameSize)),
 	}
 	type gameCreator = (o: Oddvar, m: MapCreator | GameMap) => GameLogic | undefined;
-	const games: Record<string, gameCreator> = {
+	const games = {
 		"Симуляция с кучей агентов": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MultiagentSimulation(o, m, gameWindowsManager) : undefined,
 		"Симуляция с одним агентом": (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m, gameWindowsManager) : undefined,
 		"Собери квадраты": (o: Oddvar, m: MapCreator | GameMap) => new CollectingSquaresGame(o, m),
 	}
-	let lastMap = maps["symmetric"];
-	let lastGame = games["Симуляция с кучей агентов"];
-
+	type SimulationSettings = { map: keyof typeof maps, game: keyof typeof games }
+	const url = new URL(location.href);
+	const settings: SimulationSettings = {map:(url.searchParams.get("map")|| "symmetric") as keyof typeof maps, game: (url.searchParams.get("game")|| "Симуляция с кучей агентов") as keyof typeof games}
+	let lastMap: MapCreator | GameMap = maps[settings.map];
+	let lastGame: gameCreator = games[settings.game];
+	
 	const newManager = (game: gameCreator = lastGame, map: MapCreator | GameMap = lastMap) => {
 		gameWindowsManager.Dispose();
 		const worlds = new Worlds(
@@ -131,10 +125,10 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		HTML.CreateElement("article", HTML.SetStyles(style => { style.display = "flex"; style.flexDirection = "row"; }), HTML.Append(([
 			["game", games, (value) => processor.manager = newManager(value, lastMap)],
 			["map", maps, (value) => processor.manager = newManager(lastGame, value)],
-		] as [string, Record<string, any>, (v: any) => void][]).
+		] as [keyof SimulationSettings, Record<string, any>, (v: any) => void][]).
 			map(([name, record, onChange]) => HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose ${name}:`), HTML.SetStyles(s => s.marginRight = "16px")),
-				CreateSelector(record, onChange)
+				CreateSelector(name, settings[name], record, onChange)
 			))))),
 		HTML.CreateElement("article",
 			HTML.SetStyles(style => {
@@ -159,15 +153,22 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		))), new Point(gameSize, 0))
 });
 
-function CreateSelector<T>(options: Record<string, T>, onChange: (value: T) => void) {
+function CreateSelector<T>(name: string, defaultKey: string, options: Record<string, T>, onChange: (value: T) => void) {
 	return HTML.CreateElement("select",
 		HTML.AddEventListener("change", function () {
 			try {
-				onChange(options[(<HTMLSelectElement>this).value])
+				const key = (<HTMLSelectElement>this).value;
+				onChange(options[key])
+				const url = new URL(location.href);
+				url.searchParams.set(name, key)
+				history.pushState(null, "", url.toString());
 			} catch (e) {
 				alert(`${e}`)
 			}
 		}),
-		HTML.Append(...Object.keys(options).map(name => HTML.CreateElement("option", HTML.SetText(name), (el) => el.value = name)))
+		HTML.Append(...Object.keys(options).map(name => HTML.CreateElement("option", HTML.SetText(name), (el) => el.value = name))),
+		el => {
+			el.selectedIndex = Object.keys(options).findIndex(k => k === defaultKey);
+		}
 	)
 }

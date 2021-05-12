@@ -8,12 +8,21 @@ export interface KeyboardEvents {
 }
 
 export class Keyboard extends Observable<KeyboardEvents>{
-	constructor(private readonly keyMapping: Record<string, KeyAction> = {
-		"KeyA": KeyAction.LEFT,
-		"KeyD": KeyAction.RIGHT,
-		"KeyW": KeyAction.UP,
-		"KeyS": KeyAction.DOWN,
-	}) {
+	public static Mappings = {
+		WASD: {
+			"KeyA": KeyAction.LEFT,
+			"KeyD": KeyAction.RIGHT,
+			"KeyW": KeyAction.UP,
+			"KeyS": KeyAction.DOWN,
+		},
+		Arrows: {
+			"ArrowLeft": KeyAction.LEFT,
+			"ArrowRight": KeyAction.RIGHT,
+			"ArrowUp": KeyAction.UP,
+			"ArrowDown": KeyAction.DOWN,
+		}
+	}
+	constructor(private readonly keyMapping: Record<string, KeyAction> = Keyboard.Mappings.WASD) {
 		super();
 		document.addEventListener("keydown", ev => {
 			if (this.dispatchKeyInput(ev.code, "down"))
