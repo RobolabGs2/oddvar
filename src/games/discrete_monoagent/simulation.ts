@@ -4,11 +4,12 @@ import { Oddvar } from '../../oddvar/oddvar';
 import { GameMap } from '../utils/game_map';
 import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
-import { Administrator, PointAdministrator, RandomAdministrator } from './administrators'
+import { Manager, TimerManager } from './manager'
 import { IBody, PolygonBody } from '../../oddvar/physics/body';
-import { DemocraticUnity, DictaturaUnity, SmartUnity, SwitchUnity, TimerUnity, Unity, WeightedUnity } from './unity';
+import { Bot, PointBot, RandomBot } from './bot';
 import { BarChartRow, BarChartWindow, ChartWindow, TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
+import { BotController } from './bot_controller';
 
 
 interface TableLine {
@@ -28,12 +29,12 @@ class AdminTable extends Observable<{ updated: number }> implements TableModel<A
 	}
 }
 
-export class MonoagentSimulation implements GameLogic {
+export class DiscreteMonoagentSimulation implements GameLogic {
 	private wallManager = new WallManager(this.oddvar);
-	private administrators = new Array<Administrator>();
+	private bots = new Array<Bot>();
 	private bot: PolygonBody;
 	private size: Size;
-	private unity: Unity;
+	private botController: BotController;
 
 	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
 		this.size = this.map.cellSize.Scale(0.2);
@@ -44,31 +45,23 @@ export class MonoagentSimulation implements GameLogic {
 
 		const adminTable = new AdminTable();
 		adminTable.add('sum');
-		for (let i = 0; i < 5; ++i) {
+		for (let i = 0; i < 3; ++i) {
 			adminTable.add(`target ${i}`);
-			this.createTargetAdministrator(i, idx => {
+			this.createTargetBot(i, idx => {
 				adminTable.updateScore(0);
 				adminTable.updateScore(idx + 1);
 			});
 		}
-		this.administrators.push(new RandomAdministrator());
+		this.bots.push(new RandomBot());
 
-		// this.unity = new TimerUnity(this.administrators);
-		// this.unity = new DemocraticUnity(this.administrators);
-		// this.unity = new DictaturaUnity(this.administrators);
-		// this.unity = new SmartUnity(this.administrators);
-		// this.unity = new WeightedUnity(this.administrators, winMan, map.size, 2);
-		this.unity = new SwitchUnity(this.administrators, winMan, map.size);
-		
+		const manager = new TimerManager(this.bots, winMan);
+		this.botController = new BotController(manager, this.bot, map)
+
 		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
 	}
 
 	Tick(dt: number): void {
-		const direction = this.unity.Work(dt);
-		if (direction.Len() < 1e-10) {
-			return;
-		}
-		this.bot.Kick(direction.Norm().Mult((this.bot as IBody).Mass() * 500))
+		this.botController.Tick(dt);
 	}
 
 	protected GenerateInconflictPoint(distance: number): Point {
@@ -79,22 +72,20 @@ export class MonoagentSimulation implements GameLogic {
 		return result;
 	}
 
-	createTargetAdministrator(idx: number, hitAction?: ((idx: number) => void)): PointAdministrator {
-		const target = this.oddvar.Get('World').CreateEntity(`admin target ${idx}`, this.GenerateInconflictPoint(this.size.width));
-		const body = this.oddvar.Get('Physics').CreateRectangleBody(`admin target ${idx} body`, target, { static: false, lineFriction: 1 }, this.size);
-		this.oddvar.Get('Graphics').CreateRectangleBodyAvatar(`admin target ${idx} avatar`, body, this.oddvar.Get('TexturesManager').CreateColoredTexture('asdasdfafsd', { fill: 'grb(1,150,1)' }));
-		const admin = new PointAdministrator(this.bot, this.map, target);
-		this.administrators.push(admin);
+	createTargetBot(idx: number, hitAction?: ((idx: number) => void)): PointBot {
+		const target = this.oddvar.Get('World').CreateEntity(`bot target ${idx}`, this.GenerateInconflictPoint(this.size.width));
+		const body = this.oddvar.Get('Physics').CreateRectangleBody(`bot target ${idx} body`, target, { static: false, lineFriction: 1 }, this.size);
+		this.oddvar.Get('Graphics').CreateRectangleBodyAvatar(`bot target ${idx} avatar`, body, this.oddvar.Get('TexturesManager').CreateColoredTexture('asdasdfafsd', { fill: 'grb(1,150,1)' }));
+		const bot = new PointBot(this.bot, this.map, target);
+		this.bots.push(bot);
 
 		body.AddCollisionListener((_, b) => {
 			if (b == this.bot) {
 				target.location = this.GenerateInconflictPoint(this.size.width);
-				admin.SetEndwork();
-				admin.updatePath();
 				hitAction?.(idx);
 			}
 		});
-		return admin;
+		return bot;
 	}
 
 	AddUser(player: Player): void { }

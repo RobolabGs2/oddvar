@@ -150,7 +150,7 @@ export class WeightedUnity extends Unity {
 		this.logger.InfoLine(`${this.index}: ${this.weights.map((w, i) => `${i}: ${w.toFixed(2)}`).join(", ")}`);
 
 		let vec = this.administrators[this.index].Work(dt);
-		vec = vec ? vec : new Point(0, 0);
+		vec = vec ? vec : new Point(1, 0);
 		const work = vec.Norm();
 		this.companions = [this.index]
 		for (let i = 0; i < this.administrators.length; ++i) {
@@ -165,6 +165,36 @@ export class WeightedUnity extends Unity {
 		this.rows[this.index].value += dt;
 		const payment = dt / this.companions.length;
 		this.companions.forEach(i => this.weights[i] -= payment);
+		return work;
+	}
+}
+
+
+export class SwitchUnity extends Unity {
+	index = 0;
+	currentTime = 0;
+	logger: Logger;
+	rows: BarChartRow[];
+
+	constructor(administrators: Administrator[], private winMan: WindowsManager, size: Size, private switchTime: number = 50) {
+		super(administrators);
+		this.logger = winMan.CreateLoggerWindow('Actions', new Point(size.width, size.height / 2))
+		this.rows = administrators.map((a, i) => new BarChartRow(i.toString(), 0, Colors[i % Colors.length]))
+		winMan.CreateBarChartWindow('Time', this.rows, new Point(size.width * 1.5, 0), new Size(30, administrators.length*2))
+	}
+
+	Work(dt: number): Point {
+		let work = this.administrators[this.index].Work(dt)
+		while (!work || this.currentTime >= this.switchTime) {
+			this.currentTime = 0
+			this.index = this.administrators
+				.map((a, i) => i)
+				.sort((i, j) => this.rows[i].value - this.rows[j].value)[0]
+			work = this.administrators[this.index].Work(dt)
+			this.logger.WarnLine(`switch to ${this.index}`)
+		}
+		this.rows[this.index].value += dt;
+		this.currentTime += dt;
 		return work;
 	}
 }

@@ -32,17 +32,13 @@ export class PointAdministrator implements Administrator {
 	Work(dt: number): Point | null {
 		if (this.nextPoint.Sub(this.bot.entity.location).Len() > this.map.cellSize.width * 1.5) {
 			this.updatePath();
-			if (this.endwork) {
-				this.endwork = true;
-				console.log("null!")
-				return null;
-			}
 		}
 		if (this.nextPoint.Sub(this.bot.entity.location).Len() < this.map.cellSize.width / 5) {
-			if (!this.incNextPoint()) {
-				console.log("null!")
-				return null;
-			};
+			this.incNextPoint()
+		}
+		if (this.endwork) {
+			this.endwork = false;
+			return null;
 		}
 		return this.nextPoint.Sub(this.bot.entity.location).Norm();
 	}
@@ -50,7 +46,7 @@ export class PointAdministrator implements Administrator {
 	private incNextPoint(): boolean {
 		if (this.path.length == 0) {
 			this.updatePath();
-			return false;
+			this.SetEndwork();
 		}
 		Dir.movePoint(this.path[0], this.nextPoint, this.map.cellSize.width)
 		this.path = this.path.slice(1)
@@ -58,7 +54,6 @@ export class PointAdministrator implements Administrator {
 	}
 
 	public updatePath() {
-		console.log("update!")
 		let path = this.map.findPath(this.bot.entity.location, this.target.location);
 		this.path = path ? path : new Array();
 		this.nextPoint = this.map.fromMazeCoords(this.map.toMazeCoords(this.bot.entity.location.Clone()));

@@ -11,6 +11,7 @@ import { Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, MapCreator, PacManMap, BigPacManMap, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
 import { GameMap } from "../games/utils/game_map";
 import { MultiagentSimulation } from '../games/multiagent/simulation';
+import { DiscreteMonoagentSimulation } from '../games/discrete_monoagent/simulation';
 import { MonoagentSimulation } from '../games/monoagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { HTML } from "../web/html";
@@ -133,6 +134,10 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		monoagent: {
 			name: "Симуляция с одним агентом",
 			value: (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m, gameWindowsManager) : undefined,
+		},
+		discrete_monoagent: {
+			name: "Симуляция с одним агентом на клеточках",
+			value: (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new DiscreteMonoagentSimulation(o, m, gameWindowsManager) : undefined,
 		},
 		collecting_squares: {
 			name: "Игра 'Собери квадраты'",
