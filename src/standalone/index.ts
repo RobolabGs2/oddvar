@@ -91,10 +91,10 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	}
 	const historyOfLaunches = {
 		history: new Array<ProcessorState>(),
-		linksContainer: HTML.CreateElement("article", HTML.FlexContainer("column"), HTML.SetStyles(s => { s.height = "128px"; s.overflow = "auto" })),
+		html: HTML.CreateElement("article", HTML.FlexContainer("column"), HTML.SetStyles(s => { s.height = "128px"; s.overflow = "auto" })),
 		push(state: ProcessorState) {
 			const filename = `${state.launch.simulationID}_${state.launch.mapID}_${new Date().toISOString()}`;
-			this.linksContainer.appendChild(HTML.ModifyElement(LinkToDownloadJSON(filename, TransformMetrics(state)), HTML.SetText(filename)))
+			this.html.appendChild(HTML.ModifyElement(LinkToDownloadJSON(filename, TransformMetrics(state)), HTML.SetText(filename)))
 			this.history.push(state);
 		},
 		addCurrentStateToList() {
@@ -108,35 +108,64 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			URL.revokeObjectURL(a.href);
 		},
 		buttonClearAll() {
-			this.linksContainer.innerHTML = "";
+			this.html.innerHTML = "";
 			this.history.length = 0;
 		},
 		buttonAddCurrentStateToList() {
 			this.addCurrentStateToList();
 		}
 	}
+	const launchesQueue = {
+		queue: new Array<SimulationLaunch>(),
+		enqueue(launch: SimulationLaunch) { this.queue.push(launch); this.updateView(); },
+		html: HTML.CreateElement("div", HTML.SetStyles(s => s.height = "128px")),
+		updateView() {
+			this.html.innerText = `В очереди: ${this.queue.length}`;
+		},
+		dequeue() {
+			if (this.empty()) throw new Error(`Dequeue on empty queue`);
+			const item = this.queue.shift()!;
+			this.updateView();
+			return item;
+		},
+		empty() { return this.queue.length === 0 },
+		play() {
+			if (this.empty()) return false;
+			LaunchSimulation(this.dequeue());
+			return true;
+		},
+		buttonPlayFromQueue() { this.play(); },
+		buttonCleanQueue() { this.queue.length = 0; },
+	}
+	launchesQueue.updateView();
+	let repeatLatest = true;
 	processor.addEventListener("finished", function (x) {
 		historyOfLaunches.push(x)
-		LaunchSimulation(x.launch);
-	})
-	mainWindowsManager.CreateInfoWindow("История запусков",
-		HTML.CreateElement("article", HTML.Append(historyOfLaunches.linksContainer,
-			Object.keys(historyOfLaunches).filter((key) => key.startsWith("button")).
-				map(key => HTML.CreateElement("button", HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>historyOfLaunches)[key]()))))
-		), new Point(0, gameSize))
+		if (launchesQueue.play()) {
+			return;
+		}
+		if (repeatLatest) {
+			LaunchSimulation(x.launch);
+		}
+	});
+	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
 	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.FlexContainer(), HTML.Append(
 		HTML.CreateElement("article", HTML.Append(
 			HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
 					simulationSettingsContainer.innerHTML = "";
-					simulationSettingsContainer.appendChild(CreateSettingsInput(maps, urlSettings, games[key], (simulation, launchSettings) => {
-						LaunchSimulation(new SimulationLaunch(key, simulation, launchSettings.simulation, launchSettings.map, launchSettings.deadline));
-						return true;
-					}));
-				})
+					simulationSettingsContainer.appendChild(CreateSettingsInput(maps, urlSettings, games[key],
+						{
+							Start: (s, l) => LaunchSimulation(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
+							Queue: (s, l) => launchesQueue.enqueue(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
+						}, "Start"));
+				}),
 			)),
-			simulationSettingsContainer
+			simulationSettingsContainer,
+			HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(
+				HTML.CreateElement("input", HTML.SetInputType("checkbox"), (el) => el.checked = repeatLatest, HTML.AddEventListener("change", function () { repeatLatest = (<HTMLInputElement>this).checked; })),
+				HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
 		)),
 		HTML.CreateElement("article",
 			HTML.Append(HTML.CreateElement("section",
@@ -163,8 +192,9 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					style.flexDirection = "column";
 					style.justifyContent = "space-between";
 					style.padding = "16px";
-				})
-			)),
+				})),
+				aritcleWithButtons(launchesQueue)
+			),
 		))), new Point(gameSize, 0))
 });
 
@@ -173,6 +203,13 @@ type SimulationSettings<MapID, SettingsT> = {
 	simulation: SettingsT;
 	deadline: number;
 };
+
+function aritcleWithButtons(objectWithButtons: { html: HTMLElement; } & Record<string, any>): HTMLElement {
+	return HTML.CreateElement("article", HTML.Append(objectWithButtons.html,
+		Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
+			map(key => HTML.CreateElement("button", HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>objectWithButtons)[key]()))))
+	);
+}
 
 function LinkToDownloadJSON(filename: string, obj: any): HTMLAnchorElement {
 	const json = JSON.stringify(obj);
@@ -204,7 +241,9 @@ function TransformMetrics(s: ProcessorState) {
 function CreateSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
 	allMaps: Record<MapID, { name: string, value: MapType }>,
 	defaults: URLSettings<MapID>,
-	description: SimulatorDescription<SettingsT, MapT>, onSubmit: (game: SimulatorDescription<SettingsT, MapT>, s: SimulationSettings<MapT, SettingsT>) => boolean): HTMLElement {
+	description: SimulatorDescription<SettingsT, MapT>,
+	buttons: Record<string, (game: SimulatorDescription<SettingsT, MapT>, s: SimulationSettings<MapT, SettingsT>) => void>,
+	clickButton: string): HTMLElement {
 	const output = {} as { root: SimulationSettings<MapT, SettingsT> };
 	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
 	const h = HTML.Input.CreateTypedInput("root", {
@@ -217,7 +256,10 @@ function CreateSettingsInput<SettingsT extends object, MapT extends MapType, Map
 	return HTML.CreateElement("article", HTML.AddClass("settings-input"), HTML.Append(
 		HTML.CreateElement("header"),
 		HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px")),
-		HTML.CreateElement("footer", HTML.Append(HTML.CreateElement("button", HTML.SetText("Start"), HTML.AddEventListener("click", () => onSubmit(description, output.root)), (el) => el.click())))
+		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.entries(buttons).map(([text, listener]) =>
+			HTML.CreateElement("button", HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
+				HTML.SetText(text), HTML.AddEventListener("click", () => listener(description, JSON.parse(JSON.stringify(output.root)))), (el) => { if (text === clickButton) el.click() })
+		)))
 	));
 }
 
