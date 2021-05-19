@@ -61,12 +61,39 @@ export namespace HTML {
 		return (el: HTMLElement) => setter(el.style);
 	}
 
-	export function FlexContainer(direction = "row", justifyContent = "") {
+	export function FlexContainer(direction = "row", justifyContent = "", settings = {wrap: false}) {
 		return SetStyles(style => {
 			style.display = "flex";
 			style.flexDirection = direction;
 			style.justifyContent = justifyContent;
+			style.flexWrap = settings.wrap ? "wrap" : "no-wrap"
 		})
+	}
+
+	export function CreateSwitcher(currentState: () => boolean, changeState: (on: boolean) => void, titles: Record<"on" | "off", string>): HTMLButtonElement {
+		const button = HTML.CreateElement("button", SetText(!currentState() ? titles.on : titles.off));
+		const hide = () => {
+			changeState(!currentState())
+			button.innerText = !currentState() ? titles.on : titles.off;
+		};
+		return HTML.ModifyElement(button, AddEventListener("click", hide))
+	}
+
+	export function CreateSelector<T extends string>(defaultKey: T, options: Record<T, string>, onChange: (value: T) => void) {
+		return HTML.CreateElement("select",
+			HTML.AddEventListener("change", function () {
+				try {
+					onChange(<T>(<HTMLSelectElement>this).value)
+				} catch (e) {
+					alert(`${e}`)
+				}
+			}),
+			HTML.Append(...Object.entries(options).map(([value, text]) => HTML.CreateElement("option", HTML.SetText(text as string), (el) => el.value = value))),
+			el => {
+				el.selectedIndex = Object.keys(options).findIndex(k => k === defaultKey);
+				onChange(defaultKey);
+			}
+		)
 	}
 
 	interface ForEachable<T> {
@@ -135,7 +162,97 @@ export namespace HTML {
 			}
 		}
 	}
-
+	export namespace Input {
+		export type Type = { type: "int" | "float", default: number }
+			| { type: "object", values: Record<string, Type> }
+			| { type: "string", default: string }
+			| { type: "boolean", default: boolean }
+			| {
+				type: "color",
+				/** только #RRGGBB в полной форме, слова не поддерживаются */
+				default: string
+			}
+			| {
+				type: "enum", default: string,
+				/** Пары: название значения енума:отображаемое название в ui */
+				values: Record<string, string>
+			}
+		/** output - в этот объект будут попадать значения по мере заполнения полей инпута */
+		export function CreateTypedInput(name: string, type: Type, output: Record<string, any>, required = true): HTMLElement {
+			const additionalModifiers = (type: Type) => {
+				switch (type.type) {
+					case "float":
+						return [
+							SetInputType("number"),
+							SetNumberInputRange(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 0.1)
+						];
+					case "int":
+						return [
+							SetInputType("number"),
+							SetNumberInputRange(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 1)
+						];
+					case "boolean":
+						return [HTML.SetRequired(false), HTML.SetInputType("checkbox")];
+					case "color":
+						return [SetInputType("color")]
+				}
+				return [];
+			}
+			const getValue = (input: HTMLInputElement) => {
+				switch (input.type) {
+					case "number": return input.valueAsNumber;
+					case "radio":
+					case "checkbox": return input.checked;
+					default: return input.value;
+				}
+			};
+			const setValue = (type: Type, input: HTMLInputElement) => {
+				switch (type.type) {
+					case "int":
+					case "float":
+						input.valueAsNumber = type.default;
+						return;
+					case "color":
+					case "string":
+						input.value = type.default;
+						return;
+					case "boolean":
+						input.checked = type.default;
+						return
+				}
+			};
+			if (type.type !== "object") {
+				output[name] = type.default;
+			}
+			switch (type.type) {
+				case "boolean":
+				case "string":
+				case "int":
+				case "float":
+				case "color":
+					return CreateElement("input",
+						SetTitle(name),
+						SetRequired(required),
+						SetName(name),
+						AddEventListener("change", function (ev: Event) {
+							output[name] = getValue(this as HTMLInputElement);
+						}),
+						...additionalModifiers(type), setValue.bind(null, type));
+				case "enum":
+					return CreateSelector(type.default, type.values, value => {
+						output[name] = value;
+					});
+				case "object":
+					const innerOutput = output[name] = {};
+					return CreateElement(
+						"ul",
+						Append(
+							Object.entries(type.values).
+								map(([name, type]) => CreateElement("li", Append(CreateElement("span", SetText(name, name)), CreateTypedInput(name, type, innerOutput))))
+						));
+			}
+		}
+	}
 }
 
 function sqr(x: number) { return x * x }

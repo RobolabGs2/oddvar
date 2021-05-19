@@ -167,6 +167,11 @@ export class StyleSheetTree {
 		return rule as CSSStyleRule;
 	}
 
+	chainAddRule(selector: string, style: string = ''): this {
+		this.addRule(selector, style);
+		return this;
+	}
+
 	deleteRule(rule: CSSStyleRule): void {
 		if (!this.rules.has(rule))
 			throw new RangeError(`Try remove rule '${rule.cssText}' from incorrect sheet`);
@@ -244,15 +249,25 @@ export class WindowsManager implements Ticker {
 		this.headerCSS.addRule(`button:focus`, `
 			outline: none;
 		`);
-		this.contentCSS.addRule(`.table`, `
-			display: flex;
-			flex-direction: column;
-		`);
-		this.contentCSS.addRule(`.table > section`, `
-			display: flex;
-			justify-content: space-between;
-			border-top: solid 1px gray;
-		`);
+		this.contentCSS.child(".table").
+			chainAddRule('', `
+				display: table;
+				border-collapse: collapse;
+				width: 100%;
+				height: 100%;
+			`).chainAddRule(`td`, `
+				border-top: solid 1px gray;
+				padding-top: 4px;
+				padding-left: 8px;
+				padding-right: 8px;
+			`).chainAddRule(`td:first-child`, `
+				padding-right: 16px;
+				padding-left: 0px;
+			`).chainAddRule(`td:last-child`, `
+				padding-right: 0px;
+				padding-left: 16px;
+			`);
+		this.contentCSS.addRule('*', `max-height: 80vh`)
 		this.contentCSS.addRule(`.${WindowsManager.cssClasses.visibleOnAnything}`, `
 			font-weight: bold;
 			text-shadow: #000 1px 0 0px, #000 0 1px 0px, #000 -1px 0 0px, #000 0 -1px 0px;
@@ -329,7 +344,7 @@ export class WindowsManager implements Ticker {
 				s.backgroundColor = 'black'
 			}),
 			HTML.Append(
-				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between"), HTML.Append(
+				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between", {wrap:true}), HTML.Append(
 					Object.keys(settings).map(lvl => {
 						const selector = `div.${lvl}`;
 						const rule = styleSheet.addRule(selector);
@@ -370,10 +385,10 @@ export class WindowsManager implements Ticker {
 	}
 
 	public CreateTable<T, K extends string>(table: TableModel<T, K>, header: K[], lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
-		const lines = table.fields.map((line) => header.map(name => HTML.CreateElement("span", HTML.SetText(`${line[name]}`))));
+		const lines = table.fields.map((line) => header.map(name => HTML.CreateElement("td", HTML.SetText(`${line[name]}`))));
 		table.addEventListener("updated", i => lines[i].forEach((cell, j) => HTML.SetText(`${table.fields[i][header[j]]}`)(cell)))
 		return HTML.CreateElement("article", HTML.AddClass("table"),
-			HTML.Append(lines.map((view, i) => HTML.CreateElement("section", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { }))))),
+			HTML.Append(lines.map((view, i) => HTML.CreateElement("tr", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { }))))),
 			table => {
 				if (lineStyles.length)
 					table.classList.add(WindowsManager.cssClasses.visibleOnAnything);
@@ -407,14 +422,7 @@ export class WindowsManager implements Ticker {
 			onMove(new Point(ev.pageX, ev.pageY), window);
 		};
 
-		const hideButton = HTML.CreateElement("button", HTML.SetText("🗕"))
-		const hide = () => {
-			const wasHide = content.style.display === "none";
-			content.style.display = wasHide ? "" : "none";
-			hideButton.innerText = wasHide ? "🗕" : "🗖";
-		};
 		return HTML.CreateElement("header",
-			HTML.AddEventListener("dblclick", hide),
 			HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(title)),
 				HTML.CreateElement("section",
@@ -436,7 +444,7 @@ export class WindowsManager implements Ticker {
 				),
 				HTML.CreateElement("section",
 					HTML.Append(
-						HTML.ModifyElement(hideButton, HTML.AddEventListener("click", hide))
+						HTML.CreateSwitcher(() => content.style.display !== "none", (open) => content.style.display = open ? "" : "none", { on: "🗖", off: "🗕" })
 						// HTML.CreateElement("button", HTML.SetText("X"), (el) => el.disabled = true)
 					)),
 			)

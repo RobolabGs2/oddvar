@@ -7,36 +7,22 @@ import { Graphics } from "../oddvar/graphics";
 import { Controller } from "../oddvar/controller";
 import { TexturesManager } from "../oddvar/textures";
 import { Oddvar, Worlds } from "../oddvar/oddvar";
-import { Manager } from "../oddvar/manager";
-import { CollectingSquaresGame, MapCreator, PacManMap, BigPacManMap, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
+import { HasMultiplayer, Manager } from "../oddvar/manager";
+import { CollectingSquaresGame, PacManMap, BigPacManMap, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
 import { GameMap } from "../games/utils/game_map";
-import { MultiagentSimulation } from '../games/multiagent/simulation';
+import { Multiagent } from '../games/multiagent/simulation';
 import { MonoagentSimulation } from '../games/monoagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { HTML } from "../web/html";
+import { GetStyleSheet, URIStorage } from "../web/utils";
 import { Point, Size } from "../oddvar/geometry";
 import { MetricsTable, StyleSheetTree, WindowsManager } from "../web/windows";
 import { Labirint } from "../oddvar/labirint/labirint";
 import { ConvertRecord } from "../oddvar/utils";
+import { IsGameMap, MapType, SimulatorDescription } from "../games/utils/description";
+import "./settings.scss"
 
 console.log("Hello ODDVAR");
-
-function GetStyleSheet(): Promise<CSSStyleSheet> {
-	return new Promise((resolve, reject) => {
-		document.head.appendChild(HTML.CreateElement("style",
-			(style: HTMLStyleElement) => {
-				setTimeout(() => {
-					const styleSheet = style.sheet;
-					if (!styleSheet) {
-						reject(new Error("Can't take style sheet"));
-						return
-					}
-					styleSheet.addRule(`*`, `margin: 0; padding: 0;`);
-					resolve(styleSheet);
-				});
-			}))
-	})
-}
 
 const smallMap = Labirint.SymmetryOdd([
 	[0, 0, 0, 0],
@@ -44,46 +30,6 @@ const smallMap = Labirint.SymmetryOdd([
 	[0, 0, 0, 1],
 	[0, 0, 1, 1]
 ]).Frame(1);
-
-interface Holder<T> {
-	has(item: T): boolean
-}
-
-type MapOfSets<T> = {
-	[K in keyof T]: Holder<T[K]>
-}
-
-function URIStorage<T extends object>(defaults: T, constraints: MapOfSets<T>): T {
-	function getURL() {
-		return new URL(location.href);
-	}
-	return new Proxy<T>(Object.create(null), {
-		get: (_, field) => {
-			if (typeof field !== "string")
-				return;
-			const constraint = constraints[field as keyof MapOfSets<T>];
-			if (constraint === undefined)
-				return;
-			const url = getURL();
-			const value = (url.searchParams.get(field) || "");
-			if (constraint.has(value as any)) return value;
-			const defaultValue = (defaults as unknown as any)[field];
-			url.searchParams.set(field, defaultValue);
-			history.pushState(null, "", url.toString());
-			return defaultValue;
-		},
-		set: (_, field, value) => {
-			if (typeof field !== "string")
-				return false;
-			const url = getURL();
-			if (url.searchParams.get(field) === value)
-				return true;
-			url.searchParams.set(field, value);
-			history.pushState(null, "", url.toString());
-			return true;
-		},
-	})
-}
 
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
 	const gameSize = 800;
@@ -128,67 +74,86 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	const games = {
 		multiagent: {
 			name: "Симуляция с кучей агентов",
-			value: (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MultiagentSimulation(o, m, gameWindowsManager) : undefined,
+			value: Multiagent.Description,
 		},
 		monoagent: {
 			name: "Симуляция с одним агентом",
-			value: (o: Oddvar, m: MapCreator | GameMap) => (m instanceof GameMap) ? new MonoagentSimulation(o, m, gameWindowsManager) : undefined,
+			value: Monoagent.Description,
 		},
 		collecting_squares: {
 			name: "Игра 'Собери квадраты'",
-			value: (o: Oddvar, m: MapCreator | GameMap) => new CollectingSquaresGame(o, m),
+			value: CollectingSquares.Description
 		},
 	}
 	type MapID = keyof typeof maps;
 	type GameID = keyof typeof games;
 	type SimulationSettings = { map: MapID, game: GameID }
-
 	const settings = URIStorage<SimulationSettings>({ map: "symmetric", game: "multiagent" }, { map: new Set(Object.keys(maps) as MapID[]), game: new Set(Object.keys(games) as GameID[]) });
-
-	const newManager = (game: GameID = settings.game, map: MapID = settings.map) => {
-		gameWindowsManager.Dispose();
-		const worlds = new Worlds(
-			new World(),
-			new LocalPlayers(keyboards),
-			new Physics(),
-			new Graphics(canvasContext, hiddenContext),
-			new Controller(false),
-			new TexturesManager(resources, canvasContext))
-		const oddvar = new Oddvar(worlds, reflectionJSON);
-		const newGame = games[game].value(oddvar, maps[map].value);
-		if (newGame === undefined) {
-			throw new Error(`Карта и игра несовместимы`);
-		}
-		settings.game = game;
-		settings.map = map;
-		return new Manager(oddvar, newGame);
-	}
-	const processor = new Processor(newManager(), [
-		gameWindowsManager,
-		mainWindowsManager]);
 	document.body.appendChild(canvas);
-	// document.body.appendChild(CreateWindow("Buffer", bufferCanvas));
-	// keyboards.map((x, i) => mainWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));
-	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.Append(
-		HTML.CreateElement("article", HTML.SetStyles(style => { style.display = "flex"; style.flexDirection = "row"; }), HTML.Append(([
-			["game", games, (value) => processor.manager = newManager(value, undefined)],
-			["map", maps, (value) => processor.manager = newManager(undefined, value)],
-		] as [keyof SimulationSettings, Record<string, { name: string }>, (v: any) => void][]).
-			map(([name, labels, onChange]) => HTML.CreateElement("section", HTML.Append(
-				HTML.CreateElement("header", HTML.SetText(`Choose ${name}:`), HTML.SetStyles(s => s.marginRight = "16px")),
-				CreateSelector(settings[name], ConvertRecord(labels, (_, o) => o.name), onChange)
-			))))),
+	const simulationSettingsContainer = HTML.CreateElement("article");
+	const processor = new Processor([gameWindowsManager, mainWindowsManager])
+	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.FlexContainer(), HTML.Append(
+		HTML.CreateElement("article", HTML.Append(
+			HTML.CreateElement("section", HTML.Append(
+				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
+				HTML.CreateSelector(settings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
+					simulationSettingsContainer.innerHTML = "";
+					const selectedGame = games[key].value;
+					simulationSettingsContainer.appendChild(CreateSettingsInput(maps, settings.map, selectedGame as any, (simulation, launchSettings) => {
+						gameWindowsManager.Dispose();
+						const worlds = new Worlds(
+							new World(),
+							new LocalPlayers(keyboards),
+							new Physics(),
+							new Graphics(canvasContext, hiddenContext),
+							new Controller(false),
+							new TexturesManager(resources, canvasContext))
+						const oddvar = new Oddvar(worlds, reflectionJSON);
+						const newGame = simulation.NewSimulation(oddvar, (<any>maps[launchSettings.map]).value, gameWindowsManager, launchSettings.simulation);
+						if (newGame === undefined) {
+							throw new Error(`Карта и игра несовместимы`);
+						}
+						if (HasMultiplayer(newGame)) {
+							keyboards.map((x, i) => gameWindowsManager.CreateInfoWindow(`Player ${i}`, x.joystick(), new Point(i * (gameSize - gameSize / 5), gameSize - 20)));
+						}
+						settings.game = key;
+						settings.map = launchSettings.map;
+						processor.manager = new Manager(oddvar, newGame);
+						return false;
+					}));
+				})
+			)),
+			simulationSettingsContainer
+		)),
 		HTML.CreateElement("article",
-			HTML.SetStyles(style => {
-				style.marginTop = "8px"
-				style.display = "flex"
-				style.flexDirection = "row"
-			}),
 			HTML.Append(HTML.CreateElement("section",
-				HTML.Append((<[string, Function][]>[["play", processor.play], ["pause", processor.pause]]).
-					map(([name, action]) => HTML.CreateElement("button",
-						HTML.SetText(name),
-						HTML.AddEventListener("click", () => action.call(processor))))),
+				HTML.Append(
+					HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1")),
+					HTML.CreateElement("footer", HTML.Append(
+						HTML.ModifyElement(
+							HTML.CreateSwitcher(
+								() => processor.isPlaying(),
+								(play) => { if (play) processor.play(); else processor.pause() },
+								{ on: "Play", off: "Pause" }),
+							HTML.SetStyles(s => s.height = "100%")
+						),
+						HTML.CreateElement("button",
+							HTML.SetText("Download metrics"),
+							HTML.AddEventListener("click", () => {
+								const json = JSON.stringify({ settings: settings, timeings: processor.processorMetrics, simulation: processor.manager?.metrics });
+								const blob = new Blob([json], { type: "application/json" });
+								const a = document.createElement("a");
+								a.download = `oddvar_${settings.game}_${settings.map}.json`;
+								a.href = URL.createObjectURL(blob);
+								document.body.appendChild(a);
+								a.click();
+								document.body.removeChild(a);
+								URL.revokeObjectURL(a.href);
+							})
+						)
+					))
+
+				),
 				HTML.SetStyles(style => {
 					style.display = "flex"
 					style.flex = "1";
@@ -197,22 +162,60 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					style.padding = "16px";
 				})
 			)),
-			HTML.Append(HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1"))),
 		))), new Point(gameSize, 0))
 });
 
-function CreateSelector<T extends string>(defaultKey: T, options: Record<T, string>, onChange: (value: T) => void) {
-	return HTML.CreateElement("select",
-		HTML.AddEventListener("change", function () {
-			try {
-				onChange(<T>(<HTMLSelectElement>this).value)
-			} catch (e) {
-				alert(`${e}`)
-			}
-		}),
-		HTML.Append(...Object.entries(options).map(([value, text]) => HTML.CreateElement("option", HTML.SetText(text as string), (el) => el.value = value))),
-		el => {
-			el.selectedIndex = Object.keys(options).findIndex(k => k === defaultKey);
+type SimulationSettings<MapID, SettingsT> = {
+	map: keyof MapID;
+	simulation: SettingsT;
+};
+
+function CreateSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
+	allMaps: Record<MapID, { name: string, value: MapType }>,
+	defaultMap: string,
+	description: SimulatorDescription<SettingsT, MapT>, onSubmit: (game: SimulatorDescription<SettingsT, MapT>, s: SimulationSettings<MapT, SettingsT>) => boolean): HTMLElement {
+	const output = {} as { root: SimulationSettings<MapT, SettingsT> };
+	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
+	const h = HTML.Input.CreateTypedInput("root", {
+		type: "object", values: {
+			map: { type: "enum", values: ConvertRecord(supportedMaps, (_, o) => o.name), default: defaultMap },
+			simulation: { type: "object", values: description.SettingsInputType() },
 		}
-	)
+	}, output);
+	return HTML.CreateElement("article", HTML.AddClass("settings-input"), HTML.Append(
+		HTML.CreateElement("header"),
+		HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px")),
+		HTML.CreateElement("footer", HTML.Append(HTML.CreateElement("button", HTML.SetText("Start"), HTML.AddEventListener("click", () => onSubmit(description, output.root)), (el) => el.click())))
+	));
+}
+
+namespace CollectingSquares {
+	export type Settings = { debug: boolean, targetColor: string }
+	export const Description: SimulatorDescription<Settings, MapType> = {
+		NewSimulation(oddvar: Oddvar, map: GameMap, ui: WindowsManager, settings: Settings) {
+			return new CollectingSquaresGame(oddvar, map, settings.targetColor, settings.debug);
+		},
+		IsSupportedMap: function (m: MapType): m is MapType { return true },
+		SettingsInputType() {
+			return {
+				targetColor: { type: "color", default: "#009900" },
+				debug: { type: "boolean", default: false },
+			}
+		},
+	}
+}
+
+namespace Monoagent {
+	export type Settings = { debug: boolean }
+	export const Description: SimulatorDescription<Settings, GameMap> = {
+		NewSimulation(oddvar: Oddvar, map: GameMap, ui: WindowsManager, settings: Settings) {
+			return new MonoagentSimulation(oddvar, map, ui, settings.debug);
+		},
+		IsSupportedMap: IsGameMap,
+		SettingsInputType() {
+			return {
+				debug: { type: "boolean", default: false },
+			}
+		},
+	}
 }

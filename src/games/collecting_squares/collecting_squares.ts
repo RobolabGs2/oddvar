@@ -9,8 +9,7 @@ import { Labirint } from '../../oddvar/labirint/labirint';
 import { GameMap } from '../utils/game_map';
 import { Target } from '../utils/target';
 import { WallCreator, WallManager } from '../utils/wall_manager';
-
-export type MapCreator = (oddvar: Oddvar, createWall: WallCreator) => void;
+import { MapCreator } from '../utils/description';
 
 export const TestMap: MapCreator = (oddvar, createWall) => {
 	{
@@ -37,7 +36,7 @@ export class CollectingSquaresGame implements GameLogic {
 	protected target: Target<number>;
 	protected readonly size = new Size(20, 20);
 	protected wallManager = new WallManager(this.oddvar);
-	constructor(protected oddvar: Oddvar, mapCreator: MapCreator | GameMap, readonly debug = false) {
+	constructor(protected oddvar: Oddvar, mapCreator: MapCreator | GameMap, targetColor = "#009900", readonly debug = false) {
 		if (mapCreator instanceof GameMap) {
 			mapCreator.Draw(this.wallManager.creator);
 		} else {
@@ -46,7 +45,7 @@ export class CollectingSquaresGame implements GameLogic {
 		const targetSize = new Size(10, 10);
 		const targetPoint = oddvar.Get("World").CreateEntity("targetPoint", new Point(0, 0));
 		const targetBody = oddvar.Get("Physics").CreateRectangleBody("targetRectangleBody", targetPoint, { lineFriction: 1, angleFriction: 0 }, targetSize);
-		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }));
+		oddvar.Get("Graphics").CreateRectangleBodyAvatar("targetEntityAvatar", targetBody, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: targetColor }));
 		this.target = new Target<number>(targetBody);
 		const game = this;
 		this.target.addEventListener("collision", function (playerID) {

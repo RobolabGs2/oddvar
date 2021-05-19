@@ -8,6 +8,7 @@ import { Graphics } from "./graphics";
 import { Controller } from "./controller";
 import { TexturesManager } from "./textures";
 import { Physics } from "./physics/physics";
+import { Logger } from "./utils/logger";
 
 
 class Soul {
@@ -60,7 +61,8 @@ export class Oddvar {
 
 	constructor(
 		private worlds: Worlds,
-		reflectionJson: ReflectionJSON
+		reflectionJson: ReflectionJSON,
+		readonly log: Logger = new Logger("INFO", "ODDVAR: ")
 	) {
 		let map = new Map<string, any>();
 		for (let factory in worlds) {
@@ -83,7 +85,7 @@ export class Oddvar {
 
 	public Tick(dt: number) {
 		if (dt > 0.02) {
-			console.warn(`time oveflow dt = ${dt}`);
+			this.log.DebugLine(`time oveflow dt = ${dt}`);
 			dt = 0.02;
 		}
 		this.clock.currentTime += dt;

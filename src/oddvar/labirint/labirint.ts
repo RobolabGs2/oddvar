@@ -2,7 +2,7 @@ import { PrettyPrint } from "../debug";
 import { Point, Size } from "../geometry";
 import { PriorityQueue, Tagable } from "../utils";
 
-export type WallCreator = (center: Point, rotation: number, size: Size) => void;
+export type LabirintWallDrawer = (center: Point, rotation: number, size: Size) => void;
 
 export function inRange(x: number, max: number, min = 0) {
 	return min <= x && x < max;
@@ -212,7 +212,7 @@ export class Labirint extends DataMatrix<boolean>{
 		return result;
 	}
 
-	Draw(size: Size, shift: Point, createWall: WallCreator) {
+	Draw(size: Size, shift: Point, createWall: LabirintWallDrawer) {
 		function drawWall(i: number, j: number, last: number) {
 			createWall(new Point((i + 0.5) * size.width + shift.x, ((j + last - 1) / 2 + 0.5) * size.height + shift.y), 0,
 				new Size(size.width, (j - last) * size.height));

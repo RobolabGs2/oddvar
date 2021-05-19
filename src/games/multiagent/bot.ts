@@ -6,18 +6,80 @@ import { ColoredTexture, RectangleTexture } from '../../oddvar/textures';
 import { Entity, TailEntity } from '../../oddvar/world';
 import { GameMap } from "../utils/game_map";
 import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
-import { NetworkCard } from './net';
+import { Message, MessageDataMap, NetworkCard } from './net';
+import { Observable } from '../../oddvar/utils';
 
 const Colors = [
 	"blue", "red", "green",
 	"purple", "gold", "peru", "plum", "silver"
 ];
-export class Bot {
+
+export interface Evaluator {
+	// Можно ли доверять сообщению
+	Evaluate(bot: Bot, msg: Message): boolean
+}
+
+export namespace Evaluators {
+	export class Доверчивый implements Evaluator {
+		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
+			return true;
+		}
+	}
+
+	export class Скептик implements Evaluator {
+		constructor(readonly distanceThreshold = 6) { }
+		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
+			let res = false;
+			msg.read({
+				"captured": () => res = true,
+				"empty": () => res == true,
+				"target": (msg) => (bot.map.findPath(bot.location, msg.data)?.length || Infinity) < this.distanceThreshold
+			})
+			return res;
+		}
+	}
+
+	export class Параноик implements Evaluator {
+		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
+			return false;
+		}
+	}
+}
+
+export interface SendMiddleware {
+	Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void;
+}
+
+export namespace Middlewares {
+	export class Честный implements SendMiddleware {
+		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
+			bot.network.send(to, type, data);
+		}
+	}
+	export class Лжец implements SendMiddleware {
+		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
+			switch (type) {
+				case "captured":
+					bot.network.send(to, type, data);
+					break;
+				case "empty":
+					bot.network.send(to, type, data); // todo
+					break;
+				case "target":
+					const target = data as MessageDataMap["target"];
+					bot.network.send(to, type as "target", new Point(bot.map.size.width - target.x, bot.map.size.height - target.y))
+			}
+		}
+	}
+}
+
+export class Bot extends Observable<{ mapUpdated: BotMap }>{
 	body: RectangleBody;
 	program?: Dir[];
 	lastCommand?: { dir: Dir; dest: Point; };
 	map: BotMap;
 	color: ColoredTexture;
+	mapUpdated = true;
 	constructor(
 		readonly name: string,
 		oddvar: Oddvar,
@@ -25,7 +87,10 @@ export class Bot {
 		map: GameMap,
 		readonly layer: number,
 		readonly network: NetworkCard,
+		readonly evaluator: Evaluator,
+		readonly sender: SendMiddleware,
 		readonly debug = false) {
+		super();
 		const currentColor = Colors[layer]//`rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2 });
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
@@ -41,6 +106,7 @@ export class Bot {
 
 		this.nextE = oddvar.Get("World").CreateEntity(nameOf("next entity"), Point.Zero);
 		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("next avatar"), this.nextE, 2, this.color);
+
 	}
 	destinationE: Entity;
 	nextE: Entity;
@@ -61,6 +127,7 @@ export class Bot {
 
 	resetMap() {
 		this.map = new BotMap(this.map, this.network.clock.now());
+		this.map.onupdate = (map) => { this.mapUpdated = true; }
 		this.network.broadcast("captured", true);
 	}
 
@@ -91,50 +158,52 @@ export class Bot {
 	TickBody(dt: number) {
 		if (this.kickTo) {
 			const delta = this.kickTo.Sub(this.location);
-			this.body.Kick(delta.Norm().Mult(this.body.size.Area() * 500));
+			this.body.Kick(delta.Norm().Mult(this.body.size.Area() * 500 * 2));
 		}
 	}
 	anotherStates = new Map<string, boolean>();
 	Tick(dt: number, visible: MatrixCell<Map<string, Point>>[]) {
 		this.network.readAll({
 			"target": (msg) => {
-				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt)
+				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt || !this.evaluator.Evaluate(this, msg))
 					return;
 				const l = this.map.toMazeCoords(msg.data)
-				if (this.map.update(l.x, l.y, msg.data))
-					this.nextPath();
+				this.map.update(l.x, l.y, msg.data)
 			},
 			"captured": (msg) => {
-				this.anotherStates.set(msg.from, false);
+				if (this.evaluator.Evaluate(this, msg))
+					this.anotherStates.set(msg.from, false);
 			},
 			"empty": (msg) => {
-				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt)
+				if (this.map.target !== undefined || msg.timestamp < this.map.createdAt || !this.evaluator.Evaluate(this, msg))
 					return;
 				const l = this.map.toMazeCoords(msg.data)
-				this.map.update(l.x, l.y, null);
+				this.map.update(l.x, l.y, null)
 			}
 		});
 		visible.forEach(cell => {
 			let updated = false;
 			cell.value.forEach((point, owner) => {
 				if (owner === this.name) {
-					this.map.update(cell.point.x, cell.point.y, point);
+					this.map.update(cell.point.x, cell.point.y, point)
+					updated = true;
 				} else {
 					if (!this.anotherStates.get(owner)) {
-						this.network.send(owner, "target", point);
+						// this.network.send(owner, "target", point);
+						this.sender.Send(this, owner, "target", point);
 						this.anotherStates.set(owner, true);
 					}
-					this.map.update(cell.point.x, cell.point.y, null);
 				}
-				updated = true;
 			});
-			if (!updated) {
-				if (this.map.update(cell.point.x, cell.point.y, null)) {
-					this.network.broadcast("empty", this.map.fromMazeCoords(cell.point));
-				}
+			if (!updated && this.map.update(cell.point.x, cell.point.y, null)) {
+				// this.network.broadcast("empty", this.map.fromMazeCoords(cell.point));
 			}
 		})
 		this.time += dt;
+		if(this.mapUpdated) {
+			this.mapUpdated = false;
+			this.dispatchEvent("mapUpdated", this.map);
+		}
 		if (this.lastCommand === undefined) {
 			this.nextPath();
 			return;
@@ -172,16 +241,18 @@ export class BotMap extends GameMap {
 		this.explored = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
 		this.merged = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
 	}
+	onupdate?: (map: this, x: number, y: number, data: null | Point) => void
 	update(x: number, y: number, data: null | Point): boolean {
-		if (data !== null)
-			this.target = this.toMazeCoords(data);
-		else if (pointEquals(this.target, x, y))
+		if (data === null && pointEquals(this.target, x, y))
 			this.target = undefined;
 		if (this.explored.get(x, y) !== data) {
 			if (!pointsEqual(this.destination, this.target) && pointEquals(this.destination, x, y)) {
 				this.destination = undefined;
 			}
 			this.explored.set(x, y, data);
+			if (data !== null)
+				this.target = this.toMazeCoords(data);
+			this.onupdate?.(this, x, y, data);
 			return true;
 		}
 		return false;

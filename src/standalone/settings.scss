@@ -1,0 +1,26 @@
+.settings-input {
+	ul {
+		padding-inline-start: 8px;
+		border-left: 1px solid;
+		border-top: 1px solid;
+	}
+
+	li {
+		padding-top: 8px;
+		margin-bottom: 2px;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		flex-wrap: wrap;
+		& > span {
+			margin-right: 8px;
+		}
+		&:not(:last-child) {
+			border-bottom: 1px solid grey;
+		}
+	}
+
+	input[type="number"] {
+		width: 48px;
+	}
+}
