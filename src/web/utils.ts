@@ -25,6 +25,19 @@ export type MapOfSets<T> = {
 	[K in keyof T]: Holder<T[K]>
 }
 
+function castToEquivalent<T>(origin: T, value: string): T {
+	switch (typeof origin) {
+		case "string":
+			return value as unknown as T;
+		case "number":
+			return Number(value) as unknown as T;
+		case "boolean":
+			return (value === "true") as unknown as T;
+		default:
+			throw new Error(`type ${typeof origin} does not supported`)
+	}
+}
+
 export function URIStorage<T extends object>(defaults: T, constraints: MapOfSets<T>): T {
 	function getURL() {
 		return new URL(location.href);
@@ -44,9 +57,11 @@ export function URIStorage<T extends object>(defaults: T, constraints: MapOfSets
 			if (constraint === undefined)
 				return;
 			const url = getURL();
-			const value = (url.searchParams.get(field) || "");
-			if (constraint.has(<any>value)) return value;
 			const defaultValue = defaults[<keyof T>field];
+			const value = castToEquivalent(defaultValue, url.searchParams.get(field) || "");
+			if (constraint.has(<any>value)) {
+				return value;
+			}
 			url.searchParams.set(field, `${defaultValue}`);
 			history.pushState(null, "", url.toString());
 			return defaultValue;

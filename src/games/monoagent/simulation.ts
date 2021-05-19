@@ -97,5 +97,4 @@ export class MonoagentSimulation implements GameLogic {
 		return admin;
 	}
 
-	AddUser(player: Player): void { }
 }

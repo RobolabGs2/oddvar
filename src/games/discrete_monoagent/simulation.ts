@@ -1,13 +1,12 @@
-import { Player } from '../../oddvar/players';
 import { GameLogic } from '../../oddvar/manager';
 import { Oddvar } from '../../oddvar/oddvar';
 import { GameMap } from '../utils/game_map';
 import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
-import { Manager, TimerManager } from './manager'
-import { IBody, PolygonBody } from '../../oddvar/physics/body';
+import { TimerManager } from './manager'
+import { PolygonBody } from '../../oddvar/physics/body';
 import { Bot, PointBot, RandomBot } from './bot';
-import { BarChartRow, BarChartWindow, ChartWindow, TableModel, WindowsManager } from '../../web/windows';
+import { TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
 import { BotController } from './bot_controller';
 
@@ -88,5 +87,4 @@ export class DiscreteMonoagentSimulation implements GameLogic {
 		return bot;
 	}
 
-	AddUser(player: Player): void { }
 }

@@ -35,6 +35,7 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 export namespace Multiagent {
 	export type Settings = { botsCount: number, debug: boolean }
 	export const Description: SimulatorDescription<Settings, GameMap> = {
+		name: "Симуляция с кучей агентов",
 		NewSimulation: (oddvar, map, ui, settings) => new Simulation(oddvar, map, ui, settings),
 		IsSupportedMap: IsGameMap,
 		SettingsInputType() {
@@ -52,7 +53,7 @@ export namespace Multiagent {
 		private targetMap: DataMatrix<boolean | Map<string, Point>>
 		private score: BotTable;
 		constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, settings: Settings) {
-			console.log(this.map.maze.toString())
+			if (settings.debug) console.log(this.map.maze.toString())
 			const logHeight = 450;
 			const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 28), new Size(30, 30), {
 				empty: { color: "white", fontWeight: "1000" },
@@ -84,11 +85,13 @@ export namespace Multiagent {
 			const targetName = (i: number, name: string) => `target_${i} ${name}`
 			const admin = this.network.CreateNetworkCard("admin card", "Lier");
 
-			const mapLogger = winMan.CreateLoggerWindow(`Map ${this.bots[0].name}`, new Point(map.size.width*1.66, 0), new Size(map.maze.width * 1.6, map.maze.height * 2 * 5));
-			this.bots[0].addEventListener("mapUpdated", (map => {
-				mapLogger.WarnLine(oddvar.Clock.now().toFixed(2))
-				mapLogger.InfoLine(map.toString())
-			}))
+			if (settings.debug) {
+				const mapLogger = winMan.CreateLoggerWindow(`Map ${this.bots[0].name}`, new Point(map.size.width * 1.66, 0), new Size(map.maze.width * 1.6, map.maze.height * 2 * 5));
+				this.bots[0].addEventListener("mapUpdated", (map => {
+					mapLogger.WarnLine(oddvar.Clock.now().toFixed(2))
+					mapLogger.InfoLine(map.toString())
+				}))
+			}
 
 
 			this.bots.map((bot, i) => {
