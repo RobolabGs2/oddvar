@@ -1,3 +1,5 @@
+import { clear } from "node:console";
+import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } from "node:constants";
 import { Point, Size } from "../../oddvar/geometry";
 import { Dir } from "../../oddvar/labirint/labirint";
 import { Logger } from "../../oddvar/utils/logger";
@@ -64,7 +66,6 @@ interface VotingField {
 
 export class VotingManager extends Manager
 {
-	private time = 0;
 	private logger: Logger;
 	private weights: number[];
 
@@ -85,7 +86,6 @@ export class VotingManager extends Manager
 	}
 
 	Direction(): Dir {
-		++this.time;
 		const result: VotingField[] = [
 			{ dir: Dir.DOWN, value: 0, bots: [] },
 			{ dir: Dir.UP, value: 0, bots: [] },
@@ -115,5 +115,65 @@ export class VotingManager extends Manager
 		}
 		this.PrintResult(result);
 		return winner;
+	}
+}
+
+
+export class ShiftManager extends SingleBotManager
+{
+	private time = 0;
+	private logger: Logger;
+	private counters: Array<number>;
+
+	constructor(bots: Bot[], winMan: WindowsManager, size: Size, private saturationTime: number = 10, private maxTime: number = 100) {
+		super(bots);
+		this.logger = winMan.CreateLoggerWindow('Events',
+			new Point(size.width, size.height / 2),
+			new Size(50, 30))
+		this.counters = bots.map(b => 0);
+	}
+
+	PrintLog() {
+		this.logger.InfoLine(`counters: ${this.counters.map(c => c.toFixed(2).padEnd(5))}`);
+		this.logger.TraceLine(`index: ${this.index} - ${this.bots[this.index].typeName}`);
+	}
+
+	NextBot() {
+		let max = {i: -1, v: -Infinity};
+		this.counters.forEach((v, i) => max = (v > max.v) ? {i, v} : max)
+		return max.i;
+	}
+
+	ClearCounters() {
+		for (let i = 0; i < this.counters.length; ++i ) {
+			this.counters[i] = 0;
+		}
+	}
+
+	ShiftBot() {
+		this.index = this.NextBot();
+		this.PrintLog();
+		this.ClearCounters();
+		this.RecalculatePath();
+	}
+
+	UpdateCounters(dir: Dir) {
+		this.bots.forEach((b, i) => {
+			if (i == this.index) return;
+			const path = b.Path();
+			if (path.length == 0) return;
+			if (dir == path[0]) ++this.counters[i];
+		})
+	}
+
+	Direction(): Dir {
+		++this.time;
+		if (this.time >= this.maxTime || this.path.length == 0) {
+			this.time = 0;
+			this.ShiftBot();
+		}
+		const dir = this.PopNextPoint();
+		this.UpdateCounters(dir);
+		return dir;
 	}
 }
