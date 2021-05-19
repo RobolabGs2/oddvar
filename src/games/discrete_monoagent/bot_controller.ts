@@ -14,12 +14,18 @@ export class BotController {
 
 	Tick(dt: number) {
 		if (this.body.entity.location.Dist(this.targetPoint) < this.map.cellSize.width / 5) {
-			const direction = this.manager.Direction();
-			this.targetPoint = this.map.fromMazeCoords(
-				this.map.toMazeCoords(this.body.entity.location).
-				Add(Dir.Vector(direction)))
+			this.NextTarget();
 		}
 		const vector = this.targetPoint.Sub(this.body.entity.location).Norm()
 		this.body.Kick(vector.Mult(this.body.Mass() * 500))
+	}
+
+	private NextTarget(): void {
+		const direction = this.manager.Direction();
+		const mazeTarget = this.map.toMazeCoords(this.body.entity.location).Add(Dir.Vector(direction));
+		if (this.map.maze.get(mazeTarget.x, mazeTarget.y)) {
+			return this.NextTarget();
+		}
+		this.targetPoint = this.map.fromMazeCoords(mazeTarget);
 	}
 }

@@ -7,11 +7,13 @@ import { resourceUsage } from 'node:process';
 
 
 export interface Bot {
+	readonly typeName: string;
 	Path(): Dir[];
 }
 
 
 export class PointBot implements Bot {
+	readonly typeName = "Точка"
 	private nextPoint: Point = new Point(0, 0);
 
 	constructor(readonly body: IBody, readonly map: GameMap, readonly target: Entity) {
@@ -24,6 +26,7 @@ export class PointBot implements Bot {
 }
 
 export class RandomBot implements Bot {
+	readonly typeName = "Рандом"
 	private nextPoint: Point = new Point(0, 0);
 
 	constructor() {
@@ -40,7 +43,8 @@ export class RandomBot implements Bot {
 }
 
 export class PseudoPointBot {
-	constructor(readonly body: IBody, readonly map: GameMap, readonly target: Entity) {
+	readonly typeName = "Псевдоточка"
+	constructor(readonly body: IBody, readonly map: GameMap) {
 	}
 
 	public Path() {

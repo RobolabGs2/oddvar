@@ -1,3 +1,4 @@
+import { Player } from '../../oddvar/players';
 import { GameLogic } from '../../oddvar/manager';
 import { Oddvar } from '../../oddvar/oddvar';
 import { GameMap } from '../utils/game_map';
@@ -5,7 +6,7 @@ import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
 import { TimerManager } from './manager'
 import { PolygonBody } from '../../oddvar/physics/body';
-import { Bot, PointBot, RandomBot } from './bot';
+import { Bot, PointBot, PseudoPointBot, RandomBot } from './bot';
 import { TableModel, WindowsManager } from '../../web/windows';
 import { Observable } from '../../oddvar/utils';
 import { BotController } from './bot_controller';
@@ -44,16 +45,18 @@ export class DiscreteMonoagentSimulation implements GameLogic {
 
 		const adminTable = new AdminTable();
 		adminTable.add('sum');
-		for (let i = 0; i < 3; ++i) {
+		for (let i = 0; i < 5; ++i) {
 			adminTable.add(`target ${i}`);
 			this.createTargetBot(i, idx => {
 				adminTable.updateScore(0);
 				adminTable.updateScore(idx + 1);
 			});
 		}
-		this.bots.push(new RandomBot());
+		// this.bots.push(new RandomBot());
+		// this.bots.push(new PseudoPointBot(this.bot, map));
 
-		const manager = new TimerManager(this.bots, winMan);
+		const manager = new TimerManager(this.bots, winMan, map.size);
+		// const manager = new VotingManager(this.bots, winMan, map.size);
 		this.botController = new BotController(manager, this.bot, map)
 
 		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
