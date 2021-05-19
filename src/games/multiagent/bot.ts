@@ -11,7 +11,7 @@ import { Observable } from '../../oddvar/utils';
 
 const Colors = [
 	"blue", "red", "green",
-	"purple", "gold", "peru", "plum", "silver"
+	"purple", "gold", "peru", "plum"
 ];
 
 export interface Evaluator {
@@ -91,7 +91,7 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 		readonly sender: SendMiddleware,
 		readonly debug = false) {
 		super();
-		const currentColor = Colors[layer]//`rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+		const currentColor = Colors.length > layer ? Colors[layer] : `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2 });
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
 		this.map = new BotMap(map, -1);

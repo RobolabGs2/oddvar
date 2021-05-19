@@ -9,9 +9,10 @@ import { Iterators } from '../../oddvar/iterator';
 import { GameLogic, MetricsSource } from '../../oddvar/manager';
 import { Bot, Evaluator, Evaluators, Middlewares, SendMiddleware } from './bot';
 import { MessageDataMap, Network } from './net';
-import { Observable } from '../../oddvar/utils';
+import { ConvertRecord, Observable } from '../../oddvar/utils';
 import { TableModel, WindowsManager } from '../../web/windows';
 import { IsGameMap, SimulatorDescription } from '../utils/description';
+import { HTML } from '../../web/html';
 
 interface BotTableLine {
 	name: string;
@@ -33,14 +34,19 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 
 
 export namespace Multiagent {
-	export type Settings = { botsCount: number, debug: boolean }
+	const evaluators: Evaluator[] = [new Evaluators.Доверчивый, new Evaluators.Скептик, new Evaluators.Параноик];
+	const senders: SendMiddleware[] = [new Middlewares.Честный, new Middlewares.Лжец];
+	const strategiesArray = Iterators.zip(Iterators.Range(evaluators.length * senders.length).map(i => evaluators[i % evaluators.length]).toArray(), Iterators.Range(evaluators.length * senders.length).map(i => senders[(i / evaluators.length)|0]).toArray());
+	const strategies = Object.fromEntries(strategiesArray.map((pair) => [pair.map(x => x.constructor.name).reverse().join("_"), pair]));
+
+	export type Settings = { bots: Record<keyof typeof strategies, number>, debug: boolean }
 	export const Description: SimulatorDescription<Settings, GameMap> = {
-		name: "Симуляция с кучей агентов",
+		name: "Равноранговая многоагентная система",
 		NewSimulation: (oddvar, map, ui, settings) => new Simulation(oddvar, map, ui, settings),
 		IsSupportedMap: IsGameMap,
 		SettingsInputType() {
 			return {
-				botsCount: { type: "int", default: 6 },
+				bots: { type: "object", values: ConvertRecord(strategies, () => (<HTML.Input.Type>{ type: "int", default: 1 })) },
 				debug: { type: "boolean", default: false }
 			}
 		},
@@ -54,8 +60,8 @@ export namespace Multiagent {
 		private score: BotTable;
 		constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, settings: Settings) {
 			if (settings.debug) console.log(this.map.maze.toString())
-			const logHeight = 450;
-			const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 28), new Size(30, 30), {
+			const logHeight = 350;
+			const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 48), new Size(30, 30/450*logHeight), {
 				empty: { color: "white", fontWeight: "1000" },
 				target: { color: "lime" },
 				captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
@@ -74,17 +80,20 @@ export namespace Multiagent {
 			this.score = new BotTable();
 			map.Draw(this.wallManager.creator)
 			this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
-			const evaluators: Evaluator[] = [new Evaluators.Доверчивый, new Evaluators.Скептик, new Evaluators.Параноик];
-			const senders: SendMiddleware[] = [new Middlewares.Честный, new Middlewares.Лжец];
 			const nameOfBot = (i: number) => `Bot ${i}`
-			this.bots = Iterators.Range(settings.botsCount).
-				map(i => new Bot(nameOfBot(i),
-					this.oddvar, this.GenerateInconflictPoint(10, 1 << i), this.map.cellSize.Scale(3 / 7),
-					this.getTexture(i), this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)), evaluators[i % evaluators.length], senders[i % senders.length])).toArray();
-			const targetSize = this.map.cellSize.Scale(1 / 5);
-			const targetName = (i: number, name: string) => `target_${i} ${name}`
-			const admin = this.network.CreateNetworkCard("admin card", "Lier");
-
+			let botsCount = 0;
+			this.bots = [];
+			for (const type in settings.bots) {
+				const count = settings.bots[type];
+				const [e, s] = strategies[type];
+				for (let i = botsCount; i < botsCount + count; i++) {
+					this.bots.push(new Bot(nameOfBot(i),
+						this.oddvar, this.GenerateInconflictPoint(10, 1 << i), this.map.cellSize.Scale(3 / 7),
+						this.getTexture(i), this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)), e, s))
+				}
+				botsCount += count;
+			}
+			
 			if (settings.debug) {
 				const mapLogger = winMan.CreateLoggerWindow(`Map ${this.bots[0].name}`, new Point(map.size.width * 1.66, 0), new Size(map.maze.width * 1.6, map.maze.height * 2 * 5));
 				this.bots[0].addEventListener("mapUpdated", (map => {
@@ -93,6 +102,8 @@ export namespace Multiagent {
 				}))
 			}
 
+			const targetSize = this.map.cellSize.Scale(1 / 5);
+			const targetName = (i: number, name: string) => `target_${i} ${name}`
 
 			this.bots.map((bot, i) => {
 				this.score.addBot(bot);
@@ -109,7 +120,6 @@ export namespace Multiagent {
 					(<Map<string, Point>>this.targetMap.get(now.x, now.y)).set(bot.name, p.to);
 					bot.resetMap();
 					this.score.updateScore(i);
-					// admin.send(bot.name, "target", new Point(map.size.width - p.to.x, map.size.height - p.to.y));
 				});
 				target.addEventListener("collision", () => {
 					const newLocation = this.GenerateInconflictPoint(targetSize.width, layers);
@@ -118,7 +128,7 @@ export namespace Multiagent {
 				target.players.set(bot.body, i);
 				target.relocate(this.GenerateInconflictPoint(targetSize.width, layers));
 			});
-			winMan.CreateTableWindow("Score", this.score, ["name", "sender", "evaluator", "score"], new Point(map.size.width, map.size.height / 4),
+			winMan.CreateTableWindow("Score", this.score, ["name", "sender", "evaluator", "score"], new Point(map.size.width*1.66, 0),
 				this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 		}
 		CollectMetrics() {
