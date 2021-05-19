@@ -338,6 +338,15 @@ export namespace Dir {
 		}
 		throw new TypeError(`Unknown Dir: ${d}`);
 	}
+	export function Vector(d: Dir): Point {
+		switch (d) {
+			case Dir.UP: return new Point(0, -1);
+			case Dir.DOWN: return new Point(0, 1);
+			case Dir.LEFT: return new Point(-1, 0);
+			case Dir.RIGHT: return new Point(1, 0);
+		}
+		throw new TypeError(`Unknown Dir: ${d}`);
+	}
 	// Перемещает точку по направлению
 	export function movePoint(p: Dir, s: Point, count: number = 1): Point {
 		switch (p) {
