@@ -1,6 +1,7 @@
 import { MapType, SimulatorDescription } from "../games/utils/description";
 import { Manager } from "../oddvar/manager";
 import { Observable, RingBuffer } from "../oddvar/utils";
+import { HTML } from "../web/html";
 import { MetricsTable, Ticker } from "../web/windows";
 
 export class SimulationLaunch<T extends object = object> {
@@ -21,20 +22,59 @@ export type ProcessorState = {
 export type ProcessorSimulationFinished = ProcessorState & {
 	reason: "deadline"
 }
+
+export type ProcessorSettings = {
+	/** максимальное количество кадров в секунду */
+	FPS: number,
+	/** максимальное количество тиков в секунду */
+	TPS: number,
+	/** 0: в реальном времени */
+	dt: number
+}
+
+export const ProcessorSettingsInput = {
+	type: "object" as "object", values: {
+		FPS: {
+			description: "Максимальное количество кадров в секунду",
+			type: "float", default: 60, min: 0.1, max: 60
+		},
+		TPS: {
+			description: "Максимальное количество тиков в секунду",
+			type: "float", default: 66.6, min: 0.1
+		},
+		dt: {
+			description: "Сколько времени проходит в симуляции за один тик, 0 - в реальном времени",
+			type: "float", default: 0, min: 0, max: Manager.MaxDTPerTick
+		},
+	} as Record<keyof ProcessorSettings, HTML.Input.Type>
+}
+
 export class Processor extends Observable<{
 	finished: ProcessorSimulationFinished
 }, Processor>{
 	private _manager?: Manager;
-	private intervalID?: number;
+	private intervalTicksID?: number;
+	private intervalRenderID?: number;
 	private frames = 0;
 	private ticks = 0;
 	private renderStart = 0;
 	private ticksStart = 0;
 	private ticksStatistic = new RingBuffer(60 * 2);
-
+	private dtStatistic = new RingBuffer(60 * 2);
+	private realTime = 0;
 	public readonly metricsTable: MetricsTable;
 
-	constructor(drawTicker: Ticker[]) {
+	private _settings = HTML.Input.GetDefault(ProcessorSettingsInput) as ProcessorSettings;
+	public set settings(settings: ProcessorSettings) {
+		this._settings = settings;
+		this.render();
+		if (this.isPlaying()) {
+			this.pause();
+			this.play();
+		}
+	}
+
+	constructor(readonly drawTicker: Ticker[]) {
 		super();
 		this.metricsTable = new MetricsTable(() => {
 			const metrics = this.processorMetrics;
@@ -43,23 +83,13 @@ export class Processor extends Observable<{
 				SPF: metrics.SPF.toFixed(4),
 				TPS: metrics.TPS.toFixed(2),
 				SPT: metrics.SPT.toFixed(4),
-				Time: `${(metrics.Time / 60) | 0}:${(metrics.Time % 60).toFixed(4).padStart(7, "0")}`,
+				dt: metrics.dt.toFixed(4),
+				Time: renderSeconds(metrics.Time),
+				Realtime: renderSeconds(metrics.Realtime),
+				Speed: (metrics.Time / metrics.Realtime).toFixed(2),
 			}
 		});
-		let lastTime = 0;
-		let Render = (t: number) => {
-			if (this._manager) {
-				this.frames++;
-				let dt = (t - lastTime) / 1000;
-				lastTime = t;
-				this._manager.DrawTick(dt);
-				drawTicker.forEach(t => t.Tick(dt));
-				this.metricsTable.Tick();
-			}
-			requestAnimationFrame(Render);
-		};
-		requestAnimationFrame(Render);
-		this.renderStart = performance.now()
+		this.render();
 	}
 	private launch?: SimulationLaunch;
 	/**
@@ -74,7 +104,26 @@ export class Processor extends Observable<{
 			manager.AddUser(1);
 		}
 		this.launch = settings;
+		this.realTime = 0;
 		this.play();
+	}
+
+	private render(): void {
+		if (this.isRendering()) {
+			clearInterval(this.intervalRenderID);
+			this.intervalRenderID = 0;
+		}
+		let lastRenderTime = this.renderStart = performance.now();
+		this.frames = 0;
+		let Render = (t: number) => {
+			this.frames++;
+			let dt = (t - lastRenderTime) / 1000;
+			lastRenderTime = t;
+			this._manager?.DrawTick(dt);
+			this.drawTicker.forEach(t => t.Tick(dt));
+			this.metricsTable.Tick();
+		};
+		this.intervalRenderID = window.setInterval(requestAnimationFrame, 1000 / this._settings.FPS, Render);
 	}
 
 	public play(): void {
@@ -83,7 +132,7 @@ export class Processor extends Observable<{
 		}
 		let lastTickTime = this.ticksStart = performance.now();
 		this.ticks = 0;
-		this.intervalID = window.setInterval(() => {
+		this.intervalTicksID = window.setInterval(() => {
 			if (!this._manager) {
 				this.pause()
 				return;
@@ -91,7 +140,9 @@ export class Processor extends Observable<{
 			const t = performance.now();
 			let dt = Math.round(t - lastTickTime) / 1000;
 			lastTickTime = t;
-			this._manager.Tick(dt);
+			this.realTime += dt;
+			this.dtStatistic.put(dt);
+			this._manager.Tick(this._settings.dt === 0 ? dt : this._settings.dt);
 			this.ticksStatistic.put(performance.now() - t);
 			this.ticks++;
 			if (this.launch!.deadline > 0 && this._manager.oddvar.Clock.now() >= this.launch!.deadline) {
@@ -101,7 +152,7 @@ export class Processor extends Observable<{
 				this.launch = undefined;
 				this.dispatchEvent("finished", event);
 			}
-		}, 15);
+		}, 1000 / this._settings.TPS);
 	}
 
 	public state(): ProcessorState {
@@ -112,13 +163,17 @@ export class Processor extends Observable<{
 		if (!this.isPlaying()) {
 			return;
 		}
-		window.clearInterval(this.intervalID);
-		this.intervalID = undefined;
+		window.clearInterval(this.intervalTicksID);
+		this.intervalTicksID = undefined;
 		this.ticks = 0;
 	}
 
 	public isPlaying(): boolean {
-		return this.intervalID !== undefined;
+		return this.intervalTicksID !== undefined;
+	}
+
+	public isRendering(): boolean {
+		return this.intervalRenderID !== undefined;
 	}
 
 	public get manager(): Manager | undefined {
@@ -135,7 +190,13 @@ export class Processor extends Observable<{
 			SPF: (this._manager?.oddvar.Get("Graphics").statistic.avg || 0) / 1000,
 			TPS: this.ticks * 1000 / ticksTime,
 			SPT: this.ticksStatistic.avg / 1000,
+			dt: this.dtStatistic.avg,
 			Time: simulationTime,
+			Realtime: this.realTime,
 		}
 	}
 }
+function renderSeconds(seconds: number): string | number | boolean {
+	return `${(seconds / 60) | 0}:${(seconds % 60).toFixed(4).padStart(7, "0")}`;
+}
+

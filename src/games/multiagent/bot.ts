@@ -102,10 +102,11 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 
 		this.destinationE = oddvar.Get("World").CreateEntity(nameOf("destination entity"), Point.Zero);
 		this.destinationE.rotation = Math.PI / 4;
-		oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("destination avatar"), this.destinationE, size.Scale(0.8), this.color);
-
 		this.nextE = oddvar.Get("World").CreateEntity(nameOf("next entity"), Point.Zero);
-		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("next avatar"), this.nextE, 2, this.color);
+		if (debug) {
+			oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("destination avatar"), this.destinationE, size.Scale(0.8), this.color);
+			oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("next avatar"), this.nextE, 2, this.color);
+		}
 
 	}
 	destinationE: Entity;
@@ -200,7 +201,7 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 			}
 		})
 		this.time += dt;
-		if(this.mapUpdated) {
+		if (this.mapUpdated) {
 			this.mapUpdated = false;
 			this.dispatchEvent("mapUpdated", this.map);
 		}

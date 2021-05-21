@@ -61,7 +61,7 @@ export namespace HTML {
 		return (el: HTMLElement) => setter(el.style);
 	}
 
-	export function FlexContainer(direction = "row", justifyContent = "", settings = {wrap: false}) {
+	export function FlexContainer(direction = "row", justifyContent = "", settings = { wrap: false }) {
 		return SetStyles(style => {
 			style.display = "flex";
 			style.flexDirection = direction;
@@ -163,64 +163,29 @@ export namespace HTML {
 		}
 	}
 	export namespace Input {
-		export type Type = { type: "int" | "float", default: number }
-			| { type: "object", values: Record<string, Type> }
-			| { type: "string", default: string }
-			| { type: "boolean", default: boolean }
+		export type Type =
+			{ type: "int" | "float", default: number, min?: number, max?: number, description?: string }
+			| ObjectType & { description?: string }
+			| { type: "string", default: string, description?: string }
+			| { type: "boolean", default: boolean, description?: string }
 			| {
-				type: "color",
+				type: "color", description?: string,
 				/** только #RRGGBB в полной форме, слова не поддерживаются */
-				default: string
+				default: string,
 			}
 			| {
-				type: "enum", default: string,
+				type: "enum", default: string, description?: string,
 				/** Пары: название значения енума:отображаемое название в ui */
 				values: Record<string, string>
 			}
+		export type ObjectType<T extends string = string> = { type: "object", values: Record<T, Type> }
+		export function GetDefault<T extends string>(type: ObjectType<T>): Record<T, any> {
+			const res = {} as { "": Record<T, any> };
+			CreateTypedInput("", type, res);
+			return res[""];
+		}
 		/** output - в этот объект будут попадать значения по мере заполнения полей инпута */
 		export function CreateTypedInput(name: string, type: Type, output: Record<string, any>, required = true): HTMLElement {
-			const additionalModifiers = (type: Type) => {
-				switch (type.type) {
-					case "float":
-						return [
-							SetInputType("number"),
-							SetNumberInputRange(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 0.1)
-						];
-					case "int":
-						return [
-							SetInputType("number"),
-							SetNumberInputRange(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 1)
-						];
-					case "boolean":
-						return [HTML.SetRequired(false), HTML.SetInputType("checkbox")];
-					case "color":
-						return [SetInputType("color")]
-				}
-				return [];
-			}
-			const getValue = (input: HTMLInputElement) => {
-				switch (input.type) {
-					case "number": return input.valueAsNumber;
-					case "radio":
-					case "checkbox": return input.checked;
-					default: return input.value;
-				}
-			};
-			const setValue = (type: Type, input: HTMLInputElement) => {
-				switch (type.type) {
-					case "int":
-					case "float":
-						input.valueAsNumber = type.default;
-						return;
-					case "color":
-					case "string":
-						input.value = type.default;
-						return;
-					case "boolean":
-						input.checked = type.default;
-						return
-				}
-			};
 			if (type.type !== "object") {
 				output[name] = type.default;
 			}
@@ -231,25 +196,65 @@ export namespace HTML {
 				case "float":
 				case "color":
 					return CreateElement("input",
-						SetTitle(name),
-						SetRequired(required),
 						SetName(name),
+						SetTitle(type.description || name),
+						SetRequired(required),
 						AddEventListener("change", function (ev: Event) {
 							output[name] = getValue(this as HTMLInputElement);
 						}),
 						...additionalModifiers(type), setValue.bind(null, type));
 				case "enum":
-					return CreateSelector(type.default, type.values, value => {
-						output[name] = value;
-					});
+					return HTML.ModifyElement(CreateSelector(type.default, type.values, value => output[name] = value), SetTitle(type.description || name));
 				case "object":
 					const innerOutput = output[name] = {};
-					return CreateElement(
-						"ul",
-						Append(
-							Object.entries(type.values).
-								map(([name, type]) => CreateElement("li", Append(CreateElement("span", SetText(name, name)), CreateTypedInput(name, type, innerOutput))))
-						));
+					return CreateElement("ul", Append(
+						Object.entries(type.values).
+							map(([name, type]) => CreateElement("li", Append(
+								CreateElement("span", SetText(name, type.description || name)),
+								CreateTypedInput(name, type, innerOutput))))
+					));
+			}
+		}
+		function additionalModifiers(type: Type) {
+			switch (type.type) {
+				case "float":
+					return [
+						SetInputType("number"),
+						SetNumberInputRange(or(type.min, Number.MIN_SAFE_INTEGER), or(type.max, Number.MAX_SAFE_INTEGER), 0.0001)
+					];
+				case "int":
+					return [
+						SetInputType("number"),
+						SetNumberInputRange(or(type.min, Number.MIN_SAFE_INTEGER), or(type.max, Number.MAX_SAFE_INTEGER), 1)
+					];
+				case "boolean":
+					return [HTML.SetRequired(false), HTML.SetInputType("checkbox")];
+				case "color":
+					return [SetInputType("color")]
+			}
+			return [];
+		}
+		function getValue(input: HTMLInputElement) {
+			switch (input.type) {
+				case "number": return input.valueAsNumber;
+				case "radio":
+				case "checkbox": return input.checked;
+				default: return input.value;
+			}
+		}
+		function setValue(type: Type, input: HTMLInputElement) {
+			switch (type.type) {
+				case "int":
+				case "float":
+					input.valueAsNumber = type.default;
+					return;
+				case "color":
+				case "string":
+					input.value = type.default;
+					return;
+				case "boolean":
+					input.checked = type.default;
+					return
 			}
 		}
 	}
@@ -258,4 +263,7 @@ export namespace HTML {
 function sqr(x: number) { return x * x }
 function distanceSquare(x1: number, y1: number, x2: number, y2: number) {
 	return sqr(x1 - x2) + sqr(y1 - y2);
+}
+function or<T>(x: T | undefined, y: T): T {
+	return x === undefined ? y : x;
 }

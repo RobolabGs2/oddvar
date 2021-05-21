@@ -1,4 +1,4 @@
-import { Processor, ProcessorState, SimulationLaunch } from "./processor";
+import { Processor, ProcessorSettingsInput, ProcessorState, SimulationLaunch } from "./processor";
 import { DownloadResources } from "../web/http";
 import { World } from "../oddvar/world";
 import { LocalPlayers } from "./players";
@@ -118,7 +118,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	const launchesQueue = {
 		queue: new Array<SimulationLaunch>(),
 		enqueue(launch: SimulationLaunch) { this.queue.push(launch); this.updateView(); },
-		html: HTML.CreateElement("div", HTML.SetStyles(s => s.height = "128px")),
+		html: HTML.CreateElement("div", HTML.SetStyles(s => s.height = "16px")),
 		updateView() {
 			this.html.innerText = `В очереди: ${this.queue.length}`;
 		},
@@ -155,20 +155,15 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
 					simulationSettingsContainer.innerHTML = "";
-					simulationSettingsContainer.appendChild(CreateSettingsInput(maps, urlSettings, games[key],
+					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, games[key] as SimulatorDescription<object, MapType>,
 						{
 							Start: (s, l) => LaunchSimulation(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
 							Queue: (s, l) => launchesQueue.enqueue(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
 						}, "Start"));
 				}),
 			)),
-			simulationSettingsContainer,
-			HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(
-				HTML.CreateElement("input", HTML.SetInputType("checkbox"), (el) => el.checked = repeatLatest, HTML.AddEventListener("change", function () { repeatLatest = (<HTMLInputElement>this).checked; })),
-				HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
-		)),
-		HTML.CreateElement("article",
-			HTML.Append(HTML.CreateElement("section",
+			CreateSettingsInput(ProcessorSettingsInput, { Apply: (settings) => processor.settings = settings }),
+				HTML.CreateElement("section",
 				HTML.Append(
 					HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1")),
 					HTML.CreateElement("footer", HTML.Append(
@@ -194,6 +189,14 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					style.padding = "16px";
 				})),
 				aritcleWithButtons(launchesQueue)
+		)),
+		HTML.CreateElement("article",
+			HTML.Append(
+				simulationSettingsContainer,
+			HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(
+				HTML.CreateElement("input", HTML.SetInputType("checkbox"), (el) => el.checked = repeatLatest, HTML.AddEventListener("change", function () { repeatLatest = (<HTMLInputElement>this).checked; })),
+				HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
+				
 			),
 		))), new Point(gameSize, 0))
 });
@@ -238,29 +241,46 @@ function TransformMetrics(s: ProcessorState) {
 	return { settings: s.launch, timings: s.metrics, simulation: s.manager?.metrics };
 }
 
-function CreateSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
+function CreateSettingsInput<T extends string>(
+	description: HTML.Input.ObjectType<T>,
+	buttons: Record<string, (input: Record<T, any>) => void>,
+	clickButton?: string): HTMLElement {
+	const output = {} as { root: Record<T, any> };
+	const h = HTML.Input.CreateTypedInput("root", description, output);
+	let lastClickedButton = clickButton;
+	const form = HTML.CreateElement("form", HTML.AddClass("settings-input"), HTML.Append(
+		HTML.CreateElement("header"),
+		HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"))));
+	return HTML.ModifyElement(form, HTML.Append(
+		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(buttons).map((text) =>
+			HTML.CreateElement("input", HTML.SetInputType("submit"), HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
+				HTML.AddEventListener("click",
+					() => { lastClickedButton = text; }),
+				(el) => { el.value = text; if (text === clickButton) setTimeout(() => el.click()) })
+		)))
+	), HTML.AddEventListener("submit", (ev) => {
+		ev.preventDefault();
+		console.log(lastClickedButton);
+		if (lastClickedButton) {
+			buttons[lastClickedButton](JSON.parse(JSON.stringify(output.root)));
+		}
+	}));
+}
+
+function CreateSimulationSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
 	allMaps: Record<MapID, { name: string, value: MapType }>,
 	defaults: URLSettings<MapID>,
 	description: SimulatorDescription<SettingsT, MapT>,
 	buttons: Record<string, (game: SimulatorDescription<SettingsT, MapT>, s: SimulationSettings<MapT, SettingsT>) => void>,
 	clickButton: string): HTMLElement {
-	const output = {} as { root: SimulationSettings<MapT, SettingsT> };
 	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
-	const h = HTML.Input.CreateTypedInput("root", {
+	return CreateSettingsInput({
 		type: "object", values: {
 			map: { type: "enum", values: ConvertRecord(supportedMaps, (_, o) => o.name), default: defaults.map as string },
-			deadline: { type: "float", default: defaults.deadline },
+			deadline: { type: "float", default: defaults.deadline, min: 0, description: "Через столько секунд принудительно закончится текущая симуляция, 0 - никогда" },
 			simulation: { type: "object", values: description.SettingsInputType() },
 		}
-	}, output);
-	return HTML.CreateElement("article", HTML.AddClass("settings-input"), HTML.Append(
-		HTML.CreateElement("header"),
-		HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px")),
-		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.entries(buttons).map(([text, listener]) =>
-			HTML.CreateElement("button", HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
-				HTML.SetText(text), HTML.AddEventListener("click", () => listener(description, JSON.parse(JSON.stringify(output.root)))), (el) => { if (text === clickButton) el.click() })
-		)))
-	));
+	}, ConvertRecord(buttons, (_, listener) => listener.bind(null, description)), clickButton);
 }
 
 namespace CollectingSquares {

@@ -36,10 +36,17 @@ class BotTable extends Observable<{ updated: number }> implements TableModel<Bot
 export namespace Multiagent {
 	const evaluators: Evaluator[] = [new Evaluators.Доверчивый, new Evaluators.Скептик, new Evaluators.Параноик];
 	const senders: SendMiddleware[] = [new Middlewares.Честный, new Middlewares.Лжец];
-	const strategiesArray = Iterators.zip(Iterators.Range(evaluators.length * senders.length).map(i => evaluators[i % evaluators.length]).toArray(), Iterators.Range(evaluators.length * senders.length).map(i => senders[(i / evaluators.length)|0]).toArray());
+	const strategiesArray = Iterators.zip(Iterators.Range(evaluators.length * senders.length).map(i => evaluators[i % evaluators.length]).toArray(), Iterators.Range(evaluators.length * senders.length).map(i => senders[(i / evaluators.length) | 0]).toArray());
 	const strategies = Object.fromEntries(strategiesArray.map((pair) => [pair.map(x => x.constructor.name).reverse().join("_"), pair]));
 
-	export type Settings = { bots: Record<keyof typeof strategies, number>, debug: boolean }
+	export type Settings = {
+		bots: Record<keyof typeof strategies, number>,
+		debug: {
+			network: boolean,
+			map: boolean,
+			botsThinking: boolean
+		}
+	}
 	export const Description: SimulatorDescription<Settings, GameMap> = {
 		name: "Равноранговая многоагентная система",
 		NewSimulation: (oddvar, map, ui, settings) => new Simulation(oddvar, map, ui, settings),
@@ -47,7 +54,13 @@ export namespace Multiagent {
 		SettingsInputType() {
 			return {
 				bots: { type: "object", values: ConvertRecord(strategies, () => (<HTML.Input.Type>{ type: "int", default: 1 })) },
-				debug: { type: "boolean", default: false }
+				debug: {
+					type: "object", description: "Настройки вывода отладочной информации", values: {
+						network: { type: "boolean", default: true, description: "Отображать логи сети" },
+						map: { type: "boolean", default: false, description: "Отображать карту бота 0" },
+						botsThinking: { type: "boolean", default: true, description: "Отображать, куда бот собирается идти" }
+					}
+				}
 			}
 		},
 	}
@@ -59,24 +72,28 @@ export namespace Multiagent {
 		private targetMap: DataMatrix<boolean | Map<string, Point>>
 		private score: BotTable;
 		constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, settings: Settings) {
-			if (settings.debug) console.log(this.map.maze.toString())
-			const logHeight = 350;
-			const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 48), new Size(30, 30/450*logHeight), {
-				empty: { color: "white", fontWeight: "1000" },
-				target: { color: "lime" },
-				captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
-			});
-			const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`
-			this.network = new Network(
-				(msg => {
-					networkLogs.WriteLine(msg.type,
-						[
-							[msg.from.padEnd(10), msg.to.padStart(10)].join(" -> ").padEnd(30),
-							msg.type.padEnd(10),
-							(msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type).padEnd(10),
-							msg.timestamp.toFixed(2).padStart(10)
-						].join(" "))
-				}), oddvar.Clock);
+			if (settings.debug.map) console.log(this.map.maze.toString())
+			if (settings.debug.network) {
+				const logHeight = 350;
+				const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 48), new Size(30, 30 / 450 * logHeight), {
+					empty: { color: "white", fontWeight: "1000" },
+					target: { color: "lime" },
+					captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
+				});
+				const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`
+				this.network = new Network(
+					(msg => {
+						networkLogs.WriteLine(msg.type,
+							[
+								[msg.from.padEnd(10), msg.to.padStart(10)].join(" -> ").padEnd(30),
+								msg.type.padEnd(10),
+								(msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type).padEnd(10),
+								msg.timestamp.toFixed(2).padStart(10)
+							].join(" "))
+					}), oddvar.Clock);
+			} else {
+				this.network = new Network(() => { }, oddvar.Clock);
+			}
 			this.score = new BotTable();
 			map.Draw(this.wallManager.creator)
 			this.targetMap = map.maze.MergeOr(new DataMatrix(map.maze.width, map.maze.height, () => new Map<string, Point>()))
@@ -89,13 +106,13 @@ export namespace Multiagent {
 				for (let i = botsCount; i < botsCount + count; i++) {
 					this.bots.push(new Bot(nameOfBot(i),
 						this.oddvar, this.GenerateInconflictPoint(10, 1 << i), this.map.cellSize.Scale(3 / 7),
-						this.getTexture(i), this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)), e, s))
+						this.getTexture(i), this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)), e, s, settings.debug.botsThinking))
 				}
 				botsCount += count;
 			}
-			
-			if (settings.debug) {
-				const mapLogger = winMan.CreateLoggerWindow(`Map ${this.bots[0].name}`, new Point(map.size.width * 1.66, 0), new Size(map.maze.width * 1.6, map.maze.height * 2 * 5));
+
+			if (settings.debug.map) {
+				const mapLogger = winMan.CreateLoggerWindow(`Map ${this.bots[0].name}`, new Point(map.size.width * 1.70, 0), new Size(map.maze.width * 1.6, map.maze.height * 2 * 5));
 				this.bots[0].addEventListener("mapUpdated", (map => {
 					mapLogger.WarnLine(oddvar.Clock.now().toFixed(2))
 					mapLogger.InfoLine(map.toString())
@@ -128,7 +145,7 @@ export namespace Multiagent {
 				target.players.set(bot.body, i);
 				target.relocate(this.GenerateInconflictPoint(targetSize.width, layers));
 			});
-			winMan.CreateTableWindow("Score", this.score, ["name", "sender", "evaluator", "score"], new Point(map.size.width*1.66, 0),
+			winMan.CreateTableWindow("Score", this.score, ["name", "sender", "evaluator", "score"], new Point(map.size.width * 1.7, 0),
 				this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 		}
 		CollectMetrics() {

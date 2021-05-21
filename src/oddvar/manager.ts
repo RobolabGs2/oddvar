@@ -1,5 +1,6 @@
 import { Player } from "./players";
 import { Oddvar, OddvarSnapshot } from "./oddvar";
+import { Logger } from "./utils/logger";
 
 
 export interface GameLogic {
@@ -24,10 +25,12 @@ export function HasMetrics(game: GameLogic): game is MetricsSource {
 
 export class Manager {
 	private users = new Map<number, Player>();
-
+	static readonly MaxDTPerTick = 0.02;
 	constructor(
 		public readonly oddvar: Oddvar,
-		public readonly gameLogic: GameLogic) {
+		public readonly gameLogic: GameLogic,
+		readonly log: Logger = new Logger("INFO", "MANAGER: ")
+		) {
 	}
 
 	public DrawTick(dt: number) {
@@ -35,6 +38,10 @@ export class Manager {
 	}
 
 	public Tick(dt: number) {
+		if (dt > Manager.MaxDTPerTick) {
+			this.log.DebugLine(`time oveflow dt = ${dt}`);
+			dt = Manager.MaxDTPerTick;
+		}
 		this.oddvar.Tick(dt);
 		this.gameLogic.Tick(dt);
 	}

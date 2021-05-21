@@ -62,7 +62,6 @@ export class Oddvar {
 	constructor(
 		private worlds: Worlds,
 		reflectionJson: ReflectionJSON,
-		readonly log: Logger = new Logger("INFO", "ODDVAR: ")
 	) {
 		let map = new Map<string, any>();
 		for (let factory in worlds) {
@@ -84,10 +83,6 @@ export class Oddvar {
 	}
 
 	public Tick(dt: number) {
-		if (dt > 0.02) {
-			this.log.DebugLine(`time oveflow dt = ${dt}`);
-			dt = 0.02;
-		}
 		this.clock.currentTime += dt;
 		this.worlds.Physics.Tick(dt);
 		this.worlds.Controller.Tick(dt);
