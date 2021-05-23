@@ -95,7 +95,7 @@ export namespace Multiagent {
 		bots: Record<keyof typeof strategies, number>,
 		strategies: {
 			"Скептик": {
-				treshold: number
+				threshold: number
 			},
 		}
 		debug: {
@@ -120,7 +120,7 @@ export namespace Multiagent {
 				skin: { type: 'enum', default: "pretty", values: ConvertRecord(skins, (k) => k), description: "Набор текстур" },
 				bots: { type: "object", values: ConvertRecord(strategies, () => (<HTML.Input.Type>{ type: "int", default: 1 })) },
 				strategies: {type: "object", description: "Настройки стратегий", values: {Скептик:{
-					type:"object", values: {treshold: {type: "float", default: 0.4, min: 0.01, max: 1, 
+					type:"object", values: {threshold: {type: "float", default: 0.4, min: 0.01, max: 1, 
 					description: "Максимальное расстояние до точки, которой поверит скептик\nВ процентах от стороны карты"}}
 				}}},
 				debug: {
@@ -176,7 +176,7 @@ export namespace Multiagent {
 				const count = settings.bots[type];
 				const [eConstructor, sConstructor] = strategies[type];
 				for (let i = botsCount; i < botsCount + count; i++) {
-					const e = eConstructor.name === "Скептик" ? new eConstructor(settings.strategies.Скептик.treshold): new eConstructor();
+					const e = eConstructor.name === "Скептик" ? new eConstructor(settings.strategies.Скептик.threshold): new eConstructor();
 					const s = new sConstructor();
 					const layer = i;
 					const place = this.GenerateInconflictPoint(10, 1 << i);

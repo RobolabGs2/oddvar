@@ -22,8 +22,8 @@ export class Message<T extends keyof MessageDataMap = keyof MessageDataMap> {
 		readonly timestamp: number
 	) { }
 
-	read(handler: EventHandler<MessageMap>) {
-		handler[this.type](this as never); // ts оказался недостаточно силён для зависимых типов
+	read<T = void>(handler: EventHandler<MessageMap, unknown, T>): T {
+		return handler[this.type](this as never); // ts оказался недостаточно силён для зависимых типов
 	}
 }
 

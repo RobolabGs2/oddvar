@@ -13,8 +13,8 @@ export type MapOfArrays<T> = {
 	[K in keyof T]: T[K][]
 }
 
-export type EventHandler<T, This = unknown> = {
-	[K in keyof T]: (this: This, data: T[K]) => void
+export type EventHandler<T, This = unknown, Return = void> = {
+	[K in keyof T]: (this: This, data: T[K]) => Return
 }
 
 export function ConvertRecord<T1, T2, Keys extends number | string>(a: Record<Keys, T1>, mapper: (key: Keys, origin: T1) => T2): Record<Keys, T2> {

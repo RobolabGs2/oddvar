@@ -14,11 +14,16 @@ export namespace Evaluators {
 	export class Скептик implements Evaluator {
 		constructor(readonly distanceThreshold = 0.4) { }
 		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			let res = false;
-			msg.read({
-				"captured": () => res = true,
-				"empty": () => res == true,
-				"target": (msg) => !bot.map.isExplored(msg.data) && (bot.map.findPath(bot.location, msg.data)?.length || Infinity) < this.distanceThreshold*bot.map.maze.width
+			const res = msg.read({
+				"captured": () => true,
+				"empty": () => true,
+				"target": (msg) => {
+					const path = bot.map.findPath(bot.location, msg.data);
+					if (path === undefined)
+						return false;
+					const threshold = this.distanceThreshold * (bot.map.maze.width + bot.map.maze.height);
+					return path.length <= threshold
+				}
 			})
 			return res;
 		}
