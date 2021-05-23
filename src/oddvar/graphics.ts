@@ -2,7 +2,7 @@ import { Deadly, DeadlyWorld, StatelessDeadly } from "./base"
 import { IEntity } from "./world"
 import { Point, Size } from "./geometry";
 import { ControlledWalker, PhysicControlled } from "./controller";
-import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, PolygonTexture } from "./textures";
+import { RectangleTexture, CircleTexture, TransformContext, VectorTexture, PolygonTexture, StyledTexture } from "./textures";
 import { Body, PolygonBody, RectangleBody } from "./physics/body";
 import { RaySensor } from "./physics/sensor";
 import { RingBuffer } from "./utils";
@@ -106,6 +106,26 @@ export class CircleEntityAvatar extends EntityAvatar {
 	}
 }
 
+export class LabelEntityAvatar extends DeadlyAvatar {
+	protected drawEntity(dt: number, context: CanvasRenderingContext2D): void {
+		this.texture.DrawText(context, this.text, this.fontSize);
+	}
+
+	public constructor(name: string, readonly entity: IEntity, readonly text: string, readonly fontSize: number, readonly texture: StyledTexture) {
+		super(name, entity);
+	}
+
+	public Tick(dt: number, context: CanvasRenderingContext2D): void {
+		const transform = this.entity.Transform();
+		context.translate(transform.Get(2, 0), transform.Get(2, 1));
+		this.drawEntity(dt, context);
+
+	}
+
+	ToConstructor(): any[] {
+		return [this.entity.Name, this.text, this.fontSize, this.texture.Name];
+	}
+}
 
 export class ControlledWalkerAvatar extends DeadlyAvatar {
 	public constructor(name: string, public readonly controller: ControlledWalker, public readonly playerColor: string) {
@@ -246,4 +266,9 @@ export class Graphics extends DeadlyWorld<DeadlyAvatar>
 	public CreatePhysicControlledAvatar(name: string, controller: PhysicControlled, playerColor: string): PhysicControlledAvatar {
 		return this.AddAvatar(new PhysicControlledAvatar(name, controller, playerColor));
 	}
+
+	public CreateLabelEntityAvatar(name: string, entity: IEntity, text: string, fontSize: number, texture: StyledTexture): LabelEntityAvatar {
+		return this.AddAvatar(new LabelEntityAvatar(name, entity, text, fontSize, texture));
+	}
+	
 }

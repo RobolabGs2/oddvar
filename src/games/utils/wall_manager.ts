@@ -1,17 +1,18 @@
 import { Point, Size } from '../../oddvar/geometry';
 import { Oddvar } from "../../oddvar/oddvar";
 import { PhysicalMaterial } from '../../oddvar/physics/body';
-import { StyledTexture } from '../../oddvar/textures';
+import { PolygonTexture, StyledTexture } from '../../oddvar/textures';
 
 export type WallCreator = (center: Point, rotation: number, size: Size, material?: Partial<PhysicalMaterial>) => void;
 
 export class WallManager {
 	private wallCounter = 0;
-	public borderTexture: StyledTexture;
 	private borderTextureDebug = this.oddvar.Get("TexturesManager").CreateColoredTexture("debug", { stroke: "red", strokeWidth: 0.5 });
 
-	constructor(readonly oddvar: Oddvar, textureName = "bricks", readonly debug = false) {
-		this.borderTexture = this.oddvar.Get("TexturesManager").CreatePatternTexture("wall", textureName);
+	constructor(
+		readonly oddvar: Oddvar,
+		readonly borderTexture: PolygonTexture = oddvar.Get("TexturesManager").CreatePatternTexture("wall", "bricks"),
+		readonly debug = false) {
 	}
 
 	public newWall(center: Point, rotation: number, size: Size, material: Partial<PhysicalMaterial> = { static: true, lineFriction: 1, angleFriction: 1 }) {

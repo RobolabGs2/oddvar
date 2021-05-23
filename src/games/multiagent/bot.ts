@@ -1,89 +1,33 @@
-import { Matrix, Point, Size } from '../../oddvar/geometry';
+import { Matrix, Point } from '../../oddvar/geometry';
 import { Oddvar } from "../../oddvar/oddvar";
-import { RectangleBody } from '../../oddvar/physics/body';
+import { PolygonBody } from '../../oddvar/physics/body';
 import { RaySensor } from '../../oddvar/physics/sensor';
-import { ColoredTexture, RectangleTexture } from '../../oddvar/textures';
+import { ColoredTexture } from '../../oddvar/textures';
 import { Entity, TailEntity } from '../../oddvar/world';
 import { GameMap } from "../utils/game_map";
 import { DataMatrix, Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Message, MessageDataMap, NetworkCard } from './net';
 import { Observable } from '../../oddvar/utils';
 
-const Colors = [
-	"blue", "red", "green",
-	"purple", "gold", "peru", "plum"
-];
-
 export interface Evaluator {
 	// Можно ли доверять сообщению
 	Evaluate(bot: Bot, msg: Message): boolean
 }
 
-export namespace Evaluators {
-	export class Доверчивый implements Evaluator {
-		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			return true;
-		}
-	}
-
-	export class Скептик implements Evaluator {
-		constructor(readonly distanceThreshold = 6) { }
-		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			let res = false;
-			msg.read({
-				"captured": () => res = true,
-				"empty": () => res == true,
-				"target": (msg) => (bot.map.findPath(bot.location, msg.data)?.length || Infinity) < this.distanceThreshold
-			})
-			return res;
-		}
-	}
-
-	export class Параноик implements Evaluator {
-		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			return false;
-		}
-	}
-}
 
 export interface SendMiddleware {
 	Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void;
 }
 
-export namespace Middlewares {
-	export class Честный implements SendMiddleware {
-		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
-			bot.network.send(to, type, data);
-		}
-	}
-	export class Лжец implements SendMiddleware {
-		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
-			switch (type) {
-				case "captured":
-					bot.network.send(to, type, data);
-					break;
-				case "empty":
-					bot.network.send(to, type, data); // todo
-					break;
-				case "target":
-					const target = data as MessageDataMap["target"];
-					bot.network.send(to, type as "target", new Point(bot.map.size.width - target.x, bot.map.size.height - target.y))
-			}
-		}
-	}
-}
-
 export class Bot extends Observable<{ mapUpdated: BotMap }>{
-	body: RectangleBody;
 	program?: Dir[];
 	lastCommand?: { dir: Dir; dest: Point; };
 	map: BotMap;
-	color: ColoredTexture;
 	mapUpdated = true;
-	constructor(
-		readonly name: string,
+	constructor(readonly name: string,
 		oddvar: Oddvar,
-		place: Point, readonly size: Size, botTexture: RectangleTexture,
+		readonly body: PolygonBody,
+		readonly color: ColoredTexture,
 		map: GameMap,
 		readonly layer: number,
 		readonly network: NetworkCard,
@@ -91,20 +35,13 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 		readonly sender: SendMiddleware,
 		readonly debug = false) {
 		super();
-		const currentColor = Colors.length > layer ? Colors[layer] : `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-		this.color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 2 });
 		const nameOf = (type: string) => `bot ${layer}: ${type}`;
 		this.map = new BotMap(map, -1);
-		const e = oddvar.Get("World").CreateEntity(nameOf("entity"), place);
-		this.body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), e, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, this.size);
-		oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), this.body, botTexture);
-		oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("circle avatar"), e, size.width * 0.9, this.color);
-
 		this.destinationE = oddvar.Get("World").CreateEntity(nameOf("destination entity"), Point.Zero);
 		this.destinationE.rotation = Math.PI / 4;
 		this.nextE = oddvar.Get("World").CreateEntity(nameOf("next entity"), Point.Zero);
 		if (debug) {
-			oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("destination avatar"), this.destinationE, size.Scale(0.8), this.color);
+			oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("destination avatar"), this.destinationE, map.cellSize.Scale(0.25), this.color);
 			oddvar.Get("Graphics").CreateCircleEntityAvatar(nameOf("next avatar"), this.nextE, 2, this.color);
 		}
 
@@ -135,8 +72,6 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 	nextPath() {
 		this.program = this.map.nextPath(this.location);
 		this.nextPoint();
-		if (this.debug && this.program && this.layer === 0)
-			console.log(this.map.toString());
 		this.destinationE.location = this.map.destination ? this.map.fromMazeCoords(this.map.destination) : Point.Zero;
 	}
 
@@ -159,7 +94,7 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 	TickBody(dt: number) {
 		if (this.kickTo) {
 			const delta = this.kickTo.Sub(this.location);
-			this.body.Kick(delta.Norm().Mult(this.body.size.Area() * 500 * 2));
+			this.body.Kick(delta.Norm().Mult(this.body.Area() * 500 * 2));
 		}
 	}
 	anotherStates = new Map<string, boolean>();
@@ -210,7 +145,7 @@ export class Bot extends Observable<{ mapUpdated: BotMap }>{
 			return;
 		}
 		const delta = this.lastCommand.dest.Sub(this.location);
-		if (delta.Len() > this.body.size.width / 2) {
+		if (delta.Len() > Math.sqrt(this.body.Area()) / 2) {
 			if (this.time > 20) {
 				// попали в тупик
 				this.nextPath();
@@ -257,6 +192,10 @@ export class BotMap extends GameMap {
 			return true;
 		}
 		return false;
+	}
+	isExplored(p: Point): boolean{
+		const {x, y} = this.toMazeCoords(p);
+		return this.explored.get(x, y) === undefined;
 	}
 	nextPath(from: Point): Dir[] | undefined {
 		from = this.toMazeCoords(from);

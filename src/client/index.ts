@@ -32,6 +32,7 @@ DownloadResources().then(([reflectionJSON, images]) => {
 		c.width = 500;
 		c.height = 500;
 	}).getContext("2d")!;
+	const patternContext = HTML.CreateElement("canvas", c => { c.height = c.width = 500; }).getContext("2d")!;
 
 	document.body.appendChild(
 		HTML.CreateElement("article",
@@ -49,5 +50,5 @@ DownloadResources().then(([reflectionJSON, images]) => {
 		)
 	)
 
-	let processor = new Processor(new WebSocket(url), reflectionJSON, images, canvas.getContext("2d")!, hiddenCanvas, keyboard);
+	let processor = new Processor(new WebSocket(url), reflectionJSON, images, canvas.getContext("2d")!, hiddenCanvas, patternContext, keyboard);
 })

@@ -26,29 +26,45 @@ import "./settings.scss"
 console.log("Hello ODDVAR");
 
 const smallMap = Labirint.SymmetryOdd([
-	[0, 0, 0, 0],
-	[0, 0, 0, 0],
-	[0, 0, 0, 1],
-	[0, 0, 1, 1]
+	[0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 1],
+	[0, 0, 0, 1, 1]
 ]).Frame(1);
+
+const smallMap1 = Labirint.SymmetryOdd([
+	[0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 1],
+	[0, 0, 1, 1, 0, 0],
+	[0, 0, 0, 1, 1, 1],
+	[0, 0, 0, 0, 0, 0],
+	[0, 1, 1, 0, 1, 1]
+]).Frame(1);
+
 
 type URLSettings<MapID extends string = string, GameID extends string = string> = { map: MapID, game: GameID, deadline: number }
 
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
-	const gameSize = 800;
+	const gameSize = 704//798;
 	document.body.style.minWidth = document.body.style.minHeight = `${gameSize}px`;
-	const canvas = HTML.CreateElement("canvas", HTML.SetStyles(style => { style.backgroundColor = "rgb(200, 200, 200)"; style.width = style.height = "100%"; }), AppendToBody, Resize);
+	const canvas = HTML.CreateElement("canvas", HTML.SetStyles(style => { 
+		// style.backgroundColor = "rgb(200, 200, 200)"; 
+		style.width = style.height = "100%"; }), AppendToBody, Resize);
 	const canvasContext = canvas.getContext("2d")!;
 	canvasContext.imageSmoothingEnabled = false;
 	const hiddenContext = HTML.CreateElement("canvas", c => { c.height = c.width = gameSize; }).getContext("2d")!;
+	const patternContext = HTML.CreateElement("canvas", c => { c.height = c.width = gameSize; }).getContext("2d")!;
 	const keyboards = [new Keyboard(Keyboard.Mappings.WASD), new Keyboard(Keyboard.Mappings.Arrows)];
 
 	const gameWindowsManager = new WindowsManager(HTML.CreateElement("div", AppendToBody), new StyleSheetTree(styleSheet));
 	const mainWindowsManager = new WindowsManager(HTML.CreateElement("div", AppendToBody), new StyleSheetTree(styleSheet));
 
+	// mainWindowsManager.CreateInfoWindow("Pattern", patternContext.canvas)
 	const maps = {
+		symmetric_very_mini: { name: "Очень маленький лабиринт", value: new GameMap(smallMap, new Size(gameSize, gameSize)) },
+		symmetric_mini: { name: "Маленький лабиринт", value: new GameMap(smallMap1, new Size(gameSize, gameSize)) },
 		symmetric: { name: "Лабиринт", value: new GameMap(PacManMap, new Size(gameSize, gameSize)) },
-		symmetric_mini: { name: "Маленький лабиринт", value: new GameMap(smallMap, new Size(gameSize, gameSize)) },
 		symmetric_big: { name: "Большой лабиринт", value: new GameMap(BigPacManMap, new Size(gameSize, gameSize)) },
 		random_maze: { name: "Случайная карта", value: new GameMap(RandomMap, new Size(gameSize, gameSize)) },
 		test: { name: "Карта для тестов физики", value: TestMap },
@@ -77,7 +93,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			new Physics(),
 			new Graphics(canvasContext, hiddenContext),
 			new Controller(false),
-			new TexturesManager(resources, canvasContext))
+			new TexturesManager(resources, patternContext))
 		const oddvar = new Oddvar(worlds, reflectionJSON);
 		const newGame = settings.simulator.NewSimulation(oddvar, (<any>maps[<MapID>settings.mapID]).value, gameWindowsManager, settings.settings);
 		if (HasMultiplayer(newGame)) {
@@ -135,7 +151,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			return true;
 		},
 		buttonPlayFromQueue() { this.play(); },
-		buttonCleanQueue() { this.queue.length = 0; },
+		buttonCleanQueue() { this.queue.length = 0; this.updateView() },
 	}
 	launchesQueue.updateView();
 	let repeatLatest = true;
@@ -157,8 +173,10 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					simulationSettingsContainer.innerHTML = "";
 					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, games[key] as SimulatorDescription<object, MapType>,
 						{
-							Start: (s, l) => LaunchSimulation(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
-							Queue: (s, l) => launchesQueue.enqueue(new SimulationLaunch(key, s, l.simulation, l.map, l.deadline)),
+							Start: (s, l) => LaunchSimulation(newLaunch(key, s, l)),
+							Enqueue: (s, l) => launchesQueue.enqueue(newLaunch(key, s, l)),
+							EnqeueX5: (s, l) => newLaunch(key, s, l).copyN(5).forEach(l=>launchesQueue.enqueue(l)),
+							EnqeueX10: (s, l) => newLaunch(key, s, l).copyN(10).forEach(l=>launchesQueue.enqueue(l)),
 						}, "Start"));
 				}),
 			)),
@@ -168,7 +186,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1")),
 					HTML.CreateElement("footer", HTML.Append(
 						HTML.ModifyElement(HTML.CreateSwitcher(
-							() => processor.isPlaying(), (play) => { if (play) processor.play(); else processor.pause() }, { on: "Play", off: "Pause" }),
+							() => processor.isPlaying(), (play) => { if (play) processor.play(); else processor.pause() }, { on: "Play|Pause", off: "Play|Pause" }),
 							HTML.SetStyles(s => s.height = "100%")),
 						HTML.CreateElement("button",
 							HTML.SetText("Download metrics"),
@@ -206,6 +224,10 @@ type SimulationSettings<MapID, SettingsT> = {
 	simulation: SettingsT;
 	deadline: number;
 };
+
+function newLaunch(key: string, s: SimulatorDescription<object, MapType>, l: SimulationSettings<MapType, object>): SimulationLaunch<object> {
+	return new SimulationLaunch(key, s, l.simulation, l.map, l.deadline);
+}
 
 function aritcleWithButtons(objectWithButtons: { html: HTMLElement; } & Record<string, any>): HTMLElement {
 	return HTML.CreateElement("article", HTML.Append(objectWithButtons.html,

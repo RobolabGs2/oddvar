@@ -8,7 +8,6 @@ import { Graphics } from "./graphics";
 import { Controller } from "./controller";
 import { TexturesManager } from "./textures";
 import { Physics } from "./physics/physics";
-import { Logger } from "./utils/logger";
 
 
 class Soul {

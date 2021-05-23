@@ -42,6 +42,55 @@ export class TexturesManager extends DeadlyWorld<Deadly> {
 	CreateColoredTexture(name: string, colors: ColorSettings): ColoredTexture {
 		return new ColoredTexture(name, colors)
 	}
+	/**
+	 * 
+	 * @param name 
+	 * @param color цвет полосок
+	 * @param size размер квадарата, диагональю которого будет одна полоска
+	 * @param borderSize - если указан, будет квадратная рамка такого размера
+	 */
+	CreateHatchingTexture(name: string, color = "black", size = 21, borderSize = 0): HatchingTexture {
+		this.ctx.clearRect(0, 0, Math.max(size, borderSize), Math.max(size, borderSize));
+		this.ctx.canvas.width = this.ctx.canvas.height = size;
+		this.ctx.lineCap = "square";
+		this.ctx.strokeStyle = color;
+		this.ctx.lineWidth = 1;
+		this.ctx.beginPath();
+		this.ctx.moveTo(size, 0);
+		this.ctx.lineTo(0, size);
+		this.ctx.stroke();
+		this.ctx.beginPath();
+		this.ctx.moveTo(-size, size);
+		this.ctx.lineTo(size, -size);
+		this.ctx.stroke();
+		this.ctx.beginPath();
+		this.ctx.moveTo(0, 2 * size);
+		this.ctx.lineTo(2 * size, 0);
+		this.ctx.stroke();
+		const lines = new HatchingTexture(name, [color, size, borderSize], this.ctx.createPattern(this.ctx.canvas, "repeat")!);
+		if (borderSize === 0) {
+			return lines;
+		}
+		const cellSize = this.ctx.canvas.width = this.ctx.canvas.height = borderSize;
+		this.ctx.save();
+		lines.DrawRectangle(this.ctx, new Size(cellSize * 2, cellSize * 2));
+		this.ctx.restore();
+		this.ctx.strokeStyle = "black";
+		this.ctx.lineWidth = 3;
+		this.ctx.strokeRect(0, 0, cellSize, cellSize);
+		const oneCellPattern = this.ctx.createPattern(this.ctx.canvas, "repeat")!;
+		this.ctx.canvas.width = this.ctx.canvas.height = borderSize*11;
+		return new HatchingTexture(name, [color, size, borderSize], oneCellPattern)
+	}
+	CreateRectanglePatternTexture(name: string, fill = "black", stroke = "black", size = 21): HatchingTexture {
+		this.ctx.canvas.width = this.ctx.canvas.height = size;
+		this.ctx.strokeStyle = stroke;
+		this.ctx.fillStyle = fill;
+		this.ctx.lineWidth = 1;
+		this.ctx.fillRect(0, 0, size, size);
+		this.ctx.strokeRect(0, 0, size, size);
+		return new HatchingTexture(name, [fill, stroke, size], this.ctx.createPattern(this.ctx.canvas, "repeat")!)
+	}
 	CreatePatternTexture(name: string, imgName: string): PatternTexture {
 		return new PatternTexture(name, imgName, this.ctx.createPattern(this.imageSource.GetImage(imgName), "repeat")!)
 	}
@@ -72,7 +121,7 @@ export abstract class StyledTexture extends StatelessDeadly implements Rectangle
 		this.drawPath(context);
 	}
 
-	
+
 	DrawPolygon(context: CanvasRenderingContext2D, poly: Point[]): void {
 		if (poly.length == 0) {
 			return;
@@ -82,7 +131,18 @@ export abstract class StyledTexture extends StatelessDeadly implements Rectangle
 		for (let i = 0; i < poly.length; ++i) {
 			context.lineTo(poly[i].x, poly[i].y);
 		}
+		context.closePath();
 		this.drawPath(context);
+	}
+
+	DrawText(context: CanvasRenderingContext2D, text: string, fontSize: number): void {
+		context.textAlign = "center";
+		context.textBaseline = "bottom";
+		const dFont = context.font;
+		context.font = `${fontSize}px Arial`
+		const metricst = context.measureText(text);
+		this.draw(context, context.fillText, context.strokeText, text, 0, metricst.actualBoundingBoxAscent/2);
+		context.font = dFont;
 	}
 
 	DrawVector(context: CanvasRenderingContext2D, vec: Point): void {
@@ -143,7 +203,7 @@ export class ColoredTexture extends StyledTexture {
 		return false;
 	}
 
-	public constructor(name: string, private settings: ColorSettings = { fill: "black" }) {
+	public constructor(name: string, readonly settings: ColorSettings = { fill: "black" }) {
 		super(name);
 	}
 
@@ -159,7 +219,7 @@ export class PatternTexture extends StyledTexture {
 	}
 
 	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
-		context.strokeStyle = this.pattern;	
+		context.strokeStyle = this.pattern;
 		return true;
 	}
 
@@ -169,6 +229,31 @@ export class PatternTexture extends StyledTexture {
 
 	ToConstructor(): any[] {
 		return [this.url];
+	}
+}
+export class HatchingTexture extends StyledTexture {
+	protected setFillStyle(context: CanvasRenderingContext2D): boolean {
+		context.fillStyle = this.pattern;
+		return true;
+	}
+
+	protected setStrokeStyle(context: CanvasRenderingContext2D): boolean {
+		context.strokeStyle = this.pattern;
+		return true;
+	}
+
+	public constructor(name: string, readonly params: any[], private readonly pattern: CanvasPattern) {
+		super(name);
+	}
+
+	ToConstructor(): any[] {
+		return this.params;
+	}
+}
+
+export class RectanglePatternTexture extends HatchingTexture {
+	public constructor(name: string, params: any[], pattern: CanvasPattern) {
+		super(name, params, pattern);
 	}
 }
 

@@ -22,6 +22,7 @@ export class Processor {
 		resourceManager: ResourceManager,
 		canvasContext: CanvasRenderingContext2D,
 		hiddenCanvasContext: CanvasRenderingContext2D,
+		patternCanvasContext: CanvasRenderingContext2D,
 		keyboard: Keyboard
 	) {
 		const world = new World();
@@ -29,7 +30,7 @@ export class Processor {
 		const physics = new Physics();
 		this.players = new ClientPlayers(socket, keyboard);
 		const controller = new Controller(true);
-		const textures = new TexturesManager(resourceManager, canvasContext);
+		const textures = new TexturesManager(resourceManager, patternCanvasContext);
 		const oddvar = new Oddvar(new Worlds(world, this.players, physics, graphics, controller, textures), reflectionJSON);
 		this.manager = new Manager(oddvar, new EmptyGameLogic());
 

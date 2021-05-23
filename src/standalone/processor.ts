@@ -1,4 +1,5 @@
 import { MapType, SimulatorDescription } from "../games/utils/description";
+import { Iterators } from "../oddvar/iterator";
 import { Manager } from "../oddvar/manager";
 import { Observable, RingBuffer } from "../oddvar/utils";
 import { HTML } from "../web/html";
@@ -12,6 +13,12 @@ export class SimulationLaunch<T extends object = object> {
 		readonly mapID: string,
 		readonly deadline: number,
 	) { }
+	copy(): SimulationLaunch<T> {
+		return new SimulationLaunch(this.simulationID, this.simulator, JSON.parse(JSON.stringify(this.settings)), this.mapID, this.deadline);
+	}
+	copyN(n: number): SimulationLaunch<T>[] {
+		return Iterators.Range(n).map(x=>this.copy()).toArray();
+	}
 }
 
 export type ProcessorState = {
