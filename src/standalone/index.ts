@@ -88,8 +88,9 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 
 	const currentRunningLabel = {
 		container: HTML.CreateElement("span"),
-		update(label?: string) {
+		update(label?: string, title = "") {
 			this.container.textContent = label ? `Текущая симуляция: ${label}` : "Симуляция завершена";
+			this.container.title = title;
 			document.title = label || "Симуляция завершена";
 		}
 	}
@@ -112,7 +113,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		urlSettings.map = <MapID>settings.mapID;
 		urlSettings.deadline = settings.deadline;
 		processor.launchNewSimulation(new Manager(oddvar, newGame), settings);
-		currentRunningLabel.update(settings.label)
+		currentRunningLabel.update(settings.label, JSON.stringify(settings, undefined, "  "))
 		return false;
 	}
 	const historyOfLaunches = {
@@ -120,7 +121,8 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		html: HTML.CreateElement("article", HTML.FlexContainer("column"), HTML.SetStyles(s => { s.height = "128px"; s.overflow = "auto" })),
 		push(state: ProcessorState) {
 			const filename = `${state.launch.label}_${new Date().toISOString()}`;
-			this.html.appendChild(HTML.ModifyElement(LinkToDownloadJSON(filename, TransformMetrics(state)), HTML.SetText(filename)))
+			const metrics = TransformMetrics(state);
+			this.html.appendChild(HTML.ModifyElement(LinkToDownloadJSON(filename, metrics), HTML.SetText(filename, JSON.stringify(metrics, undefined, "  "))))
 			this.history.push(state);
 		},
 		addCurrentStateToList() {

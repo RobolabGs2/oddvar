@@ -25,10 +25,14 @@ export class Keyboard extends Observable<KeyboardEvents>{
 	constructor(private readonly keyMapping: Record<string, KeyAction> = Keyboard.Mappings.WASD) {
 		super();
 		document.addEventListener("keydown", ev => {
+			if (ignoreEvent(ev))
+				return;
 			if (this.dispatchKeyInput(ev.code, "down"))
 				ev.preventDefault();
 		});
 		document.addEventListener("keyup", ev => {
+			if (ignoreEvent(ev))
+				return;
 			if (this.dispatchKeyInput(ev.code, "up"))
 				ev.preventDefault();
 		});
@@ -50,6 +54,10 @@ export class Keyboard extends Observable<KeyboardEvents>{
 	}
 }
 
+
+function ignoreEvent(ev: KeyboardEvent) {
+	return ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement;
+}
 
 function joystick(listener: (key: KeyAction, state: "up" | "down") => void) {
 	let pos: Point | null = null;
