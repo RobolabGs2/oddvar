@@ -12,9 +12,10 @@ export class SimulationLaunch<T extends object = object> {
 		readonly settings: T,
 		readonly mapID: string,
 		readonly deadline: number,
+		readonly label: string,
 	) { }
 	copy(): SimulationLaunch<T> {
-		return new SimulationLaunch(this.simulationID, this.simulator, JSON.parse(JSON.stringify(this.settings)), this.mapID, this.deadline);
+		return new SimulationLaunch(this.simulationID, this.simulator, JSON.parse(JSON.stringify(this.settings)), this.mapID, this.deadline, this.label);
 	}
 	copyN(n: number): SimulationLaunch<T>[] {
 		return Iterators.Range(n).map(x=>this.copy()).toArray();
@@ -92,8 +93,10 @@ export class Processor extends Observable<{
 				SPT: metrics.SPT.toFixed(4),
 				dt: metrics.dt.toFixed(4),
 				Time: renderSeconds(metrics.Time),
+				Deadline: this.launch?.deadline ? renderSeconds(this.launch.deadline) : "not specified",
 				Realtime: renderSeconds(metrics.Realtime),
-				Speed: (metrics.Time / metrics.Realtime).toFixed(2),
+				"Time remaining": this.launch?.deadline ? renderSeconds((this.launch.deadline-metrics.Time)/metrics.Speed) : Infinity,
+				Speed: metrics.Speed.toFixed(2),
 			}
 		});
 		this.render();
@@ -200,10 +203,13 @@ export class Processor extends Observable<{
 			dt: this.dtStatistic.avg,
 			Time: simulationTime,
 			Realtime: this.realTime,
+			Speed: simulationTime / this.realTime,
 		}
 	}
 }
-function renderSeconds(seconds: number): string | number | boolean {
-	return `${(seconds / 60) | 0}:${(seconds % 60).toFixed(4).padStart(7, "0")}`;
+
+export function renderSeconds(seconds: number, milliseconds = true): string {
+	const secondsView = milliseconds ? (s: number) => s.toFixed(4).padStart(7, "0") : (s:number) => s.toFixed(0).padStart(2, "0");
+	return `${(seconds / 3600) | 0}:${((seconds / 60 % 60) | 0).toString().padStart(2,"0")}:${secondsView(seconds % 60)}`;
 }
 

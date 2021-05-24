@@ -1,4 +1,4 @@
-import { Processor, ProcessorSettingsInput, ProcessorState, SimulationLaunch } from "./processor";
+import { Processor, ProcessorSettingsInput, ProcessorState, renderSeconds, SimulationLaunch } from "./processor";
 import { DownloadResources } from "../web/http";
 import { World } from "../oddvar/world";
 import { LocalPlayers } from "./players";
@@ -48,9 +48,10 @@ type URLSettings<MapID extends string = string, GameID extends string = string> 
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
 	const gameSize = 704//798;
 	document.body.style.minWidth = document.body.style.minHeight = `${gameSize}px`;
-	const canvas = HTML.CreateElement("canvas", HTML.SetStyles(style => { 
+	const canvas = HTML.CreateElement("canvas", HTML.SetStyles(style => {
 		// style.backgroundColor = "rgb(200, 200, 200)"; 
-		style.width = style.height = "100%"; }), AppendToBody, Resize);
+		style.width = style.height = "100%";
+	}), AppendToBody, Resize);
 	const canvasContext = canvas.getContext("2d")!;
 	canvasContext.imageSmoothingEnabled = false;
 	const hiddenContext = HTML.CreateElement("canvas", c => { c.height = c.width = gameSize; }).getContext("2d")!;
@@ -85,6 +86,14 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	const simulationSettingsContainer = HTML.CreateElement("article");
 	const processor = new Processor([gameWindowsManager, mainWindowsManager])
 
+	const currentRunningLabel = {
+		container: HTML.CreateElement("span"),
+		update(label?: string) {
+			this.container.textContent = label ? `Текущая симуляция: ${label}` : "Симуляция завершена";
+			document.title = label || "Симуляция завершена";
+		}
+	}
+
 	function LaunchSimulation(settings: SimulationLaunch) {
 		gameWindowsManager.Dispose();
 		const worlds = new Worlds(
@@ -103,13 +112,14 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		urlSettings.map = <MapID>settings.mapID;
 		urlSettings.deadline = settings.deadline;
 		processor.launchNewSimulation(new Manager(oddvar, newGame), settings);
+		currentRunningLabel.update(settings.label)
 		return false;
 	}
 	const historyOfLaunches = {
 		history: new Array<ProcessorState>(),
 		html: HTML.CreateElement("article", HTML.FlexContainer("column"), HTML.SetStyles(s => { s.height = "128px"; s.overflow = "auto" })),
 		push(state: ProcessorState) {
-			const filename = `${state.launch.simulationID}_${state.launch.mapID}_${new Date().toISOString()}`;
+			const filename = `${state.launch.label}_${new Date().toISOString()}`;
 			this.html.appendChild(HTML.ModifyElement(LinkToDownloadJSON(filename, TransformMetrics(state)), HTML.SetText(filename)))
 			this.history.push(state);
 		},
@@ -136,7 +146,11 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		enqueue(launch: SimulationLaunch) { this.queue.push(launch); this.updateView(); },
 		html: HTML.CreateElement("div", HTML.SetStyles(s => s.height = "16px")),
 		updateView() {
-			this.html.innerText = `В очереди: ${this.queue.length}`;
+			const timeEstimated = this.queue.map(x => x.deadline || Infinity).reduce((x, y) => x + y, 0) / (processor.processorMetrics.Speed || 1)
+			this.html.innerText = `В очереди: ${this.queue.length}, примерно времени: ${renderSeconds(timeEstimated, false)}`;
+		},
+		Tick() {
+			this.updateView();
 		},
 		dequeue() {
 			if (this.empty()) throw new Error(`Dequeue on empty queue`);
@@ -153,10 +167,12 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		buttonPlayFromQueue() { this.play(); },
 		buttonCleanQueue() { this.queue.length = 0; this.updateView() },
 	}
+	processor.drawTicker.push(launchesQueue);
 	launchesQueue.updateView();
 	let repeatLatest = true;
 	processor.addEventListener("finished", function (x) {
-		historyOfLaunches.push(x)
+		historyOfLaunches.push(x);
+		currentRunningLabel.update();
 		if (launchesQueue.play()) {
 			return;
 		}
@@ -165,30 +181,32 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		}
 	});
 	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
-	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.FlexContainer(), HTML.Append(
-		HTML.CreateElement("article", HTML.Append(
+	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.SetStyles(style => {style.padding = "16px"; style.height="100%"}), HTML.FlexContainer("row"), HTML.Append(
+		HTML.CreateElement("article", HTML.SetStyles(style => {style.paddingLeft = style.paddingRight = "16px"; style.height="100%"}), HTML.FlexContainer("column", "space-between"), HTML.Append(
 			HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
 					simulationSettingsContainer.innerHTML = "";
-					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, games[key] as SimulatorDescription<object, MapType>,
+					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, key, games[key] as SimulatorDescription<object, MapType>,
 						{
-							Start: (s, l) => LaunchSimulation(newLaunch(key, s, l)),
-							Enqueue: (s, l) => launchesQueue.enqueue(newLaunch(key, s, l)),
-							EnqeueX5: (s, l) => newLaunch(key, s, l).copyN(5).forEach(l=>launchesQueue.enqueue(l)),
-							EnqeueX10: (s, l) => newLaunch(key, s, l).copyN(10).forEach(l=>launchesQueue.enqueue(l)),
+							Start: (l) => LaunchSimulation(l),
+							Enqueue: (l) => launchesQueue.enqueue(l),
+							EnqeueX5: (l) => l.copyN(5).forEach(l => launchesQueue.enqueue(l)),
+							EnqeueX10: (l) => l.copyN(10).forEach(l => launchesQueue.enqueue(l)),
 						}, "Start"));
 				}),
 			)),
-			CreateSettingsInput(ProcessorSettingsInput, { Apply: (settings) => processor.settings = settings }),
-				HTML.CreateElement("section",
+			currentRunningLabel.container,
+			aritcleWithButtons(launchesQueue),
+			HTML.CreateElement("section",
 				HTML.Append(
 					HTML.ModifyElement(mainWindowsManager.CreateTable(processor.metricsTable, MetricsTable.header), HTML.SetStyles(s => s.flex = "1")),
-					HTML.CreateElement("footer", HTML.Append(
+					HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between"), HTML.Append(
 						HTML.ModifyElement(HTML.CreateSwitcher(
 							() => processor.isPlaying(), (play) => { if (play) processor.play(); else processor.pause() }, { on: "Play|Pause", off: "Play|Pause" }),
-							HTML.SetStyles(s => s.height = "100%")),
+							HTML.SetStyles(s => s.flex = "1")),
 						HTML.CreateElement("button",
+							HTML.SetStyles(s => s.flex = "1"),
 							HTML.SetText("Download metrics"),
 							HTML.AddEventListener("click", () => {
 								const a = LinkToDownloadJSON(`oddvar_${urlSettings.game}_${urlSettings.map}`, TransformMetrics(processor.state()))
@@ -198,23 +216,16 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 								URL.revokeObjectURL(a.href);
 							}))
 					)),
-				),
-				HTML.SetStyles(style => {
-					style.display = "flex"
-					style.flex = "1";
-					style.flexDirection = "column";
-					style.justifyContent = "space-between";
-					style.padding = "16px";
-				})),
-				aritcleWithButtons(launchesQueue)
-		)),
+				)),
+			CreateSettingsInput(ProcessorSettingsInput, { Apply: (settings) => processor.settings = settings }),
+		), HTML.ModifyChildren(HTML.SetStyles(s=>s.paddingBottom = "16px"))),
 		HTML.CreateElement("article",
 			HTML.Append(
 				simulationSettingsContainer,
-			HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(
-				HTML.CreateElement("input", HTML.SetInputType("checkbox"), (el) => el.checked = repeatLatest, HTML.AddEventListener("change", function () { repeatLatest = (<HTMLInputElement>this).checked; })),
-				HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
-				
+				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(
+					HTML.CreateElement("input", HTML.SetInputType("checkbox"), (el) => el.checked = repeatLatest, HTML.AddEventListener("change", function () { repeatLatest = (<HTMLInputElement>this).checked; })),
+					HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
+
 			),
 		))), new Point(gameSize, 0))
 });
@@ -223,16 +234,17 @@ type SimulationSettings<MapID, SettingsT> = {
 	map: keyof MapID;
 	simulation: SettingsT;
 	deadline: number;
+	label: string;
 };
 
-function newLaunch(key: string, s: SimulatorDescription<object, MapType>, l: SimulationSettings<MapType, object>): SimulationLaunch<object> {
-	return new SimulationLaunch(key, s, l.simulation, l.map, l.deadline);
+function newLaunch<MapT extends MapType>(key: string, s: SimulatorDescription<object, MapT>, l: SimulationSettings<MapT, object>): SimulationLaunch<object> {
+	return new SimulationLaunch(key, s, l.simulation, l.map as string, l.deadline, l.label);
 }
 
 function aritcleWithButtons(objectWithButtons: { html: HTMLElement; } & Record<string, any>): HTMLElement {
 	return HTML.CreateElement("article", HTML.Append(objectWithButtons.html,
-		Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
-			map(key => HTML.CreateElement("button", HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>objectWithButtons)[key]()))))
+		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
+			map(key => HTML.CreateElement("button", HTML.SetStyles(s => s.flex = "1"), HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>objectWithButtons)[key]()))))))
 	);
 }
 
@@ -292,17 +304,19 @@ function CreateSettingsInput<T extends string>(
 function CreateSimulationSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
 	allMaps: Record<MapID, { name: string, value: MapType }>,
 	defaults: URLSettings<MapID>,
+	simulationID: string,
 	description: SimulatorDescription<SettingsT, MapT>,
-	buttons: Record<string, (game: SimulatorDescription<SettingsT, MapT>, s: SimulationSettings<MapT, SettingsT>) => void>,
+	buttons: Record<string, (launch: SimulationLaunch) => void>,
 	clickButton: string): HTMLElement {
 	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
 	return CreateSettingsInput({
 		type: "object", values: {
+			label: { type: "string", default: simulationID, description: "Текстовая метка конфигурируемого запуска, будет использоваться в истории запусков, также будет в метриках." },
 			map: { type: "enum", values: ConvertRecord(supportedMaps, (_, o) => o.name), default: defaults.map as string },
 			deadline: { type: "float", default: defaults.deadline, min: 0, description: "Через столько секунд принудительно закончится текущая симуляция, 0 - никогда" },
 			simulation: { type: "object", values: description.SettingsInputType() },
 		}
-	}, ConvertRecord(buttons, (_, listener) => listener.bind(null, description)), clickButton);
+	}, ConvertRecord(buttons, (_, listener) => (settings: SimulationSettings<MapT, SettingsT>) => listener(newLaunch(simulationID, description, settings))), clickButton);
 }
 
 namespace CollectingSquares {

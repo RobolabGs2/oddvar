@@ -100,6 +100,16 @@ export namespace HTML {
 		forEach(each: (value: T) => void): void;
 	}
 
+	export function ModifyChildren(...modify: ((t: HTMLElement) => void)[]): (parent: HTMLElement) => void {
+		return (parent) => {
+			for (let i = 0; i<parent.children.length; i++) {
+				const elem = parent.children.item(i);
+				if(elem instanceof HTMLElement)
+					ModifyElement(elem, ...modify);
+			}
+		}
+	}
+
 	export function Append<T extends HTMLElement>(...elems: T[]): (parent: HTMLElement) => void
 	export function Append<T extends HTMLElement>(elems: ForEachable<T>): (parent: HTMLElement) => void
 	export function Append<T extends HTMLElement>(...elems: (ForEachable<T> | HTMLElement)[]): (parent: HTMLElement) => void
