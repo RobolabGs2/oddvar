@@ -17,7 +17,7 @@ export class BotController {
 			this.NextTarget();
 		}
 		const vector = this.targetPoint.Sub(this.body.entity.location).Norm()
-		this.body.Kick(vector.Mult(this.body.Mass() * 500))
+		this.body.Kick(vector.Mult(this.body.Mass() * 30000))
 	}
 
 	private NextTarget(): void {

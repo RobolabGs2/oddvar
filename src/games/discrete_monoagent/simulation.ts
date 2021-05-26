@@ -1,15 +1,16 @@
 import { Player } from '../../oddvar/players';
-import { GameLogic } from '../../oddvar/manager';
+import { GameLogic, MetricsSource } from '../../oddvar/manager';
 import { Oddvar } from '../../oddvar/oddvar';
 import { GameMap } from '../utils/game_map';
 import { WallManager } from '../utils/wall_manager';
 import { Point, Size } from '../../oddvar/geometry';
-import { ShiftManager, TimerManager, VotingManager } from './manager'
+import { Manager, ShiftManager, SimpleVotingManager, WeightedParallelVotingManager, TimerManager, VotingManager, WeightedLengthVotingManager, WeightedRandomVotingManager } from './manager'
 import { PolygonBody } from '../../oddvar/physics/body';
-import { Bot, PointBot, PseudoPointBot, RandomBot } from './bot';
+import { Bot, PointBot, PseudoPointBot, RandomBot, SmartPseudoPointBot } from './bot';
 import { TableModel, WindowsManager } from '../../web/windows';
-import { Observable } from '../../oddvar/utils';
+import { ConvertRecord, Observable } from '../../oddvar/utils';
 import { BotController } from './bot_controller';
+import { IsGameMap, SimulatorDescription } from '../utils/description';
 
 
 interface TableLine {
@@ -29,39 +30,90 @@ class AdminTable extends Observable<{ updated: number }> implements TableModel<A
 	}
 }
 
-export class DiscreteMonoagentSimulation implements GameLogic {
+
+export namespace DiscreteMonoagent {
+	const managers = {
+		TimerManager: "с таймингами",
+		ShiftManager: "эвристика параллельности",
+		SimpleVotingManager: "простая голосовалка",
+		WeightedParallelVotingManager: "развесовка на основе параллельности",
+		WeightedLengthVotingManager: "развесовка на основе длины",
+		WeightedRandomVotingManager: "развесовка со случайными весами",
+	};
+	const bots = {
+		PointBot: "Точка",
+		RandomBot: "Рандом",
+		PseudoPointBot: "Псевдоточка",
+		SmartPseudoPointBot: "Умная псевдоточка",
+	}
+	export type Settings = {
+			manager: keyof typeof managers,
+			bots: Record<keyof typeof bots, number>
+		}
+	export const Description: SimulatorDescription<Settings, GameMap> = {
+		name: "Симуляция с одним агентом на клеточках",
+		NewSimulation(oddvar: Oddvar, map: GameMap, ui: WindowsManager, settings: Settings) {
+			return new DiscreteMonoagentSimulation(oddvar, map, ui, settings);
+		},
+		IsSupportedMap: IsGameMap,
+		SettingsInputType() {
+			return {
+				manager: { type: "enum", values: managers, default: "TimerManager"},
+				bots: {type: "object", values: ConvertRecord(bots, (key, desc) => ({
+					type: "int", min: 0, description: desc, default: 1
+				})) }
+			}
+		},
+	}
+}
+
+
+export class DiscreteMonoagentSimulation implements GameLogic, MetricsSource {
 	private wallManager = new WallManager(this.oddvar);
 	private bots = new Array<Bot>();
 	private bot: PolygonBody;
 	private size: Size;
 	private botController: BotController;
+	private adminTable: AdminTable;
 
-	constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, readonly debug = false) {
+	constructor(readonly oddvar: Oddvar, private map: GameMap, private winMan: WindowsManager, setting: DiscreteMonoagent.Settings) {
 		this.size = this.map.cellSize.Scale(0.2);
 		this.map.Draw(this.wallManager.creator);
 		const e = oddvar.Get('World').CreateEntity('BOT POINT', this.GenerateInconflictPoint(this.size.height));
-		this.bot = oddvar.Get('Physics').CreateRegularPolygonBody("BOT", e,  { lineFriction: 0.1, angleFriction: 0.1}, this.size.height, 10);
+		this.bot = oddvar.Get('Physics').CreateRegularPolygonBody("BOT", e,  { lineFriction: 0.5, angleFriction: 0.1}, this.size.height, 10);
 		oddvar.Get('Graphics').CreatePolygonBodyAvatar('BOT AVATAR', this.bot, this.oddvar.Get("TexturesManager").CreateColoredTexture("greenfill", { fill: "green" }))
 
-		const adminTable = new AdminTable();
-		adminTable.add('sum');
-		for (let i = 0; i < 5; ++i) {
-			adminTable.add(`target ${i}`);
+		this.adminTable = new AdminTable();
+		this.adminTable.add('sum');
+		for (let i = 0; i < setting.bots.PointBot; ++i) {
+			this.adminTable.add(`target ${i}`);
 			this.createTargetBot(i, idx => {
-				adminTable.updateScore(0);
-				adminTable.updateScore(idx + 1);
+				this.adminTable.updateScore(0);
+				this.adminTable.updateScore(idx + 1);
 			});
 		}
-		this.bots.push(new RandomBot());
-		this.bots.push(new PseudoPointBot(this.bot, map));
+		for (let i = 0; i < setting.bots.PseudoPointBot; ++i) this.bots.push(new PseudoPointBot(this.bot, map));
+		for (let i = 0; i < setting.bots.RandomBot; ++i) this.bots.push(new RandomBot());
+		for (let i = 0; i < setting.bots.SmartPseudoPointBot; ++i) this.bots.push(new SmartPseudoPointBot(this.bot, map, []));
 
-		// const manager = new TimerManager(this.bots, winMan, map.size, 100);
-		// const manager = new VotingManager(this.bots, winMan, map.size);
-		const manager = new ShiftManager(this.bots, winMan, map.size);
+		this.botController = new BotController(this.GetManager(setting), this.bot, map)
 
-		this.botController = new BotController(manager, this.bot, map)
+		winMan.CreateTableWindow("Score", this.adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
+	}
 
-		winMan.CreateTableWindow("Score", adminTable, ["index", "score"], new Point(map.size.width, map.size.height / 4))
+	CollectMetrics() {
+		return { value: this.adminTable.fields[0].score }
+	}
+
+	GetManager(setting: DiscreteMonoagent.Settings): Manager {
+		switch (setting.manager) {
+			case "TimerManager": return new TimerManager(this.bots, this.winMan, this.map.size, 100);
+			case "SimpleVotingManager": return new SimpleVotingManager(this.bots, this.winMan, this.map.size);
+			case "ShiftManager": return new ShiftManager(this.bots, this.winMan, this.map.size);
+			case "WeightedParallelVotingManager": return new WeightedParallelVotingManager(this.bots, this.winMan, this.map.size);
+			case "WeightedLengthVotingManager": return new WeightedLengthVotingManager(this.bots, this.winMan, this.map.size);
+			case "WeightedRandomVotingManager": return new WeightedRandomVotingManager(this.bots, this.winMan, this.map.size);
+		}
 	}
 
 	Tick(dt: number): void {
@@ -91,5 +143,4 @@ export class DiscreteMonoagentSimulation implements GameLogic {
 		});
 		return bot;
 	}
-
 }

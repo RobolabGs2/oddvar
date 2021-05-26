@@ -357,6 +357,15 @@ export namespace Dir {
 		}
 		return s;
 	}
+	// Переворачивает направление
+	export function reflect(p: Dir): Dir {
+		switch (p) {
+			case Dir.UP: return Dir.DOWN;
+			case Dir.DOWN: return Dir.UP;
+			case Dir.LEFT: return Dir.RIGHT;
+			case Dir.RIGHT: return Dir.LEFT;
+		}
+	}
 	// Сдвигает точку, чтобы она соблюдала правила ПДД с левосторонним движением
 	export function shiftPoint(p: Dir, s: Point, count: number = 1): Point {
 		switch (p) {

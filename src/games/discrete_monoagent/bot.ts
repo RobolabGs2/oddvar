@@ -42,11 +42,30 @@ export class RandomBot implements Bot {
 	}
 }
 
-export class PseudoPointBot {
+export class PseudoPointBot implements Bot {
 	readonly typeName = "Псевдоточка"
 	constructor(readonly body: IBody, readonly map: GameMap) {
 	}
 
+	public Path() {
+		const path = this.map.findPath(this.body.entity.location, this.GenerateInconflictPoint());
+		return path ? path: [];
+	}
+
+	protected GenerateInconflictPoint(): Point {
+		const p = new Point((Math.random() * this.map.maze.width) | 0, (Math.random() * this.map.maze.height) | 0);
+		const result = this.map.fromMazeCoords(p);
+		if (this.map.maze.get(p.x, p.y))
+			return this.GenerateInconflictPoint();
+		return result;
+	}
+}
+
+export class SmartPseudoPointBot implements Bot {
+	readonly typeName = "Умная Псевдоточка"
+	constructor(readonly body: IBody, readonly map: GameMap, private points: Entity[]) {
+	}
+	//	TODO: 123
 	public Path() {
 		const path = this.map.findPath(this.body.entity.location, this.GenerateInconflictPoint());
 		return path ? path: [];

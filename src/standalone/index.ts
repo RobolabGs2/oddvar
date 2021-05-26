@@ -11,7 +11,7 @@ import { HasMultiplayer, Manager } from "../oddvar/manager";
 import { CollectingSquaresGame, PacManMap, BigPacManMap, TestMap, RandomMap } from '../games/collecting_squares/collecting_squares';
 import { GameMap } from "../games/utils/game_map";
 import { Multiagent } from '../games/multiagent/simulation';
-import { DiscreteMonoagentSimulation } from '../games/discrete_monoagent/simulation';
+import { DiscreteMonoagent, DiscreteMonoagentSimulation } from '../games/discrete_monoagent/simulation';
 import { MonoagentSimulation } from '../games/monoagent/simulation';
 import { Keyboard } from "../oddvar/input";
 import { HTML } from "../web/html";
@@ -344,22 +344,6 @@ namespace Monoagent {
 		name: "Симуляция с одним агентом",
 		NewSimulation(oddvar: Oddvar, map: GameMap, ui: WindowsManager, settings: Settings) {
 			return new MonoagentSimulation(oddvar, map, ui, settings.debug);
-		},
-		IsSupportedMap: IsGameMap,
-		SettingsInputType() {
-			return {
-				debug: { type: "boolean", default: false },
-			}
-		},
-	}
-}
-
-namespace DiscreteMonoagent {
-	export type Settings = { debug: boolean }
-	export const Description: SimulatorDescription<Settings, GameMap> = {
-		name: "Симуляция с одним агентом на клеточках",
-		NewSimulation(oddvar: Oddvar, map: GameMap, ui: WindowsManager, settings: Settings) {
-			return new DiscreteMonoagentSimulation(oddvar, map, ui, settings.debug);
 		},
 		IsSupportedMap: IsGameMap,
 		SettingsInputType() {
