@@ -77,8 +77,6 @@ export class TypeManager {
 					desc.name,
 					Iterators.Wrap(classes.values()).filter(classDesc => this.IsImplements(classDesc, desc)).map(d => d.name).toArray()] as [string, string[]]).toArray()
 		);
-		console.log(this.inheritanceLists)
-		console.log(this.implementationsLists)
 	}
 
 	private addChild(type: string, desc: InterfaceDescription) {

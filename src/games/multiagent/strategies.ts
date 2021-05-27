@@ -1,4 +1,5 @@
 import { Point } from "../../oddvar/geometry";
+import { Random } from "../../oddvar/utils/random";
 import { Bot, Evaluator, SendMiddleware } from "./bot";
 import { Message, MessageDataMap } from "./net";
 
@@ -7,31 +8,41 @@ import { Message, MessageDataMap } from "./net";
 export namespace Evaluators {
 	export class Доверчивый implements Evaluator {
 		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			return true;
+			return msg.read({
+				"captured": () => true,
+				"target": (msg) => {
+					const maze = bot.map.toMazeCoords(msg.data);
+					return !bot.map.isConflict(maze.x, maze.y, msg.data);
+				}
+			});
 		}
 	}
 
 	export class Скептик implements Evaluator {
 		constructor(readonly distanceThreshold = 0.4) { }
 		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			const res = msg.read({
+			return msg.read({
 				"captured": () => true,
-				"empty": () => true,
 				"target": (msg) => {
+					const mazeCoords = bot.map.toMazeCoords(msg.data);
+					if (bot.map.isConflict(mazeCoords.x, mazeCoords.y, msg.data))
+						return false;
 					const path = bot.map.findPath(bot.location, msg.data);
 					if (path === undefined)
 						return false;
 					const threshold = this.distanceThreshold * (bot.map.maze.width + bot.map.maze.height);
 					return path.length <= threshold
 				}
-			})
-			return res;
+			});
 		}
 	}
 
 	export class Параноик implements Evaluator {
 		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
-			return false;
+			return msg.read({
+				"captured": () => true,
+				"target": () => false,
+			});
 		}
 	}
 }
@@ -49,12 +60,14 @@ export namespace Middlewares {
 				case "captured":
 					bot.network.send(to, type, data);
 					break;
-				case "empty":
-					bot.network.send(to, type, data); // todo
-					break;
 				case "target":
-					const target = data as MessageDataMap["target"];
-					bot.network.send(to, type as "target", new Point(bot.map.size.width - target.x, bot.map.size.height - target.y))
+					const targetMazeCoodrs = bot.map.toMazeCoords(data as MessageDataMap["target"]);
+					const minDistance = (bot.map.maze.width + bot.map.maze.height)*0.4;
+					let fake = new Point(Random.Int(0, bot.map.maze.width), Random.Int(0, bot.map.maze.height));
+					while (targetMazeCoodrs.Manhattan(fake)<minDistance || bot.map.maze.get(fake.x, fake.y)) {
+						fake = new Point(Random.Int(0, bot.map.maze.width), Random.Int(0, bot.map.maze.height));
+					}
+					bot.network.send(to, type as "target", bot.map.fromMazeCoords(fake));
 			}
 		}
 	}

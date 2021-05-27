@@ -5,7 +5,6 @@ import { EventHandler } from "../../oddvar/utils";
 
 export interface MessageDataMap {
 	target: Point;
-	empty: Point;
 	captured: boolean;
 }
 

@@ -110,3 +110,6 @@ dist
 
 # Output
 static/
+
+# Experiments input|output
+experiments/

@@ -344,7 +344,7 @@ export class WindowsManager implements Ticker {
 				s.backgroundColor = 'black'
 			}),
 			HTML.Append(
-				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between", {wrap:true}), HTML.Append(
+				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-between", { wrap: true }), HTML.Append(
 					Object.keys(settings).map(lvl => {
 						const selector = `div.${lvl}`;
 						const rule = styleSheet.addRule(selector);
@@ -379,6 +379,13 @@ export class WindowsManager implements Ticker {
 		this.container.appendChild(this.CreateWindow(title, content, position));
 	}
 
+	CreateCloseableWindow(title: string, content: HTMLElement, position = new Point(document.body.clientWidth / 3, document.body.clientHeight / 3)) {
+		const window = this.CreateWindow(title, content, position, true);
+		this.container.appendChild(window);
+		const close = () => this.container.removeChild(window);
+		return { close };
+	}
+
 	CreateTableWindow<T, K extends string>(title: string, table: TableModel<T, K>,
 		header: K[], pos = Point.Zero, lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
 		this.container.appendChild(this.CreateWindow(title, this.CreateTable(table, header, lineStyles), pos))
@@ -386,7 +393,14 @@ export class WindowsManager implements Ticker {
 
 	public CreateTable<T, K extends string>(table: TableModel<T, K>, header: K[], lineStyles: ((style: CSSStyleDeclaration) => void)[] = []) {
 		const lines = table.fields.map((line) => header.map(name => HTML.CreateElement("td", HTML.SetText(`${line[name]}`))));
-		table.addEventListener("updated", i => lines[i].forEach((cell, j) => HTML.SetText(`${table.fields[i][header[j]]}`)(cell)))
+		const bufferSet = new Set<number>();
+		table.addEventListener("updated", i => bufferSet.add(i))
+		this.tickers.push({
+			Tick: () => {
+				bufferSet.forEach(i => lines[i].forEach((cell, j) => cell.textContent = `${table.fields[i][header[j]]}`));
+				bufferSet.clear;
+			}
+		})
 		return HTML.CreateElement("article", HTML.AddClass("table"),
 			HTML.Append(lines.map((view, i) => HTML.CreateElement("tr", HTML.Append(view), HTML.SetStyles(lineStyles[i] || (() => { }))))),
 			table => {
@@ -396,7 +410,7 @@ export class WindowsManager implements Ticker {
 		);
 	}
 
-	private CreateWindow(title: string, inner: HTMLElement, defaultPosition = Point.Zero): HTMLElement {
+	private CreateWindow(title: string, inner: HTMLElement, defaultPosition = Point.Zero, closeable = false): HTMLElement {
 		const window = HTML.CreateElement("article",
 			HTML.SetStyles(style => {
 				style.left = `${defaultPosition.x}px`;
@@ -404,11 +418,11 @@ export class WindowsManager implements Ticker {
 			}))
 		const content = HTML.CreateElement("section", HTML.Append(inner));
 		return HTML.ModifyElement(window,
-			HTML.Append(this.CreateHeader(title, window, content), content)
+			HTML.Append(this.CreateHeader(title, window, content, closeable), content)
 		)
 	}
 
-	private CreateHeader(title: string, window: HTMLElement, content: HTMLElement): HTMLElement {
+	private CreateHeader(title: string, window: HTMLElement, content: HTMLElement, closeable = false): HTMLElement {
 		let pos: Point | null;
 		let startPos: Point | null;
 		const onMove = (next: Point, elem: HTMLElement) => {
@@ -444,8 +458,10 @@ export class WindowsManager implements Ticker {
 				),
 				HTML.CreateElement("section",
 					HTML.Append(
-						HTML.CreateSwitcher(() => content.style.display !== "none", (open) => content.style.display = open ? "" : "none", { on: "🗖", off: "🗕" })
-						// HTML.CreateElement("button", HTML.SetText("X"), (el) => el.disabled = true)
+						HTML.CreateSwitcher(() => content.style.display !== "none", (open) => content.style.display = open ? "" : "none", { on: "🗖", off: "🗕" }),
+						closeable ? HTML.CreateElement("button", HTML.SetText("X"), HTML.AddEventListener("click", () => {
+							this.container.removeChild(window);
+						})) : []
 					)),
 			)
 		);

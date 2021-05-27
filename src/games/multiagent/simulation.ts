@@ -118,11 +118,19 @@ export namespace Multiagent {
 		SettingsInputType() {
 			return {
 				skin: { type: 'enum', default: "pretty", values: ConvertRecord(skins, (k) => k), description: "Набор текстур" },
-				bots: { type: "object", values: ConvertRecord(strategies, () => (<HTML.Input.Type>{ type: "int", default: 1 })) },
-				strategies: {type: "object", description: "Настройки стратегий", values: {Скептик:{
-					type:"object", values: {threshold: {type: "float", default: 0.4, min: 0.01, max: 1, 
-					description: "Максимальное расстояние до точки, которой поверит скептик\nВ процентах от стороны карты"}}
-				}}},
+				bots: { type: "object", values: ConvertRecord(strategies, () => (<HTML.Input.Type>{ type: "int", default: 1, min: 0 })) },
+				strategies: {
+					type: "object", description: "Настройки стратегий", values: {
+						Скептик: {
+							type: "object", values: {
+								threshold: {
+									type: "float", default: 0.4, min: 0, max: 1,
+									description: "Максимальное расстояние до точки, которой поверит скептик\nВ процентах от стороны карты"
+								}
+							}
+						}
+					}
+				},
 				debug: {
 					type: "object", description: "Настройки вывода отладочной информации", values: {
 						network: { type: "boolean", default: true, description: "Отображать логи сети" },
@@ -144,7 +152,6 @@ export namespace Multiagent {
 			if (settings.debug.network) {
 				const logHeight = 350;
 				const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 48), new Size(30, 30 / 450 * logHeight), {
-					empty: { color: "white", fontWeight: "1000" },
 					target: { color: "lime" },
 					captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
 				});
@@ -176,11 +183,11 @@ export namespace Multiagent {
 				const count = settings.bots[type];
 				const [eConstructor, sConstructor] = strategies[type];
 				for (let i = botsCount; i < botsCount + count; i++) {
-					const e = eConstructor.name === "Скептик" ? new eConstructor(settings.strategies.Скептик.threshold): new eConstructor();
+					const e = eConstructor.name === "Скептик" ? new eConstructor(settings.strategies.Скептик.threshold) : new eConstructor();
 					const s = new sConstructor();
 					const layer = i;
 					const place = this.GenerateInconflictPoint(10, 1 << i);
-					const botTexture = this.getTexture(senders.findIndex(x=>x===sConstructor));
+					const botTexture = this.getTexture(senders.findIndex(x => x === sConstructor));
 					const nameOf = (type: string) => `bot ${layer}: ${type}`;
 					const currentColor = Colors.length > layer ? Colors[layer] : `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 					const color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 3 });
@@ -236,19 +243,11 @@ export namespace Multiagent {
 			return getByModule(this.botTextures, i);
 		}
 
-		time = 0
 		Tick(dt: number): void {
-			if (dt > 1) {
-				dt = 1;
-			}
-			this.time += dt;
-			if (this.time > 0.1) {
-				this.network.Tick(this.time);
-				this.time = 0;
-			}
+			this.network.Tick(dt);
 			this.bots.forEach(bot => {
 				const l = bot.map.toMazeCoords(bot.location);
-				bot.Tick(this.time, this.targetMap.BFS(l, 2, true) as MatrixCell<Map<string, Point>>[])
+				bot.Tick(dt, this.targetMap.BFS(l, 2, true) as MatrixCell<Map<string, Point>>[])
 			});
 			this.bots.forEach(bot => bot.TickBody(dt));
 		}

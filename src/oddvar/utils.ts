@@ -5,10 +5,6 @@ export function getOrDefault<T>(nullable: T | null | undefined, default_: T): T 
 	return default_;
 }
 
-export function RandomElem<T>(elems: T[]): T {
-	return elems[(Math.random() * elems.length) | 0];
-}
-
 export type MapOfArrays<T> = {
 	[K in keyof T]: T[K][]
 }

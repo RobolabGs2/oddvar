@@ -1,5 +1,5 @@
 import { Processor, ProcessorSettingsInput, ProcessorState, renderSeconds, SimulationLaunch } from "./processor";
-import { DownloadResources } from "../web/http";
+import { downloadAsFile, DownloadResources, LinkToDownloadJSON } from "../web/http";
 import { World } from "../oddvar/world";
 import { LocalPlayers } from "./players";
 import { Physics } from "../oddvar/physics/physics";
@@ -22,6 +22,7 @@ import { Labirint } from "../oddvar/labirint/labirint";
 import { ConvertRecord } from "../oddvar/utils";
 import { IsGameMap, MapType, SimulatorDescription } from "../games/utils/description";
 import "./settings.scss"
+import { CreateQueueOfLaunches } from "./launches_queue";
 
 console.log("Hello ODDVAR");
 
@@ -51,7 +52,7 @@ function b64_to_utf8(str: string): string {
 }
 
 
-type URLSettings<MapID extends string = string, GameID extends string = string> = { map: MapID, game: GameID, deadline: number, settings: string }
+type URLSettings<MapID extends string = string, GameID extends string = string> = { map: MapID, game: GameID, deadline: number, settings: string, label: string }
 
 const PROCESSOR_SETTINGS_KEY = "oddvar_processor_settings";
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
@@ -88,9 +89,9 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	type MapID = keyof typeof maps;
 	type GameID = keyof typeof games;
 
-	const urlSettings = URIStorage<URLSettings<MapID, GameID>>({ map: "symmetric", game: "multiagent", deadline: 0, settings: "" }, {
+	const urlSettings = URIStorage<URLSettings<MapID, GameID>>({ map: "symmetric", game: "multiagent", deadline: 0, settings: "", label: "" }, {
 		map: new Set(Object.keys(maps) as MapID[]), game: new Set(Object.keys(games) as GameID[]),
-		deadline: { has: (item) => item >= 0 }, settings: { has: () => true }
+		deadline: { has: (item) => item >= 0 }, settings: { has: () => true }, label: { has: () => true }
 	});
 	const simulationSettingsContainer = HTML.CreateElement("article");
 	const processor = new Processor([gameWindowsManager, mainWindowsManager])
@@ -128,6 +129,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		urlSettings.map = <MapID>settings.mapID;
 		urlSettings.deadline = settings.deadline;
 		urlSettings.settings = utf8_to_b64(JSON.stringify(settings.settings));
+		urlSettings.label = settings.label;
 		processor.launchNewSimulation(new Manager(oddvar, newGame), settings);
 		currentRunningLabel.update(settings.label, JSON.stringify(settings, undefined, "  "))
 		return false;
@@ -159,47 +161,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			this.addCurrentStateToList();
 		}
 	}
-	const launchesQueue = {
-		queue: new Array<SimulationLaunch>(),
-		enqueue(launch: SimulationLaunch) { this.queue.push(launch); this.updateView(); },
-		html: HTML.CreateElement("div", HTML.SetStyles(s => s.height = "16px")),
-		updateView() {
-			const timeEstimated = this.queue.map(x => x.deadline || Infinity).reduce((x, y) => x + y, 0) / (processor.processorMetrics.Speed || 1)
-			this.html.innerText = `В очереди: ${this.queue.length}, примерно времени: ${renderSeconds(timeEstimated, false)}`;
-		},
-		Tick() {
-			this.updateView();
-		},
-		dequeue() {
-			if (this.empty()) throw new Error(`Dequeue on empty queue`);
-			const item = this.queue.shift()!;
-			this.updateView();
-			return item;
-		},
-		empty() { return this.queue.length === 0 },
-		play() {
-			if (this.empty()) return false;
-			LaunchSimulation(this.dequeue());
-			return true;
-		},
-		buttonPlayFromQueue() { this.play(); },
-		buttonCleanQueue() { this.queue.length = 0; this.updateView() },
-		buttonSaveToFile() {
-			downloadAsFile("oddvar_queue", this.queue);
-		},
-		buttonLoadFromFiles() {
-			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => {
-				this.queue = queue;
-				this.updateView();
-			}).catch(alert);
-		},
-		buttonAppendFromFiles() {
-			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => {
-				this.queue.push(...queue);
-				this.updateView();
-			}).catch(alert);
-		}
-	}
+	const launchesQueue = CreateQueueOfLaunches(processor, LaunchSimulation, FlatMapArraysOfRawSimulationLaunch, mainWindowsManager);
 	processor.drawTicker.push(launchesQueue);
 	launchesQueue.updateView();
 	let repeatLatest = true;
@@ -213,14 +175,14 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			LaunchSimulation(x.launch);
 		}
 	});
-	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
 	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.SetStyles(style => { style.padding = "16px"; style.height = "100%" }), HTML.FlexContainer("row"), HTML.Append(
 		HTML.CreateElement("article", HTML.SetStyles(style => { style.paddingLeft = style.paddingRight = "16px"; style.height = "100%"; style.width = "280px" }), HTML.FlexContainer("column", "space-between"), HTML.Append(
 			HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
-					if (urlSettings.game !== key)
-						urlSettings.settings = "";
+					if (urlSettings.game !== key) {
+						urlSettings.label = urlSettings.settings = "";
+					}
 					simulationSettingsContainer.innerHTML = "";
 					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, key, games[key] as SimulatorDescription<object, MapType>,
 						{
@@ -252,7 +214,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 							}))
 					)),
 				)),
-			CreateSettingsInput(ProcessorSettingsInput, {
+			HTML.Input.CreateForm(ProcessorSettingsInput, {
 				Apply: (settings) => processor.settings = settings,
 				Deafult: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 66.6, dt: 0 }),
 				Fast: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 666, dt: 0.02 }),
@@ -268,6 +230,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 
 			),
 		))), new Point(gameSize, 0));
+	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
 
 
 	function FlatMapArraysOfRawSimulationLaunch(x: any[]) {
@@ -285,13 +248,6 @@ type SimulationSettings<MapID, SettingsT> = {
 	label: string;
 };
 
-function downloadAsFile(filename: string, body: any) {
-	const a = LinkToDownloadJSON(filename, body);
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(a.href);
-}
 
 function newLaunch<MapT extends MapType>(key: string, s: SimulatorDescription<object, MapT>, l: SimulationSettings<MapT, object>): SimulationLaunch<object> {
 	return new SimulationLaunch(key, s, l.simulation, l.map as string, l.deadline, l.label);
@@ -302,15 +258,6 @@ function aritcleWithButtons(objectWithButtons: { html: HTMLElement; } & Record<s
 		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around", { wrap: true }), HTML.Append(Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
 			map(key => HTML.CreateElement("button", HTML.SetStyles(s => s.flex = "1"), HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>objectWithButtons)[key]()))))))
 	);
-}
-
-function LinkToDownloadJSON(filename: string, obj: any): HTMLAnchorElement {
-	const json = JSON.stringify(obj);
-	const blob = new Blob([json], { type: "application/json" });
-	const a = document.createElement("a");
-	a.download = `${filename}.json`;
-	a.href = URL.createObjectURL(blob);
-	return a;
 }
 
 function Resize(c: HTMLCanvasElement): void {
@@ -331,42 +278,7 @@ function TransformMetrics(s: ProcessorState) {
 	return { settings: s.launch, timings: s.metrics, simulation: s.manager?.metrics };
 }
 
-function Copy<T>(c: T): T {
-	return JSON.parse(JSON.stringify(c)) as T;
-}
 
-function CreateSettingsInput<T extends string>(
-	description: HTML.Input.ObjectType<T>,
-	buttons: Record<string, (input: Record<T, any>, actualize: (values: Record<T, any>) => void) => void>,
-	clickButton?: string,
-	defaults?: Partial<Record<T, any>>): HTMLElement {
-	const output = {} as { root: Record<T, any> };
-	if (defaults)
-		output.root = defaults as Record<T, any>;
-	const h = HTML.Input.CreateTypedInput("root", description, output);
-	let lastClickedButton = clickButton;
-	const inputContainer = HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"));
-	const form = HTML.CreateElement("form", HTML.AddClass("settings-input"), HTML.Append(
-		HTML.CreateElement("header"),
-		inputContainer));
-	return HTML.ModifyElement(form, HTML.Append(
-		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(buttons).map((text) =>
-			HTML.CreateElement("input", HTML.SetInputType("submit"), HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
-				HTML.AddEventListener("click",
-					() => { lastClickedButton = text; }),
-				(el) => { el.value = text; if (text === clickButton) setTimeout(() => el.click()) })
-		)))
-	), HTML.AddEventListener("submit", (ev) => {
-		ev.preventDefault();
-		if (lastClickedButton) {
-			buttons[lastClickedButton](Copy(output.root), (actual) => {
-				inputContainer.innerHTML = "";
-				output.root = Copy(actual);
-				inputContainer.append(HTML.Input.CreateTypedInput("root", description, output));
-			});
-		}
-	}));
-}
 
 function tryParse(str: string) {
 	try {
@@ -388,9 +300,9 @@ function CreateSimulationSettingsInput<SettingsT extends object, MapT extends Ma
 	clickButton: string): HTMLElement {
 	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
 	const defaultSettings = defaults.settings === "" ? undefined : tryParse(defaults.settings);
-	return CreateSettingsInput({
+	return HTML.Input.CreateForm({
 		type: "object", values: {
-			label: { type: "string", default: simulationID, description: "Текстовая метка конфигурируемого запуска, будет использоваться в истории запусков, также будет в метриках." },
+			label: { type: "string", default: defaults.label || simulationID, description: "Текстовая метка конфигурируемого запуска, будет использоваться в истории запусков, также будет в метриках." },
 			map: { type: "enum", values: ConvertRecord(supportedMaps, (_, o) => o.name), default: defaults.map as string },
 			deadline: { type: "float", default: defaults.deadline, min: 0, description: "Через столько секунд принудительно закончится текущая симуляция, 0 - никогда" },
 			simulation: { type: "object", values: description.SettingsInputType() },
@@ -431,36 +343,4 @@ namespace Monoagent {
 			}
 		},
 	}
-}
-
-function ReadJSONsFromUserFiles(): Promise<any[]> {
-	return new Promise((resolve) => {
-		HTML.CreateElement("input", HTML.SetInputType("file"), el => el.multiple = true, HTML.AddEventListener("change", function () {
-			const files = (<HTMLInputElement>this).files;
-			if (files == null)
-				return;
-			resolve(Promise.all(Array.prototype.slice.call(files).map(x => fileAsText(x).then(PromiseParseJSON))));
-		})).click();
-	})
-}
-
-function fileAsText(file: File): Promise<string> {
-	return new Promise<string>(function (resolve, reject) {
-		const fileReader = new FileReader();
-		fileReader.addEventListener("load", (ev) => {
-			resolve(fileReader.result as string)
-		});
-		fileReader.addEventListener("error", reject);
-		fileReader.readAsText(file);
-	})
-}
-
-function PromiseParseJSON(string: string) {
-	return new Promise((ok, err) => {
-		try {
-			ok(JSON.parse(string));
-		} catch (e) {
-			err(e);
-		}
-	})
 }

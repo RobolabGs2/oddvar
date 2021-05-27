@@ -188,7 +188,7 @@ export namespace HTML {
 				/** Пары: название значения енума:отображаемое название в ui */
 				values: Record<string, string>
 			}
-		export type ObjectType<T extends string = string> = { type: "object", values: Record<T, Type> }
+		export type ObjectType<T extends (string|number|symbol) = string> = { type: "object", values: Record<T, Type> }
 		export function GetDefault<T extends string>(type: ObjectType<T>): Record<T, any> {
 			const res = {} as { "": Record<T, any> };
 			CreateTypedInput("", type, res);
@@ -227,6 +227,39 @@ export namespace HTML {
 					));
 			}
 		}
+		export function CreateForm<T extends object>(
+			description: HTML.Input.ObjectType<keyof T>,
+			buttons: Record<string, (input: T, actualize: (values: T) => void) => void>,
+			clickButton?: string,
+			defaults?: Partial<T>): HTMLElement {
+			const output = {} as { root: T };
+			if (defaults)
+				output.root = defaults as T;
+			const h = HTML.Input.CreateTypedInput("root", description, output);
+			let lastClickedButton = clickButton;
+			const inputContainer = HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"));
+			const form = HTML.CreateElement("form", HTML.AddClass("settings-input"), HTML.Append(
+				HTML.CreateElement("header"),
+				inputContainer));
+			return HTML.ModifyElement(form, HTML.Append(
+				HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(buttons).map((text) =>
+					HTML.CreateElement("input", HTML.SetInputType("submit"), HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
+						HTML.AddEventListener("click",
+							() => { lastClickedButton = text; }),
+						(el) => { el.value = text; if (text === clickButton) setTimeout(() => el.click()) })
+				)))
+			), HTML.AddEventListener("submit", (ev) => {
+				ev.preventDefault();
+				if (lastClickedButton) {
+					buttons[lastClickedButton](Copy(output.root), (actual) => {
+						inputContainer.innerHTML = "";
+						output.root = Copy(actual);
+						inputContainer.append(HTML.Input.CreateTypedInput("root", description, output));
+					});
+				}
+			}));
+		}
+		
 		function additionalModifiers(type: Type) {
 			switch (type.type) {
 				case "float":
@@ -278,4 +311,8 @@ function distanceSquare(x1: number, y1: number, x2: number, y2: number) {
 }
 function or<T>(x: T | undefined, y: T): T {
 	return x === undefined ? y : x;
+}
+
+function Copy<T>(c: T): T {
+	return JSON.parse(JSON.stringify(c)) as T;
 }
