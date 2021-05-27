@@ -145,13 +145,13 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			this.push(processor.state());
 		},
 		buttonDownloadAll() {
-			const a = LinkToDownloadJSON(`oddvar`, this.history.map(TransformMetrics));
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(a.href);
+			downloadAsFile(`oddvar`, this.history.map(TransformMetrics));
 		},
 		buttonClearAll() {
+			this.html.childNodes.forEach(node => {
+				if (node instanceof HTMLAnchorElement)
+					URL.revokeObjectURL(node.href);
+			})
 			this.html.innerHTML = "";
 			this.history.length = 0;
 		},
@@ -184,6 +184,15 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		},
 		buttonPlayFromQueue() { this.play(); },
 		buttonCleanQueue() { this.queue.length = 0; this.updateView() },
+		buttonSaveToFile() {
+			downloadAsFile("oddvar_queue", this.queue);
+		},
+		buttonLoadFromFiles() {
+			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => this.queue = queue).catch(alert);
+		},
+		buttonAppendFromFiles() {
+			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => this.queue.push(...queue)).catch(alert);
+		}
 	}
 	processor.drawTicker.push(launchesQueue);
 	launchesQueue.updateView();
@@ -200,10 +209,12 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	});
 	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
 	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.SetStyles(style => { style.padding = "16px"; style.height = "100%" }), HTML.FlexContainer("row"), HTML.Append(
-		HTML.CreateElement("article", HTML.SetStyles(style => { style.paddingLeft = style.paddingRight = "16px"; style.height = "100%" }), HTML.FlexContainer("column", "space-between"), HTML.Append(
+		HTML.CreateElement("article", HTML.SetStyles(style => { style.paddingLeft = style.paddingRight = "16px"; style.height = "100%"; style.width = "280px" }), HTML.FlexContainer("column", "space-between"), HTML.Append(
 			HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
+					if (urlSettings.game !== key)
+						urlSettings.settings = "";
 					simulationSettingsContainer.innerHTML = "";
 					simulationSettingsContainer.appendChild(CreateSimulationSettingsInput(maps, urlSettings, key, games[key] as SimulatorDescription<object, MapType>,
 						{
@@ -250,7 +261,15 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 					HTML.CreateElement("span", HTML.SetText("Повторять последние настройки"))))
 
 			),
-		))), new Point(gameSize, 0))
+		))), new Point(gameSize, 0));
+
+
+		function FlatMapArraysOfRawSimulationLaunch(x: any[]) {
+			return Promise.all(new Array<SimulationLaunch>().concat(...x.map(arr => arr.map((raw: SimulationLaunch) => {
+				console.log(raw);
+				return Promise.resolve(new SimulationLaunch(raw.simulationID, games[raw.simulationID as GameID], raw.settings, raw.mapID, raw.deadline, raw.label));
+			}))))
+		}
 });
 
 type SimulationSettings<MapID, SettingsT> = {
@@ -260,13 +279,21 @@ type SimulationSettings<MapID, SettingsT> = {
 	label: string;
 };
 
+function downloadAsFile(filename: string, body: any) {
+	const a = LinkToDownloadJSON(filename, body);
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(a.href);
+}
+
 function newLaunch<MapT extends MapType>(key: string, s: SimulatorDescription<object, MapT>, l: SimulationSettings<MapT, object>): SimulationLaunch<object> {
 	return new SimulationLaunch(key, s, l.simulation, l.map as string, l.deadline, l.label);
 }
 
 function aritcleWithButtons(objectWithButtons: { html: HTMLElement; } & Record<string, any>): HTMLElement {
 	return HTML.CreateElement("article", HTML.Append(objectWithButtons.html,
-		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
+		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around", { wrap: true }), HTML.Append(Object.keys(objectWithButtons).filter((key) => key.startsWith("button")).
 			map(key => HTML.CreateElement("button", HTML.SetStyles(s => s.flex = "1"), HTML.SetText(key.substr(6)), HTML.AddEventListener("click", () => (<any>objectWithButtons)[key]()))))))
 	);
 }
@@ -399,4 +426,36 @@ namespace Monoagent {
 			}
 		},
 	}
+}
+
+function ReadJSONsFromUserFiles(): Promise<any[]> {
+	return new Promise((resolve) => {
+		HTML.CreateElement("input", HTML.SetInputType("file"), el => el.multiple = true, HTML.AddEventListener("change", function () {
+			const files = (<HTMLInputElement>this).files;
+			if (files == null)
+				return;
+			resolve(Promise.all(Array.prototype.slice.call(files).map(x => fileAsText(x).then(PromiseParseJSON))));
+		})).click();
+	})
+}
+
+function fileAsText(file: File): Promise<string> {
+	return new Promise<string>(function (resolve, reject) {
+		const fileReader = new FileReader();
+		fileReader.addEventListener("load", (ev) => {
+			resolve(fileReader.result as string)
+		});
+		fileReader.addEventListener("error", reject);
+		fileReader.readAsText(file);
+	})
+}
+
+function PromiseParseJSON(string: string) {
+	return new Promise((ok, err) => {
+		try {
+			ok(JSON.parse(string));
+		} catch (e) {
+			err(e);
+		}
+	})
 }
