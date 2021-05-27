@@ -58,7 +58,8 @@ export const ProcessorSettingsInput = {
 }
 
 export class Processor extends Observable<{
-	finished: ProcessorSimulationFinished
+	finished: ProcessorSimulationFinished,
+	settingsChanged: ProcessorSettings
 }, Processor>{
 	private _manager?: Manager;
 	private intervalTicksID?: number;
@@ -75,11 +76,16 @@ export class Processor extends Observable<{
 	private _settings = HTML.Input.GetDefault(ProcessorSettingsInput) as ProcessorSettings;
 	public set settings(settings: ProcessorSettings) {
 		this._settings = settings;
+		this.dispatchEvent("settingsChanged", settings);
 		this.render();
 		if (this.isPlaying()) {
 			this.pause();
 			this.play();
 		}
+	}
+
+	public get settings(): ProcessorSettings {
+		return this._settings;
 	}
 
 	constructor(readonly drawTicker: Ticker[]) {

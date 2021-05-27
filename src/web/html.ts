@@ -102,9 +102,9 @@ export namespace HTML {
 
 	export function ModifyChildren(...modify: ((t: HTMLElement) => void)[]): (parent: HTMLElement) => void {
 		return (parent) => {
-			for (let i = 0; i<parent.children.length; i++) {
+			for (let i = 0; i < parent.children.length; i++) {
 				const elem = parent.children.item(i);
-				if(elem instanceof HTMLElement)
+				if (elem instanceof HTMLElement)
 					ModifyElement(elem, ...modify);
 			}
 		}
@@ -194,9 +194,11 @@ export namespace HTML {
 			CreateTypedInput("", type, res);
 			return res[""];
 		}
-		/** output - в этот объект будут попадать значения по мере заполнения полей инпута */
+		/** output - в этот объект будут попадать значения по мере заполнения полей инпута
+		 * Если в нём есть заполненные поля - они займут место дефолтных
+		 */
 		export function CreateTypedInput(name: string, type: Type, output: Record<string, any>, required = true): HTMLElement {
-			if (type.type !== "object") {
+			if (type.type !== "object" && output[name] === undefined) {
 				output[name] = type.default;
 			}
 			switch (type.type) {
@@ -212,11 +214,11 @@ export namespace HTML {
 						AddEventListener("change", function (ev: Event) {
 							output[name] = getValue(this as HTMLInputElement);
 						}),
-						...additionalModifiers(type), setValue.bind(null, type));
+						...additionalModifiers(type), setValue.bind(null, type, output[name]));
 				case "enum":
-					return HTML.ModifyElement(CreateSelector(type.default, type.values, value => output[name] = value), SetTitle(type.description || name));
+					return HTML.ModifyElement(CreateSelector(output[name], type.values, value => output[name] = value), SetTitle(type.description || name));
 				case "object":
-					const innerOutput = output[name] = {};
+					const innerOutput = output[name] === undefined ? (output[name] = {}) : output[name];
 					return CreateElement("ul", Append(
 						Object.entries(type.values).
 							map(([name, type]) => CreateElement("li", Append(
@@ -252,18 +254,18 @@ export namespace HTML {
 				default: return input.value;
 			}
 		}
-		function setValue(type: Type, input: HTMLInputElement) {
+		function setValue(type: Type, value: any, input: HTMLInputElement) {
 			switch (type.type) {
 				case "int":
 				case "float":
-					input.valueAsNumber = type.default;
+					input.valueAsNumber = value;
 					return;
 				case "color":
 				case "string":
-					input.value = type.default;
+					input.value = value;
 					return;
 				case "boolean":
-					input.checked = type.default;
+					input.checked = value;
 					return
 			}
 		}

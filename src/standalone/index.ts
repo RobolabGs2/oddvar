@@ -42,9 +42,18 @@ const smallMap1 = Labirint.SymmetryOdd([
 	[0, 1, 1, 0, 1, 1]
 ]).Frame(1);
 
+function utf8_to_b64(str: string): string {
+	return window.btoa(unescape(encodeURIComponent(str)));
+}
 
-type URLSettings<MapID extends string = string, GameID extends string = string> = { map: MapID, game: GameID, deadline: number }
+function b64_to_utf8(str: string): string {
+	return decodeURIComponent(escape(window.atob(str)));
+}
 
+
+type URLSettings<MapID extends string = string, GameID extends string = string> = { map: MapID, game: GameID, deadline: number, settings: string }
+
+const PROCESSOR_SETTINGS_KEY = "oddvar_processor_settings";
 Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, resources], styleSheet]) => {
 	const gameSize = 704//798;
 	document.body.style.minWidth = document.body.style.minHeight = `${gameSize}px`;
@@ -79,12 +88,18 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 	type MapID = keyof typeof maps;
 	type GameID = keyof typeof games;
 
-	const urlSettings = URIStorage<URLSettings<MapID, GameID>>({ map: "symmetric", game: "multiagent", deadline: 0 }, {
+	const urlSettings = URIStorage<URLSettings<MapID, GameID>>({ map: "symmetric", game: "multiagent", deadline: 0, settings: "" }, {
 		map: new Set(Object.keys(maps) as MapID[]), game: new Set(Object.keys(games) as GameID[]),
-		deadline: { has: (item) => item >= 0 }
+		deadline: { has: (item) => item >= 0 }, settings: { has: () => true }
 	});
 	const simulationSettingsContainer = HTML.CreateElement("article");
 	const processor = new Processor([gameWindowsManager, mainWindowsManager])
+	if (sessionStorage && sessionStorage.getItem(PROCESSOR_SETTINGS_KEY)) {
+		try {
+			processor.settings = JSON.parse(sessionStorage.getItem(PROCESSOR_SETTINGS_KEY)!);
+		} catch { }
+	}
+	processor.addEventListener("settingsChanged", settings => sessionStorage.setItem(PROCESSOR_SETTINGS_KEY, JSON.stringify(settings)));
 
 	const currentRunningLabel = {
 		container: HTML.CreateElement("span"),
@@ -112,6 +127,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		urlSettings.game = <GameID>settings.simulationID;
 		urlSettings.map = <MapID>settings.mapID;
 		urlSettings.deadline = settings.deadline;
+		urlSettings.settings = utf8_to_b64(JSON.stringify(settings.settings));
 		processor.launchNewSimulation(new Manager(oddvar, newGame), settings);
 		currentRunningLabel.update(settings.label, JSON.stringify(settings, undefined, "  "))
 		return false;
@@ -183,8 +199,8 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		}
 	});
 	mainWindowsManager.CreateInfoWindow("История запусков", aritcleWithButtons(historyOfLaunches), new Point(0, gameSize))
-	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.SetStyles(style => {style.padding = "16px"; style.height="100%"}), HTML.FlexContainer("row"), HTML.Append(
-		HTML.CreateElement("article", HTML.SetStyles(style => {style.paddingLeft = style.paddingRight = "16px"; style.height="100%"}), HTML.FlexContainer("column", "space-between"), HTML.Append(
+	mainWindowsManager.CreateInfoWindow("Настройки", HTML.CreateElement("article", HTML.SetStyles(style => { style.padding = "16px"; style.height = "100%" }), HTML.FlexContainer("row"), HTML.Append(
+		HTML.CreateElement("article", HTML.SetStyles(style => { style.paddingLeft = style.paddingRight = "16px"; style.height = "100%" }), HTML.FlexContainer("column", "space-between"), HTML.Append(
 			HTML.CreateElement("section", HTML.Append(
 				HTML.CreateElement("header", HTML.SetText(`Choose simulation:`), HTML.SetStyles(s => s.marginRight = "16px")),
 				HTML.CreateSelector(urlSettings.game, ConvertRecord(games, (_, o) => o.name), (key) => {
@@ -219,8 +235,13 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 							}))
 					)),
 				)),
-			CreateSettingsInput(ProcessorSettingsInput, { Apply: (settings) => processor.settings = settings }),
-		), HTML.ModifyChildren(HTML.SetStyles(s=>s.paddingBottom = "16px"))),
+			CreateSettingsInput(ProcessorSettingsInput, {
+				Apply: (settings) => processor.settings = settings,
+				Deafult: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 66.6, dt: 0 }),
+				Fast: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 666, dt: 0.02 }),
+				MaxPerfomance: (settings, actual) => actual(processor.settings = { FPS: 1, TPS: 666, dt: 0.02 }),
+			}, undefined, processor.settings),
+		), HTML.ModifyChildren(HTML.SetStyles(s => s.paddingBottom = "16px"))),
 		HTML.CreateElement("article",
 			HTML.Append(
 				simulationSettingsContainer,
@@ -277,16 +298,24 @@ function TransformMetrics(s: ProcessorState) {
 	return { settings: s.launch, timings: s.metrics, simulation: s.manager?.metrics };
 }
 
+function Copy<T>(c: T): T {
+	return JSON.parse(JSON.stringify(c)) as T;
+}
+
 function CreateSettingsInput<T extends string>(
 	description: HTML.Input.ObjectType<T>,
-	buttons: Record<string, (input: Record<T, any>) => void>,
-	clickButton?: string): HTMLElement {
+	buttons: Record<string, (input: Record<T, any>, actualize: (values: Record<T, any>) => void) => void>,
+	clickButton?: string,
+	defaults?: Partial<Record<T, any>>): HTMLElement {
 	const output = {} as { root: Record<T, any> };
+	if (defaults)
+		output.root = defaults as Record<T, any>;
 	const h = HTML.Input.CreateTypedInput("root", description, output);
 	let lastClickedButton = clickButton;
+	const inputContainer = HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"));
 	const form = HTML.CreateElement("form", HTML.AddClass("settings-input"), HTML.Append(
 		HTML.CreateElement("header"),
-		HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"))));
+		inputContainer));
 	return HTML.ModifyElement(form, HTML.Append(
 		HTML.CreateElement("footer", HTML.FlexContainer("row", "space-around"), HTML.Append(Object.keys(buttons).map((text) =>
 			HTML.CreateElement("input", HTML.SetInputType("submit"), HTML.SetStyles(s => { s.flex = "1"; s.margin = "8px" }),
@@ -298,9 +327,24 @@ function CreateSettingsInput<T extends string>(
 		ev.preventDefault();
 		console.log(lastClickedButton);
 		if (lastClickedButton) {
-			buttons[lastClickedButton](JSON.parse(JSON.stringify(output.root)));
+			buttons[lastClickedButton](Copy(output.root), (actual) => {
+				inputContainer.innerHTML = "";
+				output.root = Copy(actual);
+				inputContainer.append(HTML.Input.CreateTypedInput("root", description, output));
+			});
 		}
 	}));
+}
+
+function tryParse(str: string) {
+	try {
+		const obj = JSON.parse(b64_to_utf8(str));
+		if (obj !== null && typeof obj === "object")
+			return obj;
+	} catch (error) {
+		console.warn(`Failed decode sim settings from url: ${error}`)
+	}
+	return undefined;
 }
 
 function CreateSimulationSettingsInput<SettingsT extends object, MapT extends MapType, MapID extends string>(
@@ -311,6 +355,7 @@ function CreateSimulationSettingsInput<SettingsT extends object, MapT extends Ma
 	buttons: Record<string, (launch: SimulationLaunch) => void>,
 	clickButton: string): HTMLElement {
 	const supportedMaps = Object.fromEntries(Object.entries(allMaps).filter(([_, desc]) => description.IsSupportedMap((<any>desc).value))) as Record<MapID, { name: string, value: MapType }>;
+	const defaultSettings = defaults.settings === "" ? undefined : tryParse(defaults.settings);
 	return CreateSettingsInput({
 		type: "object", values: {
 			label: { type: "string", default: simulationID, description: "Текстовая метка конфигурируемого запуска, будет использоваться в истории запусков, также будет в метриках." },
@@ -318,7 +363,9 @@ function CreateSimulationSettingsInput<SettingsT extends object, MapT extends Ma
 			deadline: { type: "float", default: defaults.deadline, min: 0, description: "Через столько секунд принудительно закончится текущая симуляция, 0 - никогда" },
 			simulation: { type: "object", values: description.SettingsInputType() },
 		}
-	}, ConvertRecord(buttons, (_, listener) => (settings: SimulationSettings<MapT, SettingsT>) => listener(newLaunch(simulationID, description, settings))), clickButton);
+	}, ConvertRecord(buttons, (_, listener) => (settings: SimulationSettings<MapT, SettingsT>) => listener(newLaunch(simulationID, description, settings))), clickButton,
+		{ simulation: defaultSettings }
+	);
 }
 
 namespace CollectingSquares {
