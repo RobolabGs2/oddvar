@@ -188,10 +188,16 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 			downloadAsFile("oddvar_queue", this.queue);
 		},
 		buttonLoadFromFiles() {
-			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => this.queue = queue).catch(alert);
+			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => {
+				this.queue = queue;
+				this.updateView();
+			}).catch(alert);
 		},
 		buttonAppendFromFiles() {
-			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => this.queue.push(...queue)).catch(alert);
+			ReadJSONsFromUserFiles().then(FlatMapArraysOfRawSimulationLaunch).then(queue => {
+				this.queue.push(...queue);
+				this.updateView();
+			}).catch(alert);
 		}
 	}
 	processor.drawTicker.push(launchesQueue);
@@ -250,7 +256,7 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 				Apply: (settings) => processor.settings = settings,
 				Deafult: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 66.6, dt: 0 }),
 				Fast: (settings, actual) => actual(processor.settings = { FPS: 60, TPS: 666, dt: 0.02 }),
-				MaxPerfomance: (settings, actual) => actual(processor.settings = { FPS: 1, TPS: 666, dt: 0.02 }),
+				MaxPerfomance: (settings, actual) => actual(processor.settings = { FPS: 1, TPS: 66666, dt: 0.02 }),
 			}, undefined, processor.settings),
 		), HTML.ModifyChildren(HTML.SetStyles(s => s.paddingBottom = "16px"))),
 		HTML.CreateElement("article",
@@ -264,12 +270,12 @@ Promise.all([DownloadResources(), GetStyleSheet()]).then(([[reflectionJSON, reso
 		))), new Point(gameSize, 0));
 
 
-		function FlatMapArraysOfRawSimulationLaunch(x: any[]) {
-			return Promise.all(new Array<SimulationLaunch>().concat(...x.map(arr => arr.map((raw: SimulationLaunch) => {
-				console.log(raw);
-				return Promise.resolve(new SimulationLaunch(raw.simulationID, games[raw.simulationID as GameID], raw.settings, raw.mapID, raw.deadline, raw.label));
-			}))))
-		}
+	function FlatMapArraysOfRawSimulationLaunch(x: any[]) {
+		return Promise.all(new Array<SimulationLaunch>().concat(...x.map(arr => arr.map((raw: SimulationLaunch) => {
+			console.log(raw);
+			return Promise.resolve(new SimulationLaunch(raw.simulationID, games[raw.simulationID as GameID], raw.settings, raw.mapID, raw.deadline, raw.label));
+		}))))
+	}
 });
 
 type SimulationSettings<MapID, SettingsT> = {
@@ -352,7 +358,6 @@ function CreateSettingsInput<T extends string>(
 		)))
 	), HTML.AddEventListener("submit", (ev) => {
 		ev.preventDefault();
-		console.log(lastClickedButton);
 		if (lastClickedButton) {
 			buttons[lastClickedButton](Copy(output.root), (actual) => {
 				inputContainer.innerHTML = "";

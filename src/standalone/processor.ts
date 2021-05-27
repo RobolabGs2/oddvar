@@ -148,7 +148,7 @@ export class Processor extends Observable<{
 		}
 		let lastTickTime = this.ticksStart = performance.now();
 		this.ticks = 0;
-		this.intervalTicksID = window.setInterval(() => {
+		const tick = () => {
 			if (!this._manager) {
 				this.pause()
 				return;
@@ -168,6 +168,16 @@ export class Processor extends Observable<{
 				this.launch = undefined;
 				this.dispatchEvent("finished", event);
 			}
+		}
+		let lastIntervalTime = performance.now();
+		this.intervalTicksID = window.setInterval(()=>{
+			const nowInterval = performance.now();
+			const di = nowInterval - lastIntervalTime;
+			const actualIPS = 1000/di;
+			const ticksInInterval = Math.ceil(this._settings.TPS / actualIPS);
+			for(let i = 0; i<ticksInInterval; i++)
+				tick();
+			lastIntervalTime = performance.now();
 		}, 1000 / this._settings.TPS);
 	}
 
