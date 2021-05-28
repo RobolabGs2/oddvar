@@ -1,6 +1,4 @@
-import { Point } from "../../oddvar/geometry";
-import { Random } from "../../oddvar/utils/random";
-import { Bot, Evaluator, SendMiddleware } from "./bot";
+import { Bot, Evaluator } from "./bot";
 import { Message, MessageDataMap } from "./net";
 
 
@@ -18,8 +16,13 @@ export namespace Evaluators {
 		}
 	}
 
+	type СкептикSettings = {
+		threshold: number;
+	};
+
 	export class Скептик implements Evaluator {
-		constructor(readonly distanceThreshold = 0.4) { }
+		private threshold: number
+		constructor({ threshold }: СкептикSettings) { this.threshold = threshold; }
 		Evaluate(bot: Bot, msg: Message<keyof MessageDataMap>): boolean {
 			return msg.read({
 				"captured": () => true,
@@ -30,7 +33,7 @@ export namespace Evaluators {
 					const path = bot.map.findPath(bot.location, msg.data);
 					if (path === undefined)
 						return false;
-					const threshold = this.distanceThreshold * (bot.map.maze.width + bot.map.maze.height);
+					const threshold = this.threshold * (bot.map.maze.width + bot.map.maze.height);
 					return path.length <= threshold
 				}
 			});
@@ -43,32 +46,6 @@ export namespace Evaluators {
 				"captured": () => true,
 				"target": () => false,
 			});
-		}
-	}
-}
-
-
-export namespace Middlewares {
-	export class Честный implements SendMiddleware {
-		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
-			bot.network.send(to, type, data);
-		}
-	}
-	export class Лжец implements SendMiddleware {
-		Send<T extends keyof MessageDataMap>(bot: Bot, to: string, type: T, data: MessageDataMap[T]): void {
-			switch (type) {
-				case "captured":
-					bot.network.send(to, type, data);
-					break;
-				case "target":
-					const targetMazeCoodrs = bot.map.toMazeCoords(data as MessageDataMap["target"]);
-					const minDistance = (bot.map.maze.width + bot.map.maze.height)*0.4;
-					let fake = new Point(Random.Int(0, bot.map.maze.width), Random.Int(0, bot.map.maze.height));
-					while (targetMazeCoodrs.Manhattan(fake)<minDistance || bot.map.maze.get(fake.x, fake.y)) {
-						fake = new Point(Random.Int(0, bot.map.maze.width), Random.Int(0, bot.map.maze.height));
-					}
-					bot.network.send(to, type as "target", bot.map.fromMazeCoords(fake));
-			}
 		}
 	}
 }

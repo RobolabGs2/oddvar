@@ -21,8 +21,12 @@ export class Message<T extends keyof MessageDataMap = keyof MessageDataMap> {
 		readonly timestamp: number
 	) { }
 
-	read<T = void>(handler: EventHandler<MessageMap, unknown, T>): T {
+	read<R = void>(handler: EventHandler<MessageMap, unknown, R>): R {
 		return handler[this.type](this as never); // ts оказался недостаточно силён для зависимых типов
+	}
+
+	is<S extends T>(type: S): this is Message<S> {
+		return this.type === type;
 	}
 }
 
@@ -51,7 +55,7 @@ export class NetworkCard extends StatelessDeadly {
 export class Network extends DeadlyWorld<NetworkCard> {
 	cards: Map<string, NetworkCard> = new Map();
 
-	constructor(readonly mitm: (msg: Message) => void, readonly clock: Clock) {
+	constructor(readonly mitm: (msg: Message) => Message, readonly clock: Clock) {
 		super();
 	}
 
@@ -64,7 +68,7 @@ export class Network extends DeadlyWorld<NetworkCard> {
 	Tick(dt: number): void {
 		this.cards.forEach(card => {
 			card.broadcastOut.forEach((message) => {
-				this.mitm(message);
+				message = this.mitm(message);
 				this.cards.forEach(destination => {
 					if (destination.address === message.from)
 						return;
@@ -72,8 +76,8 @@ export class Network extends DeadlyWorld<NetworkCard> {
 				});
 			});
 			card.out.forEach((message) => {
+				message = this.mitm(message);
 				this.cards.get(message.to)?.in.push(message);
-				this.mitm(message);
 			});
 			card.broadcastOut.length = 0;//clear();
 			card.out.length = 0;//clear();

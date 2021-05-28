@@ -45,8 +45,7 @@ export interface Simulation {
 export interface Score {
 	name: ScoreName;
 	score: number;
-	evaluator: Evaluator;
-	sender: Sender;
+	strategy: string;
 }
 
 export enum Evaluator {
@@ -113,9 +112,9 @@ interface LaunchesGroup {
 	settings: MetricSettings
 }
 
-function StrategyName(bot: Score): string {
-	return `${bot.sender}_${bot.evaluator}`;
-}
+// function StrategyName(bot: Score): string {
+// 	return `${bot.sender}_${bot.evaluator}`;
+// }
 
 function getOrPut<K extends string | number | symbol, T>(from: Record<K, T>, key: K, defaultValue: T): T {
 	const value = from[key];
@@ -208,7 +207,7 @@ function AnalizeNormalizedLaunhesStability(launches: NormalizedLaunch[]) {
 
 function AnalizeBotScore(minutes: number, avgProductivity: number, totalScore: number, avgScorePercent: number): (value: Score, index: number, array: Score[]) => { strategy: string; productivity: { value: number; deviation: number; deviation2: number; }; scorePercent: { value: number; deviation: number; deviation2: number; }; } & Score {
 	return bot => Object.assign({
-		strategy: StrategyName(bot),
+		// strategy: StrategyName(bot),
 		productivity: CalcStatisticStaff(bot.score / minutes, avgProductivity),
 		scorePercent: CalcStatisticStaff(bot.score / totalScore * 100, avgScorePercent * 100),
 	}, bot);

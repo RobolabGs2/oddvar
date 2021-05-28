@@ -1,5 +1,6 @@
 import { Point, Size } from '../../oddvar/geometry';
 import { Labirint, Dir } from '../../oddvar/labirint/labirint';
+import { Random } from '../../oddvar/utils/random';
 import { WallCreator } from './wall_manager';
 
 
@@ -27,5 +28,13 @@ export class GameMap {
 
 	findPath(start: Point, end: Point): Dir[] | undefined {
 		return this.maze.FindPath(this.toMazeCoords(start), this.toMazeCoords(end))
+	}
+
+	randomFreePoint(isGood: (point: Point) => boolean = () => true): Point {
+		let fake = new Point(Random.Int(0, this.maze.width), Random.Int(0, this.maze.height));
+		while (this.maze.get(fake.x, fake.y) || !isGood(fake)) {
+			fake = new Point(Random.Int(0, this.maze.width), Random.Int(0, this.maze.height));
+		}
+		return this.fromMazeCoords(fake);
 	}
 }
