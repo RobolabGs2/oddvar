@@ -1,4 +1,4 @@
-.settings-input {
+form.settings-input {
 	ul {
 		padding-inline-start: 8px;
 		border-left: 1px solid;
@@ -12,16 +12,28 @@
 		justify-content: space-between;
 		align-items: flex-start;
 		flex-wrap: wrap;
-		& > span {
+		& > label {
+			cursor: auto;
 			margin-right: 8px;
 		}
 		&:not(:last-child) {
 			border-bottom: 1px solid grey;
 		}
+		cursor: pointer;
 	}
 
 	input[type="number"] {
 		width: 48px;
+	}
+
+	.hideChilds {
+		& ul {
+			display: none;
+		}
+	}
+	& > section{
+		max-height: 500px!important;
+		overflow-x: auto;
 	}
 }
 

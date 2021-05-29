@@ -8,7 +8,6 @@ import { Dir, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Message, NetworkCard } from './net';
 import { Observable } from '../../oddvar/utils';
 import { BotMap } from './bot_map';
-import { Random } from '../../oddvar/utils/random';
 
 export interface Evaluator {
 	// Можно ли доверять сообщению
@@ -51,7 +50,10 @@ export abstract class Bot extends Observable<{ mapUpdated: BotMap, captured: { o
 		const current = this.map.toMazeCoords(this.location);
 		this.lastCommand = {
 			dir: next,
-			dest: Dir.shiftPoint(next, this.map.fromMazeCoords(Dir.movePoint(next, current)), this.map.cellSize.width / 4)
+			dest:
+				// Dir.shiftPoint(next, 
+				this.map.fromMazeCoords(Dir.movePoint(next, current))
+			// , this.map.cellSize.width / 4)
 		};
 		this.nextE.location = this.lastCommand.dest;
 	}
@@ -79,7 +81,7 @@ export abstract class Bot extends Observable<{ mapUpdated: BotMap, captured: { o
 	TickBody(dt: number) {
 		if (this.kickTo) {
 			const delta = this.kickTo.Sub(this.location);
-			this.body.Kick(delta.Norm().Mult(this.body.Area() * 500 * 2));
+			this.body.Kick(delta.Norm().Mult(this.body.Mass() * 20000));
 		}
 	}
 
@@ -192,8 +194,41 @@ export class LierBot extends Bot {
 	}
 }
 
-export class TalisBot extends Bot {
+class Rating {
+	constructor(readonly threshold: number,
+		readonly trustPayoff: number,
+		readonly liePayoff: number) { }
+	private list: Record<string, number> = Object.create(null);
+	less(name: string, value: number): boolean {
+		return this.value(name) < value;
+	}
+	value(name: string): number {
+		return this.list[name] || 0;
+	}
+	change(name: string, value: number): number {
+		return this.list[name] = this.value(name) + value;
+	}
+	lie(lier: string) {
+		this.change(lier, this.liePayoff);
+	}
+	trust(honestier: string) {
+		this.change(honestier, this.trustPayoff);
+	}
+	isLier(name: string) {
+		return this.less(name, this.threshold);
+	}
+	isHonesty(name: string) {
+		return !this.isLier(name);
+	}
+}
+
+export class RatingBot extends Bot {
+	rating: Rating;
+	liersMessages: [Point, string][] = [];
 	constructor(
+		readonly threshold: number,
+		readonly trustPayoff: number,
+		readonly liePayoff: number,
 		name: string,
 		oddvar: Oddvar,
 		body: PolygonBody,
@@ -203,28 +238,49 @@ export class TalisBot extends Bot {
 		network: NetworkCard,
 		debug = false) {
 		super(name, oddvar, body, color, map, layer, network, debug);
+		this.rating = new Rating(threshold, trustPayoff, liePayoff);
 		this.addEventListener("captured", ({ old, where }) => {
-			const p = old.toMazeCoords(where);
-			old.targets.filter(point => p.x != point.x || p.y !== point.y).forEach(bad => {
+			const targetLocation = old.toMazeCoords(where);
+			this.liersMessages.forEach(([data, from]) => {
+				const msgCoords = old.toMazeCoords(data);
+				if (msgCoords.x === targetLocation.x && msgCoords.x === targetLocation.y)
+					this.rating.trust(from);
+				else
+					this.rating.lie(from);
+			})
+			this.liersMessages.length = 0;
+			old.explored.get(targetLocation.x, targetLocation.y)?.sources.forEach(honesty => {
+				this.rating.trust(honesty);
+			});
+			old.targets.filter(point => targetLocation.x != point.x || targetLocation.y !== point.y).forEach(bad => {
 				old.explored.get(bad.x, bad.y)!.sources.forEach(lier => {
-					console.log(`${lier} it's a LIER!`);
-					this.liers.add(lier);
+					this.rating.lie(lier);
 				})
 			});
 		})
 	}
-	liers = new Set<string>();
+
 	anotherStates = new Map<string, boolean>();
 	protected Think(dt: number, visible: MatrixCell<Map<string, Point>>[]): void {
 		this.network.readAll({
 			"target": (msg) => {
-				if (msg.timestamp < this.map.createdAt || this.liers.has(msg.from))
+				if (msg.timestamp < this.map.createdAt)
 					return;
+				if (this.rating.isLier(msg.from)) {
+					this.liersMessages.push([msg.data, msg.from]);
+					return
+				}
 				const l = this.map.toMazeCoords(msg.data)
+				if (this.map.isConflict(l.x, l.y, msg.data)) {
+					if (this.map.explored.get(l.x, l.y)?.sources.has(this.name)) {
+						this.rating.lie(msg.from);
+						return;
+					}
+				}
 				this.map.update(l.x, l.y, msg.data, msg.from)
 			},
 			"captured": (msg) => {
-				if (this.liers.has(msg.from)) {
+				if (this.rating.isLier(msg.from)) {
 					this.network.send(msg.from, "target", this.map.randomFreePoint());
 				} else {
 					this.anotherStates.set(msg.from, false);
@@ -238,13 +294,16 @@ export class TalisBot extends Bot {
 					this.map.update(cell.point.x, cell.point.y, point, this.name)
 					updated = true;
 				} else {
-					if (!this.liers.has(owner) && !this.anotherStates.get(owner)) {
+					if (this.rating.isHonesty(owner) && !this.anotherStates.get(owner)) {
 						this.network.send(owner, "target", point);
 						this.anotherStates.set(owner, true);
 					}
 				}
 			});
 			if (!updated) {
+				if (this.map.isConflict(cell.point.x, cell.point.y, null)) {
+					this.map.explored.get(cell.point.x, cell.point.y)?.sources.forEach(lier => this.rating.lie(lier));
+				}
 				this.map.update(cell.point.x, cell.point.y, null, this.name)
 			}
 		})

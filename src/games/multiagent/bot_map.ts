@@ -26,8 +26,6 @@ class EmbeddedObservable<T> extends Observable<T> {
 	}
 }
 
-enum BotMapConflicts { NONE, TWO_TARGETS, }
-
 export class BotMap extends GameMap {
 	explored: DataMatrix<undefined | BotMapCell>
 	// Буфер для преобразования в строку
@@ -86,10 +84,6 @@ export class BotMap extends GameMap {
 		}
 		this.explored.get(x, y)!.sources.add(source);
 		return false;
-	}
-	isExplored(p: Point): boolean {
-		const { x, y } = this.toMazeCoords(p);
-		return this.explored.get(x, y) === undefined;
 	}
 	nextPath(from: Point): Dir[] | undefined {
 		from = this.toMazeCoords(from);

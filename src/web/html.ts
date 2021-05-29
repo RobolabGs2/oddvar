@@ -188,7 +188,7 @@ export namespace HTML {
 				/** Пары: название значения енума:отображаемое название в ui */
 				values: Record<string, string>
 			}
-		export type ObjectType<T extends (string|number|symbol) = string> = { type: "object", values: Record<T, Type> }
+		export type ObjectType<T extends (string | number | symbol) = string> = { type: "object", values: Record<T, Type> }
 		export function GetDefault<T extends string>(type: ObjectType<T>): Record<T, any> {
 			const res = {} as { "": Record<T, any> };
 			CreateTypedInput("", type, res);
@@ -209,6 +209,7 @@ export namespace HTML {
 				case "color":
 					return CreateElement("input",
 						SetName(name),
+						SetId(name),
 						SetTitle(type.description || name),
 						SetRequired(required),
 						AddEventListener("change", function (ev: Event) {
@@ -216,13 +217,13 @@ export namespace HTML {
 						}),
 						...additionalModifiers(type), setValue.bind(null, type, output[name]));
 				case "enum":
-					return HTML.ModifyElement(CreateSelector(output[name], type.values, value => output[name] = value), SetTitle(type.description || name));
+					return HTML.ModifyElement(CreateSelector(output[name], type.values, value => output[name] = value), SetTitle(type.description || name), SetId(name));
 				case "object":
 					const innerOutput = output[name] === undefined ? (output[name] = {}) : output[name];
 					return CreateElement("ul", Append(
 						Object.entries(type.values).
 							map(([name, type]) => CreateElement("li", Append(
-								CreateElement("span", SetText(name, type.description || name)),
+								CreateElement("label", SetText(name, type.description || name), (el) => el.htmlFor = name),
 								CreateTypedInput(name, type, innerOutput))))
 					));
 			}
@@ -237,7 +238,7 @@ export namespace HTML {
 				output.root = defaults as T;
 			const h = HTML.Input.CreateTypedInput("root", description, output);
 			let lastClickedButton = clickButton;
-			const inputContainer = HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "256px"));
+			const inputContainer = HTML.CreateElement("section", HTML.Append(h), HTML.SetStyles(s => s.width = "286px"), HTML.AddEventListener("click", hideChildOf("li")));
 			const form = HTML.CreateElement("form", HTML.AddClass("settings-input"), HTML.Append(
 				HTML.CreateElement("header"),
 				inputContainer));
@@ -259,13 +260,13 @@ export namespace HTML {
 				}
 			}));
 		}
-		
+
 		function additionalModifiers(type: Type) {
 			switch (type.type) {
 				case "float":
 					return [
 						SetInputType("number"),
-						SetNumberInputRange(or(type.min, Number.MIN_SAFE_INTEGER), or(type.max, Number.MAX_SAFE_INTEGER), 0.0001)
+						SetNumberInputRange(or(type.min, Number.MIN_SAFE_INTEGER), or(type.max, Number.MAX_SAFE_INTEGER), 0.001)
 					];
 				case "int":
 					return [
@@ -316,3 +317,16 @@ function or<T>(x: T | undefined, y: T): T {
 function Copy<T>(c: T): T {
 	return JSON.parse(JSON.stringify(c)) as T;
 }
+
+function hideChildOf<K extends keyof HTMLElementTagNameMap>(tagName: K) {
+	return (ev: MouseEvent) => {
+		const target = ev.target as HTMLElement;
+		if (ev.button === 0 && target.tagName.toLowerCase() === tagName.toLowerCase()) {
+			const className = "hideChilds";
+			if (target.classList.contains(className))
+				target.classList.remove(className);
+			else
+				target.classList.add(className);
+		}
+	}
+};

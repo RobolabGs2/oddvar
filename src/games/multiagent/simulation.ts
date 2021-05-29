@@ -7,7 +7,7 @@ import { GameMap } from "../utils/game_map";
 import { DataMatrix, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Iterators } from '../../oddvar/iterator';
 import { GameLogic, MetricsSource } from '../../oddvar/manager';
-import { Bot, HonestyBot, LierBot, TalisBot } from './bot';
+import { Bot, HonestyBot, LierBot, RatingBot } from './bot';
 import { Message, MessageDataMap, Network, NetworkCard } from './net';
 import { ConvertRecord, Observable } from '../../oddvar/utils';
 import { TableModel, WindowsManager } from '../../web/windows';
@@ -54,23 +54,27 @@ export namespace Multiagent {
 	const strategiesCount = Iterators.Range(evaluators.length * senders.length).toArray();
 	const strategiesArray = Iterators.zip(strategiesCount.map(i => getByModule(evaluators, i)), strategiesCount.map(i => senders[(i / evaluators.length) | 0]));
 	const strategies = Object.fromEntries(strategiesArray.map((pair) => {
-		const strategyName = `${pair[1][1]}_${pair[0].name}`;
-		return [strategyName, <StrategyDescription>{
+		return <StrategyDescription>{
 			CreateBot(ss, name, o, b, c, m, l, n, d) { return new pair[1][0](new pair[0](ss[pair[0].name]), name, o, b, c, m, l, n, d) },
-			StrategyName: strategyName,
-		}]
-	}).concat([
-		["Око_за_око", {
-			StrategyName: "Око_за_око",
-			CreateBot(ss, name, o, b, c, m, l, n, d) { return new TalisBot(name, o, b, c, m, l, n, d) },
-		}]
-	]));
+			StrategyName: `${pair[1][1]}_${pair[0].name}`,
+		}
+	}).concat(
+		(<[string, number, number, number][]>[
+			["Око_за_око", 0, 1, -1],
+			["Злопамятный", 0, 0, -1],
+			["Прощающий", -1, 1, -1],
+		]
+		).map(([name, threshold, trustPayoff, liePayoff]) => ({
+			StrategyName: name,
+			CreateBot(ss, name, o, b, c, m, l, n, d) { return new RatingBot(threshold, trustPayoff, liePayoff, name, o, b, c, m, l, n, d) },
+		})
+		)).map(strategy => [strategy.StrategyName, strategy]));
 
 	const skins = {
 		pretty: {
 			wall: (o: TexturesManager) => o.CreatePatternTexture("wall", "bricks"),
 			bot(oddvar: Oddvar, nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, botTexture: RectangleTexture, color: ColoredTexture) {
-				const body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), entity, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, size);
+				const body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), entity, { lineFriction: 0.5, angleFriction: 0.1, layers: 1 << layer }, size);
 				oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), body, botTexture);
 				oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("body 2 avatar"), entity, size.Scale(1.1), color);
 				return body;
@@ -90,7 +94,7 @@ export namespace Multiagent {
 			wall: (o: TexturesManager, cellSize: number) =>
 				o.CreateHatchingTexture("wall", "grey", cellSize/*Math.max(cellSize / 6, 10)*/, cellSize),
 			bot(oddvar: Oddvar, nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, botTexture: RectangleTexture, color: ColoredTexture) {
-				const body = oddvar.Get("Physics").CreateRegularPolygonBody(nameOf("body"), entity, { lineFriction: 0.1, angleFriction: 0.1, layers: 1 << layer }, size.width / 2, 10);
+				const body = oddvar.Get("Physics").CreateRegularPolygonBody(nameOf("body"), entity, { lineFriction: 0.5, angleFriction: 0.1, layers: 1 << layer }, size.width / 2, 10);
 				oddvar.Get("Graphics").CreatePolygonBodyAvatar(nameOf("body avatar"), body, color);
 				oddvar.Get("Graphics").CreateLabelEntityAvatar(nameOf("index"), entity, layer.toString(), size.width / 3 * 2,
 					oddvar.Get("TexturesManager").CreateColoredTexture("twt", { fill: color.settings.stroke }),
@@ -171,34 +175,8 @@ export namespace Multiagent {
 		constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, settings: Settings) {
 			const skin = skins[settings.skin];
 			if (settings.debug.map) console.log(this.map.maze.toString())
-			if (settings.debug.network) {
-				const logHeight = 350;
-				const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network", new Point(map.size.width, map.size.height - logHeight - 48), new Size(30, 30 / 450 * logHeight), {
-					target: { color: "lime" },
-					captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
-				});
-				const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`
-				this.network = new Network(
-					(msg => {
-						networkLogs.WriteLine(msg.type,
-							[
-								[msg.from.padEnd(10), msg.to.padStart(10)].join(" -> ").padEnd(30),
-								msg.type.padEnd(10),
-								(msg.data instanceof Point ? p2s(map.toMazeCoords(msg.data)) : msg.type).padEnd(10),
-								msg.timestamp.toFixed(2).padStart(10)
-							].join(" "));
-						return msg
-					}), oddvar.Clock);
-			} else {
-				this.network = new Network((msg) => {
-					if(msg.is("target") && Math.random()<settings.errorRate) {
-						return new Message(msg.from, msg.to, msg.type, map.randomFreePoint(), msg.timestamp);
-					}
-					return msg;
-				}, oddvar.Clock);
-			}
 			this.score = new BotTable();
-
+			this.network = this.createNetwork(winMan, settings.errorRate, settings.debug.network);
 			const wallManager = new WallManager(this.oddvar, skin.wall(oddvar.Get("TexturesManager"), map.cellSize.width));
 			map.Draw(wallManager.creator);
 
@@ -261,6 +239,38 @@ export namespace Multiagent {
 			winMan.CreateTableWindow("Score", this.score, ["name", "strategy", "score"], new Point(map.size.width / 2, map.size.width),
 				this.bots.map(bot => (style) => style.backgroundColor = bot.color.Name))
 		}
+		private createNetwork(winMan: WindowsManager, errorRate: number, debug: boolean) {
+			const mitm = (msg: Message<keyof MessageDataMap>): Message<keyof MessageDataMap> => {
+				if (msg.is("target") && Math.random() < errorRate) {
+					return new Message(msg.from, msg.to, msg.type, this.map.randomFreePoint(), msg.timestamp);
+				}
+				return msg;
+			};
+			if (!debug) {
+				return new Network(mitm, this.oddvar.Clock);
+			}
+			const logHeight = 350;
+			const networkLogs = winMan.CreateConsoleWindow<keyof MessageDataMap>("Network",
+				new Point(this.map.size.width, this.map.size.height - logHeight - 48),
+				new Size(30, 30 / 450 * logHeight), {
+				target: { color: "lime" },
+				captured: { color: "red", fontWeight: "1000", fontStyle: "italic" },
+			});
+			const p2s = (p: Point) => `(${(p.x / 100).toFixed(2).slice(2)}, ${(p.y / 100).toFixed(2).slice(2)})`;
+			return new Network(
+				(msg => {
+					msg = mitm(msg);
+					networkLogs.WriteLine(msg.type,
+						[
+							[msg.from.padEnd(10), msg.to.padStart(10)].join(" -> ").padEnd(30),
+							msg.type.padEnd(10),
+							(msg.data instanceof Point ? p2s(this.map.toMazeCoords(msg.data)) : msg.type).padEnd(10),
+							msg.timestamp.toFixed(2).padStart(10)
+						].join(" "));
+					return msg;
+				}), this.oddvar.Clock);
+		}
+
 		CollectMetrics() {
 			return {
 				"score": this.score.fields

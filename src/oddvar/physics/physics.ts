@@ -12,7 +12,6 @@ export class Physics extends DeadlyWorld<Essence>
 	public sensors = new Set<Sensor>();
 
 	public Tick(dt: number) {
-		this.Clear();
 		this.Sort();
 
 		for (let i = 0; i < this.bodies.length; ++i) {
@@ -44,6 +43,7 @@ export class Physics extends DeadlyWorld<Essence>
 		this.mortals.forEach(e => {
 			e.Tick(dt);
 		})
+		this.Clear();
 	}
 
 	private Intersect(b1: Body, b2: Body): boolean {
