@@ -7,7 +7,7 @@ import { GameMap } from "../utils/game_map";
 import { DataMatrix, MatrixCell } from '../../oddvar/labirint/labirint';
 import { Iterators } from '../../oddvar/iterator';
 import { GameLogic, MetricsSource } from '../../oddvar/manager';
-import { Bot, HonestyBot, LierBot, RatingBot } from './bot';
+import { Bot, HonestyBot, LierBot, RatingBot, SmartLierBot } from './bot';
 import { Message, MessageDataMap, Network, NetworkCard } from './net';
 import { ConvertRecord, Observable } from '../../oddvar/utils';
 import { TableModel, WindowsManager } from '../../web/windows';
@@ -50,7 +50,7 @@ export namespace Multiagent {
 
 
 	const evaluators = [Evaluators.Доверчивый, Evaluators.Скептик, Evaluators.Параноик];
-	const senders = <[typeof HonestyBot | typeof LierBot, string][]>[[HonestyBot, "Честный"], [LierBot, "Лжец"]];
+	const senders = <[typeof HonestyBot | typeof LierBot, string][]>[[HonestyBot, "Честный"], [LierBot, "Лжец"], [SmartLierBot, "ХитрыйЛжец"]];
 	const strategiesCount = Iterators.Range(evaluators.length * senders.length).toArray();
 	const strategiesArray = Iterators.zip(strategiesCount.map(i => getByModule(evaluators, i)), strategiesCount.map(i => senders[(i / evaluators.length) | 0]));
 	const strategies = Object.fromEntries(strategiesArray.map((pair) => {

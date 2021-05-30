@@ -28,16 +28,27 @@ class EmbeddedObservable<T> extends Observable<T> {
 
 export class BotMap extends GameMap {
 	explored: DataMatrix<undefined | BotMapCell>
+	exploredCount = 0;
+	freeCount: number = 0;
+	
+	public get progress() : number {
+		return this.exploredCount/this.freeCount;
+	}
+	
 	// Буфер для преобразования в строку
 	private merged: DataMatrix<undefined | BotMapCell | boolean>
 	// in maze coords
 	targets: Point[] = [];
 	// Конец последнего построенного пути
 	destination?: Point;
+
 	constructor(gameMap: GameMap, readonly createdAt: number) {
 		super(gameMap.maze, gameMap.size);
 		this.explored = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
 		this.merged = new DataMatrix(gameMap.maze.width, gameMap.maze.height, undefined);
+		for (let x = 0; x < gameMap.maze.width; x++)
+			for (let y = 0; y < gameMap.maze.height; y++)
+				if (!gameMap.maze.get(x, y)) this.freeCount++;
 	}
 	private _events = new EmbeddedObservable<BotMapEvents>();
 
@@ -60,7 +71,8 @@ export class BotMap extends GameMap {
 
 	update(x: number, y: number, data: null | Point, source: string): boolean {
 		const isConflict = this.isConflict(x, y, data);
-		if (this.isNew(x, y) || isConflict) {
+		const isNew = this.isNew(x, y);
+		if (isNew || isConflict) {
 			if (isConflict && data === null && this.targets.length > 0) {
 				const i = this.targets.findIndex(point => pointEquals(point, x, y));
 				if (i !== -1) {
@@ -80,6 +92,7 @@ export class BotMap extends GameMap {
 			if (data !== null)
 				this.targets.push(new Point(x, y));
 			this._events.dispatch("update", { map: this, x, y, cell });
+			if (isNew) this.exploredCount++;
 			return true;
 		}
 		this.explored.get(x, y)!.sources.add(source);

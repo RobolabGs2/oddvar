@@ -30,6 +30,7 @@ export class GameMap {
 		return this.maze.FindPath(this.toMazeCoords(start), this.toMazeCoords(end))
 	}
 
+	// в предикате координаты  в клетках
 	randomFreePoint(isGood: (point: Point) => boolean = () => true): Point {
 		let fake = new Point(Random.Int(0, this.maze.width), Random.Int(0, this.maze.height));
 		while (this.maze.get(fake.x, fake.y) || !isGood(fake)) {

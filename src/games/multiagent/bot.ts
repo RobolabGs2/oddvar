@@ -194,6 +194,54 @@ export class LierBot extends Bot {
 	}
 }
 
+
+export class SmartLierBot extends Bot {
+	constructor(
+		readonly evaluator: Evaluator,
+		name: string,
+		oddvar: Oddvar,
+		body: PolygonBody,
+		color: ColoredTexture,
+		map: GameMap,
+		layer: number,
+		network: NetworkCard,
+		debug = false) {
+		super(name, oddvar, body, color, map, layer, network, debug);
+	}
+	protected Think(dt: number, visible: MatrixCell<Map<string, Point>>[]): void {
+		this.network.readAll({
+			"target": (msg) => {
+				if (msg.timestamp < this.map.createdAt || !this.evaluator.Evaluate(this, msg))
+					return;
+				const l = this.map.toMazeCoords(msg.data)
+				this.map.update(l.x, l.y, msg.data, msg.from)
+			},
+			"captured": (msg) => {
+				if (this.evaluator.Evaluate(this, msg)) {
+					const progress = this.map.progress;
+					const researched = progress > 0.8;
+					const p = this.map.randomFreePoint(researched ? this.distance() : this.notExplored(progress));
+					this.network.send(msg.from, "target", p);
+				}
+			},
+		});
+		visible.forEach(cell => {
+			this.map.update(cell.point.x, cell.point.y, cell.value.get(this.name) || null, this.name)
+		})
+	}
+	private notExplored = (progress: number) => {
+		const distance = this.distance(0.4-progress/2);
+		return (p: Point) => distance(p) && this.map.explored.get(p.x, p.y) === undefined;
+	}
+
+	private maxDistance = (this.map.maze.width + this.map.maze.height);
+	private distance = (treshold = 0.4) => {
+		const distanceThreshold = treshold*this.maxDistance;
+		const l = this.map.toMazeCoords(this.location);
+		return (p: Point) => l.Manhattan(p) > distanceThreshold;
+	};
+}
+
 class Rating {
 	constructor(readonly threshold: number,
 		readonly trustPayoff: number,
