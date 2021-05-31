@@ -52,6 +52,7 @@
     "build-standalone": "yarn reflection-standalone & webpack --env.production --env.dir standalone",
     "test": "SET TS_NODE_PROJECT=src/tsconfig.json&& mocha --require ts-node/register src/**/*_test.ts",
     "bench": "SET TS_NODE_PROJECT=src/tsconfig.json&& mocha --require ts-node/register src/**/*_bench.ts",
-    "analize:multiagent": "ts-node tools/analyzers/multiagent.ts"
+    "multiagent:analize": "ts-node tools/analyzers/multiagent.ts",
+    "multiagent:queue": "ts-node tools/analyzers/queue.ts"
   }
 }

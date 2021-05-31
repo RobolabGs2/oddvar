@@ -1,5 +1,17 @@
 import * as fs from "fs";
+import { ObjectFromEntries, STRATEGIES, StrategyName } from "./util";
 
+const RU_EN_MAPPING: Record<StrategyName, string> = {
+	"Злопамятный": "grudger",
+	"Прощающий": "copykitten",
+	"Око_за_око": "copycat",
+	"Честный_Доверчивый": "honestyB",
+	"Честный_Скептик": "honestyS",
+	"Честный_Параноик": "honestyP",
+	"Лжец_Доверчивый": "lierB",
+	"Лжец_Скептик": "lierS",
+	"Лжец_Параноик": "lierP",
+}
 
 export interface Metrics {
 	settings: MetricSettings;
@@ -21,9 +33,10 @@ export enum MapID {
 }
 
 export interface SettingsSettings {
-	bots: Record<string, number>;
+	bots: Record<StrategyName | string, number>;
 	strategies: Record<Evaluator | Sender, any>;
 	debug: boolean;
+	errorRate: number;
 }
 
 export enum SimulationID {
@@ -45,7 +58,7 @@ export interface Simulation {
 export interface Score {
 	name: ScoreName;
 	score: number;
-	strategy: string;
+	strategy: StrategyName | string;
 }
 
 export enum Evaluator {
@@ -86,10 +99,6 @@ function scoreSorter(s1: Score, s2: Score): number {
 	return Number(s1.name.substr(4)) - Number(s2.name.substr(4))
 }
 
-function ObjectFromEntries<T1 extends string | number, T2>(entries: [T1, T2][]): Record<T1, T2> {
-	return entries.reduce((acc, entry) => { acc[entry[0]] = entry[1]; return acc }, {} as Record<T1, T2>);
-}
-
 // const metrics = JSON.parse(fs.readFileSync("oddvar_12bots_10min.json").toString("utf-8")) as Metrics[];
 // const botsTable = ObjectFromEntries(metrics[0].simulation.score.map(bot => [bot.name, {
 // 	score: new Array(metrics.length).fill(0), evaluator: bot.evaluator, sender: bot.sender, name: bot.name
@@ -107,8 +116,8 @@ interface Launch {
 	timings: Timings;
 }
 
-interface LaunchesGroup {
-	launches: Launch[];
+interface LaunchesGroup<T = Launch> {
+	launches: T[];
 	settings: MetricSettings
 }
 
@@ -195,11 +204,11 @@ function AnalizeNormalizedLaunhesStability(launches: NormalizedLaunch[]) {
 	const strategiesProductivities = ConvertRecord(strategies, s => s.map(elem => elem.productivity.value))
 	const strategiesProductivitiesAvg = ConvertRecord(strategiesProductivities, s => s.reduce((a, b) => a + b) / s.length);
 	return ConvertRecord(strategiesProductivities, (s, k) => s.reduce((a, b, i) => {
-		a.sum+=b;
+		a.sum += b;
 		const deviation = a.sum / (i + 1) - strategiesProductivitiesAvg[k];
-		a.result.push(deviation*deviation);
+		a.result.push(deviation * deviation);
 		return a;
-	}, {sum:0, result: [] as number[]}).result);
+	}, { sum: 0, result: [] as number[] }).result);
 	// const strategiesProductivitiesAvg = ConvertRecord(strategiesProductivities, s => s.reduce((a, b) => a + b) / s.length);
 	// const strategiesVariance = ConvertRecord(strategiesProductivities, (ps, strategy) => ps.map(p => p - strategiesProductivitiesAvg[strategy]).map(x => x * x).reduce((a, b) => a + b) / ps.length)
 	// return ConvertRecord(strategiesVariance, (value) => ({ variance: value, sqrtVariance: Math.sqrt(value) }));
@@ -221,7 +230,7 @@ function AnalizeGroupBots(group: BotStatistic[]) {
 	return { sum, avg }
 }
 
-function DeepEqual(a1: any, a2: any): boolean {
+function DeepEqual(a1: any, a2: any, ignore: ReadonlySet<string> = new Set<string>()): boolean {
 	const type = typeof a1;
 	if (type !== typeof a2)
 		return false
@@ -232,17 +241,17 @@ function DeepEqual(a1: any, a2: any): boolean {
 	const keys2 = Object.keys(a2);
 	if (keys1.length !== keys2.length)
 		return false;
-	return keys1.reduce<boolean>((answer, key) => answer && DeepEqual(a1[key], a2[key]), true);
+	return keys1.reduce<boolean>((answer, key) => answer && (ignore.has(key) || DeepEqual(a1[key], a2[key])), true);
 }
 
-function SettingsAreEqual(s1: MetricSettings, s2: MetricSettings): boolean {
-	return s1.label === s2.label && s1.mapID === s2.mapID && s1.simulationID === s2.simulationID && DeepEqual(s1.settings, s2.settings);
+function SettingsAreEqual(s1: MetricSettings, s2: MetricSettings, ignore: ReadonlySet<string> = new Set<string>()): boolean {
+	return s1.label === s2.label && s1.mapID === s2.mapID && s1.simulationID === s2.simulationID && DeepEqual(s1.settings, s2.settings, ignore);
 }
 
-function GroupBySettings(metrics: Metrics[]): LaunchesGroup[] {
+function GroupBySettings(metrics: Metrics[], ignore: ReadonlySet<string> = new Set<string>()): LaunchesGroup[] {
 	const res: LaunchesGroup[] = [];
 	function findGroup(metric: Metrics): LaunchesGroup {
-		const group = res.find(g => SettingsAreEqual(g.settings, metric.settings));
+		const group = res.find(g => SettingsAreEqual(g.settings, metric.settings, ignore));
 		if (group) return group;
 		const newGroup: LaunchesGroup = { settings: metric.settings, launches: [] }
 		res.push(newGroup);
@@ -256,11 +265,11 @@ function GroupBySettings(metrics: Metrics[]): LaunchesGroup[] {
 }
 
 const args = process.argv.slice(2);
-const inputFolder = args[0] || "experiments/raw";
-const ouputFolder = args[1] || "experiments/out"
+const inputFolder = "experiments/" + (args[0] || "raw");
+const ouputFolder = "experiments/" + (args[1] || "out");
 
 const files =
-	fs.readdirSync(inputFolder, "utf-8").map(x => (console.log(x),`${inputFolder}/${x}`))
+	fs.readdirSync(inputFolder, "utf-8").map(x => (console.log(x), `${inputFolder}/${x}`))
 		.map(filename => fs.readFileSync(filename).toString("utf-8"))
 		.map(file => JSON.parse(file) as Metrics[])
 
@@ -273,9 +282,17 @@ if (!fs.existsSync(ouputFolder)) {
 
 const preparedMetrics = GroupBySettings(metrics).
 	sort((a, b) => a.settings.label.localeCompare(b.settings.label)).
-	map(({ settings, launches }) => ({ settings, launches: DeepAvgs(launches.map(NormilizeLaunch)), productivity: AnalizeNormalizedLaunhes(launches.map(NormilizeLaunch)), stability: AnalizeNormalizedLaunhesStability(launches.map(NormilizeLaunch)) }));
-fs.writeFileSync(ouputFolder+"/"+"oddvar_v5.json", JSON.stringify(preparedMetrics));
-fs.writeFileSync(ouputFolder+"/"+"oddvar_v5.csv", preparedMetrics.map(({ settings, launches, productivity }) => {
+	map(({ settings, launches }) => ({
+		settings,
+		launches: DeepAvgs(launches.map(NormilizeLaunch)),
+		productivity: AnalizeNormalizedLaunhes(launches.map(NormilizeLaunch)),
+		// stability: AnalizeNormalizedLaunhesStability(launches.map(NormilizeLaunch)),
+	}));
+
+type PreparedMetrics = typeof preparedMetrics[0];
+
+fs.writeFileSync(ouputFolder + "/" + "oddvar_v5.json", JSON.stringify(preparedMetrics));
+fs.writeFileSync(ouputFolder + "/" + "oddvar_v5.csv", preparedMetrics.map(({ settings, launches, productivity }) => {
 	const header = ["Стратегия", "Count",
 		"Productivity",
 		"Productivity deviation",
@@ -313,16 +330,100 @@ fs.writeFileSync(ouputFolder+"/"+"oddvar_v5.csv", preparedMetrics.map(({ setting
 // 	}
 // 	return row;
 // }).sort((a,b)=>a.length-b.length).map(x=>x.join(",")).join("\n"));
-fs.writeFileSync(ouputFolder+"/"+"oddvar_productivity.csv", (function(){
-	const y = preparedMetrics.map(({settings}) => Math.max(0, settings.settings.bots["Честный_Доверчивый"]-1)/(Object.values(settings.settings.bots).reduce((a,b)=>a+b)-1));
-	const x1 = preparedMetrics.map(({launches})=>(launches.strategies["Честный_Доверчивый"]?.avg.productivity.value||0))
-	const x2 = preparedMetrics.map(({launches})=>launches.strategies["Лжец_Доверчивый"]?.avg.productivity.value||0)
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity.csv", LierVsHonesty(preparedMetrics.filter(x => x.settings.label === "believers")));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_one_lier.csv", LierVsHonesty(preparedMetrics.filter(x => x.settings.label === "lier_vs_0_17_honesty")));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_two_liers.csv", LierVsHonesty(preparedMetrics.filter(x => x.settings.label === "lier_2_vs_0_20_honesty")));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_four_liers.csv", LierVsHonesty(preparedMetrics.filter(x => x.settings.label === "lier_4_vs_0_20_honesty")));
+function LierVsHonesty(metrics: typeof preparedMetrics) {
+	metrics.sort((m1, m2) => m1.settings.settings.bots["Честный_Доверчивый"] - m2.settings.settings.bots["Честный_Доверчивый"]);
+	const rows = [`percent;honesty;liers;honesty_error;liers_error`];
+	metrics.forEach(({ settings, launches, productivity }) => {
+		rows.push([
+			Math.max(0, settings.settings.bots["Честный_Доверчивый"]),
+			(launches.strategies["Честный_Доверчивый"]?.avg.productivity.value || 0),
+			launches.strategies["Лжец_Доверчивый"]?.avg.productivity.value || 0,
+			productivity["Честный_Доверчивый"]?.sqrtVariance || 0,
+			productivity["Лжец_Доверчивый"]?.sqrtVariance || 0,
+		].join(";"));
+	});
+	return rows.join("\n");
+};
+
+function RangeCountCSV(metrics: typeof preparedMetrics, strategy: string) {
+	metrics.sort((m1, m2) => m1.settings.settings.bots[strategy] - m2.settings.settings.bots[strategy])
+	const rows = [`count;productivity;error`];
+	metrics.forEach(({ settings, launches, productivity }) => {
+
+		rows.push([
+			settings.settings.bots[strategy],
+			launches.strategies[strategy]!.avg.productivity.value,
+			productivity[strategy].sqrtVariance,
+		].join(";"))
+	})
+	return rows.join("\n");
+}
+
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_honesty.csv", RangeCountCSV(preparedMetrics.filter(x => x.settings.label === "honesty_1_17"), "Честный_Доверчивый"));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_liers.csv", RangeCountCSV(preparedMetrics.filter(x => x.settings.label === "liers_1_17"), "Лжец_Доверчивый"));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_honesty_s.csv", RangeCountCSV(preparedMetrics.filter(x => x.settings.label === "honesty_s_1_17"), "Честный_Скептик"));
+fs.writeFileSync(ouputFolder + "/" + "believers_productivity_liers_s.csv", RangeCountCSV(preparedMetrics.filter(x => x.settings.label === "liers_s_1_17"), "Лжец_Скептик"));
+
+const ErrorProductivity = function (metrics: typeof preparedMetrics) {
+	metrics.sort((m1, m2) => m1.settings.settings.errorRate - m2.settings.settings.errorRate);
+	const keys = Object.entries(metrics[0]?.settings.settings.bots).filter(([k, v]) => v > 0).map(([k]) => k as StrategyName);
+	const result = [`errorRate;${keys.map(x => RU_EN_MAPPING[x]).join(";")};${keys.map(x => RU_EN_MAPPING[x]+"_error").join(";")}`];
+	metrics.forEach(({ settings, launches, productivity }) => {
+		const row = [settings.settings.errorRate, 
+			...keys.map(key => launches.strategies[key].avg.productivity.value),
+			...keys.map(key => productivity[key].sqrtVariance),
+		];
+		result.push(row.join(";"));
+	});
+	return result.join("\n").replace(/_/g, " ");
+};
+fs.writeFileSync(ouputFolder + "/" + "rating_productivity_error.csv", ErrorProductivity(preparedMetrics.filter(x => x.settings.label === "rating")));
+fs.writeFileSync(ouputFolder + "/" + "all_productivity_error.csv", ErrorProductivity(preparedMetrics.filter(x => x.settings.label === "error_rages_all")));
+
+fs.writeFileSync(ouputFolder + "/" + "homogen_errors.csv", (function (metrics: typeof preparedMetrics) {
+	// metrics.sort((m1, m2) => m1.settings.settings.errorRate - m2.settings.settings.errorRate);
+	const tables = {} as Record<number, Record<StrategyName, [number,number]>>;
+	// const keys = Object.entries(metrics[0]?.settings.settings.bots).filter(([k, v]) => v > 0).map(([k]) => k);
+	const result = [`errorRate;${STRATEGIES.map(x => RU_EN_MAPPING[x]).join(";")};${STRATEGIES.map(x => RU_EN_MAPPING[x]+"_error").join(";")}`];
+	metrics.forEach(({ settings, launches, productivity }) => {
+		let table = tables[settings.settings.errorRate];
+		if (table === undefined) {
+			table = tables[settings.settings.errorRate] = {} as Record<StrategyName, [number, number]>;
+		}
+		const [s, p] = Object.entries(launches.strategies)[0];
+		table[s as StrategyName] = [p.avg.productivity.value, productivity[s].sqrtVariance];
+	})
+	result.push(Object.entries(tables).sort(([e1], [e2]) => Number(e1) - Number(e2)).map(([e, v]) => `${e};${STRATEGIES.map(s => v[s][0]).join(";")};${STRATEGIES.map(s => v[s][1]).join(";")}`).join("\n"));
+	return result.join("\n").replace(/_/g, " ");
+})(preparedMetrics.filter(x => x.settings.label === "errors" && ((x.settings.settings.bots["Честный_Скептик"] === 0 && x.settings.settings.bots["Лжец_Скептик"] === 0) || x.settings.settings.strategies.Скептик.threshold > 0))));
+
+const HomogenProductivity = function (metrics: typeof preparedMetrics) {
+	const res = new Array<{
+		y: string;
+		x: number;
+		d: number;
+	}>();
+	metrics.forEach(({ settings, launches, productivity }) => {
+		const strategy = Object.entries(settings.settings.bots).find(x => x[1] > 0)![0] as StrategyName;
+		const productivityL = launches.strategies[strategy].avg.productivity;
+		res.push({
+			y: strategy,
+			x: productivityL.value,
+			d: productivity[strategy].sqrtVariance,
+		});
+	});
+	res.sort((r1, r2) => r1.x - r2.x);
 	return [
-		`%;${y.join(";")}`,
-		`Честный;${x1.join(";")}`,
-		`Лгущий;${x2.join(";")}`,
-	].join("\n");
-})());
+		`Strategy;Productivity;Standard deviation`,
+		res.map(r => Object.values(r).join(";")).join("\n")
+	].join("\n").replace(/_/g, " ");
+};
+fs.writeFileSync(ouputFolder + "/" + "homogen.csv", (HomogenProductivity)(preparedMetrics.filter(x => x.settings.label === "homogen")));
+fs.writeFileSync(ouputFolder + "/" + "single.csv", (HomogenProductivity)(preparedMetrics.filter(x => x.settings.label === "single")));
 // const csv = [
 // metrics[0].simulation.score.map(bot => bot.name),
 // metrics[0].simulation.score.map(bot => bot.sender),
