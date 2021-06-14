@@ -71,29 +71,34 @@ export namespace Multiagent {
 		)).map(strategy => [strategy.StrategyName, strategy]));
 
 	const skins = {
-		pretty: {
-			wall: (o: TexturesManager) => o.CreatePatternTexture("wall", "bricks"),
-			bot(oddvar: Oddvar, nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, botTexture: RectangleTexture, color: ColoredTexture) {
-				const body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), entity, { lineFriction: 0.5, angleFriction: 0.1, layers: 1 << layer }, size);
-				oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), body, botTexture);
-				oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("body 2 avatar"), entity, size.Scale(1.1), color);
-				return body;
-			},
-			target(oddvar: Oddvar, targetName: (i: number, name: string) => string, i: number, location: Point, layers: number, targetSize: Size, bot: Bot) {
-				const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), location);
-				const targetBody = oddvar.Get("Physics").CreateRegularPolygonBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0.001, layers }, targetSize.width, 3);
-				oddvar.Get("Graphics").CreatePolygonBodyAvatar(targetName(i, "avatar body"), targetBody, bot.color);
-				oddvar.Get("Graphics").CreateCircleEntityAvatar(targetName(i, "avatar inner circle"), targetPoint, targetSize.width * 0.5, bot.color);
-				targetBody.TurnKick(targetSize.Area() * 5000)
-				const target = new Target<number>(targetBody);
-				return target;
-			},
-			scale: 3 / 7
+		pretty: (oddvar: Oddvar) => {
+			const texturesMan = oddvar.Get("TexturesManager");
+			const botTextures = Iterators.Range(2).map(i => texturesMan.CreateImageTexture(`bot_${i}`, `monster_${i + 1}`)).toArray();
+			const targetTextures = Iterators.Range(3).map(i => texturesMan.CreateImageTexture(`target_${i}`, `target_${i + 1}`)).toArray();
+			return {
+				wall: (o: TexturesManager) => o.CreatePatternTexture("wall", "bricks"),
+				bot(nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, color: ColoredTexture, lier: boolean) {
+					const body = oddvar.Get("Physics").CreateRectangleBody(nameOf("body"), entity, { lineFriction: 0.5, angleFriction: 0.1, layers: 1 << layer }, size);
+					oddvar.Get("Graphics").CreateRectangleBodyAvatar(nameOf("body avatar"), body, botTextures[lier ? 1 : 0]);
+					oddvar.Get("Graphics").CreateRectangleEntityAvatar(nameOf("body 2 avatar"), entity, size.Scale(1.1), color);
+					return body;
+				},
+				target(targetName: (i: number, name: string) => string, i: number, location: Point, layers: number, targetSize: Size, bot: Bot) {
+					targetSize = targetSize.Scale(2);
+					const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), location);
+					const targetBody = oddvar.Get("Physics").CreateRectangleBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 1, layers }, targetSize);
+					oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "mush"), targetBody, getByModule(targetTextures, i));
+					oddvar.Get("Graphics").CreateRectangleBodyAvatar(targetName(i, "mush"), targetBody, bot.color);
+					const target = new Target<number>(targetBody);
+					return target;
+				},
+				scale: 3 / 7
+			}
 		},
-		simple: {
+		simple: (oddvar: Oddvar) => ({
 			wall: (o: TexturesManager, cellSize: number) =>
 				o.CreateHatchingTexture("wall", "grey", cellSize/*Math.max(cellSize / 6, 10)*/, cellSize),
-			bot(oddvar: Oddvar, nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, botTexture: RectangleTexture, color: ColoredTexture) {
+			bot(nameOf: (type: string) => string, entity: Entity, layer: number, size: Size, color: ColoredTexture) {
 				const body = oddvar.Get("Physics").CreateRegularPolygonBody(nameOf("body"), entity, { lineFriction: 0.5, angleFriction: 0.1, layers: 1 << layer }, size.width / 2, 10);
 				oddvar.Get("Graphics").CreatePolygonBodyAvatar(nameOf("body avatar"), body, color);
 				oddvar.Get("Graphics").CreateLabelEntityAvatar(nameOf("index"), entity, layer.toString(), size.width / 3 * 2,
@@ -101,7 +106,7 @@ export namespace Multiagent {
 				)
 				return body;
 			},
-			target(oddvar: Oddvar, targetName: (i: number, name: string) => string, i: number, location: Point, layers: number, targetSize: Size, bot: Bot) {
+			target(targetName: (i: number, name: string) => string, i: number, location: Point, layers: number, targetSize: Size, bot: Bot) {
 				const targetPoint = oddvar.Get("World").CreateEntity(targetName(i, "entity"), location);
 				const targetBody = oddvar.Get("Physics").CreateRegularPolygonBody(targetName(i, "body"), targetPoint, { lineFriction: 1, angleFriction: 0.001, layers }, targetSize.width, 3);
 				oddvar.Get("Graphics").CreatePolygonBodyAvatar(targetName(i, "avatar circle"), targetBody, bot.color);
@@ -112,7 +117,7 @@ export namespace Multiagent {
 				return target;
 			},
 			scale: 4 / 7
-		}
+		})
 	}
 	export type Settings = {
 		bots: Record<keyof typeof strategies, number>,
@@ -173,7 +178,7 @@ export namespace Multiagent {
 		private targetMap: DataMatrix<boolean | Map<string, Point>>
 		private score: BotTable;
 		constructor(readonly oddvar: Oddvar, private map: GameMap, winMan: WindowsManager, settings: Settings) {
-			const skin = skins[settings.skin];
+			const skin = skins[settings.skin](oddvar);
 			if (settings.debug.map) console.log(this.map.maze.toString())
 			this.score = new BotTable();
 			this.network = this.createNetwork(winMan, settings.errorRate, settings.debug.network);
@@ -192,12 +197,11 @@ export namespace Multiagent {
 				for (let i = botsCount; i < botsCount + count; i++) {
 					const layer = i;
 					const place = this.GenerateInconflictPoint(10, 1 << i);
-					const botTexture = this.getTexture(0)//senders.findIndex(x => x === botConstructor));
 					const nameOf = (type: string) => `bot ${layer}: ${type}`;
 					const currentColor = Colors.length > layer ? Colors[layer] : `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
 					const color = oddvar.Get("TexturesManager").CreateColoredTexture(currentColor, { stroke: currentColor, strokeWidth: 3 });
 					const entity = oddvar.Get("World").CreateEntity(nameOf("entity"), place);
-					const body = skin.bot(oddvar, nameOf, entity, layer, botSize, botTexture, color);
+					const body = skin.bot(nameOf, entity, layer, botSize, color, botDesc.StrategyName.startsWith("Лжец"));
 					const bot = botDesc.CreateBot(settings.strategies, nameOfBot(i),
 						this.oddvar, body, color, this.map, i, this.network.CreateNetworkCard(`Bot card ${i}`, nameOfBot(i)), settings.debug.botsThinking);
 					this.bots.push(bot);
@@ -220,7 +224,7 @@ export namespace Multiagent {
 			this.bots.map((bot, i) => {
 				const layers = 1 << i;
 				const location = this.GenerateInconflictPoint(targetSize.width, layers);
-				const target = skin.target(oddvar, targetName, i, location, layers, targetSize, bot);
+				const target = skin.target(targetName, i, location, layers, targetSize, bot);
 				target.addEventListener("relocate", (p) => {
 					const old = this.map.toMazeCoords(p.from);
 					const now = this.map.toMazeCoords(p.to);
